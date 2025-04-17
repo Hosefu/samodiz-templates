@@ -8,11 +8,13 @@ obj/
 *.user
 *.suo
 Cache/
+wwwroot/
 
 # Python
 __pycache__/
 *.py[cod]
 venv/
+media/
 
 # Node
 node_modules/
