@@ -1,47 +1,44 @@
 version: '3.8'
 
 services:
-  # Django dev
   storage:
     build:
-      context: .
-      dockerfile: services/storage/Dockerfile.dev
+      context: ./storage
+      dockerfile: Dockerfile.dev
     container_name: storage-dev
     env_file:
       - .env.dev
     volumes:
-      - ./services/storage:/app:cached
+      - ./storage:/app:cached
       - media_data:/app/media
       - static_data:/app/staticfiles
     ports:
       - "8000:8000"
     command: python manage.py runserver 0.0.0.0:8000
 
-  # .NET dev with hot‑reload
   pdf-service:
     build:
-      context: .
-      dockerfile: services/pdf-generation-service/Dockerfile.dev
+      context: ./pdf-generation-service
+      dockerfile: Dockerfile.dev
     container_name: pdf-service-dev
     env_file:
       - .env.dev
     volumes:
-      - ./services/pdf-generation-service:/app:cached
+      - ./pdf-generation-service:/app:cached
       - pdf_data:/app/wwwroot
     ports:
       - "5296:5296"
     command: dotnet watch run --urls http://0.0.0.0:5296
 
-  # React dev server
   frontend:
     build:
-      context: .
-      dockerfile: services/frontend/Dockerfile.dev
+      context: ./frontend
+      dockerfile: Dockerfile.dev
     container_name: frontend-dev
     env_file:
       - .env.dev
     volumes:
-      - ./services/frontend:/app:cached
+      - ./frontend:/app:cached
     ports:
       - "3000:3000"
     stdin_open: true

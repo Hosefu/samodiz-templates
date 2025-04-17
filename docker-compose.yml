@@ -1,7 +1,6 @@
 version: '3.8'
 
 services:
-  # Django “storage” сервис — отвечает за шаблоны и хранение media/static
   storage:
     build:
       context: ./storage
@@ -19,10 +18,9 @@ services:
       sh -c "
         python manage.py migrate &&
         python manage.py collectstatic --noinput &&
-        gunicorn yourproject.wsgi:application --bind 0.0.0.0:8000
+        gunicorn storage.wsgi:application --bind 0.0.0.0:8000
       "
 
-  # .NET PDF‑генератор
   pdf-service:
     build:
       context: ./pdf-generation-service
@@ -37,7 +35,6 @@ services:
       - "5296"
     command: ["dotnet", "pdf-generation-service.dll"]
 
-  # React‑билд статики
   frontend:
     build:
       context: ./frontend
@@ -47,7 +44,6 @@ services:
     expose:
       - "80"
 
-  # Nginx: единая точка входа, отдаёт весь фронтенд и статику, проксирует API
   nginx:
     image: nginx:alpine
     container_name: nginx

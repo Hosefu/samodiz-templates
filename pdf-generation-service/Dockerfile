@@ -1,14 +1,12 @@
-# Build stage
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
 COPY *.csproj ./
 RUN dotnet restore
-COPY . .
+
+COPY . ./
 RUN dotnet publish -c Release -o /app
 
-# Runtime image
 FROM mcr.microsoft.com/dotnet/aspnet:9.0
 WORKDIR /app
-COPY --from=build /app .
-EXPOSE 5296
+COPY --from=build /app ./
 ENTRYPOINT ["dotnet", "pdf-generation-service.dll"]
