@@ -1,0 +1,6 @@
+@pdf_generation_service_HostAddress = http://localhost:5296
+
+GET {{pdf_generation_service_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
