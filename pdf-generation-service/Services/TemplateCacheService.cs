@@ -67,11 +67,16 @@ namespace PdfGenerator.Services
 
                     foreach (var asset in page.Assets)
                     {
-                        var assetBytes = await _httpClient.GetByteArrayAsync(asset.File);
+                        _logger.LogInformation("↘ Downloading asset {url}", asset.File);
+
+                        var bytes = await _httpClient.GetByteArrayAsync(asset.File);
+                        _logger.LogInformation("  ↳ {size} bytes downloaded", bytes.Length);
+
                         var fileName = Path.GetFileName(new Uri(asset.File).LocalPath);
                         var assetPath = Path.Combine(assetsDir, fileName);
-                        await File.WriteAllBytesAsync(assetPath, assetBytes);
-                        _logger.LogInformation($"Cached asset: {fileName}");
+                        await File.WriteAllBytesAsync(assetPath, bytes);
+
+                        _logger.LogInformation("  ↳ Saved to {path}", assetPath);
                     }
 
                     var htmlPath = Path.Combine(pageDir, $"{page.Name}.html");

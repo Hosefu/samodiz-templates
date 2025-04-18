@@ -5,7 +5,6 @@ services:
     build:
       context: ./storage
       dockerfile: Dockerfile
-    image: yourhubuser/storage:latest
     container_name: storage
     env_file:
       - .env
@@ -25,40 +24,55 @@ services:
     build:
       context: ./pdf-generation-service
       dockerfile: Dockerfile
-    image: yourhubuser/pdf-service:latest
     container_name: pdf-service
     env_file:
       - .env
     volumes:
       - pdf_data:/app/wwwroot
     expose:
-      - "5296"
+      - "8080"
     command: ["dotnet", "pdf-generation-service.dll"]
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - DOTNET_ENVIRONMENT=Development
+      - Logging__LogLevel__Default=Debug
+      - Logging__LogLevel__PdfGenerator=Debug
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    image: yourhubuser/frontend:latest
     container_name: frontend
-    expose:
-      - "80"
+    env_file:
+      - .env  # Здесь мы подгружаем переменные окружения из .env
+    # Собираем фронтенд заранее, чтобы папка ./frontend/build появилась локально
+    command: >
+      sh -c "
+        export $(grep ^REACT_APP_ .env | xargs) &&
+        npm ci &&
+        npm run build &&
+        sleep infinity
+      "
+    volumes:
+      - ./frontend/build:/app/build
 
   nginx:
-    image: nginx:alpine
-    container_name: nginx
+    build:
+      context: .
+      dockerfile: nginx/Dockerfile
+    ports:
+      - "80:80"
     depends_on:
       - storage
       - pdf-service
       - frontend
-    ports:
-      - "80:80"
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./frontend/build:/usr/share/nginx/html
       - static_data:/usr/share/nginx/html/static
       - media_data:/usr/share/nginx/html/media
       - pdf_data:/usr/share/nginx/html/pdfs
-      - ./frontend/build:/usr/share/nginx/html
+
+
 
 volumes:
   media_data:

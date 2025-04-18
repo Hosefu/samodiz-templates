@@ -7,6 +7,12 @@ class FieldSerializer(serializers.ModelSerializer):
         fields = ['name', 'label', 'required']
 
 class PageAssetSerializer(serializers.ModelSerializer):
+    file = serializers.SerializerMethodField()
+
+    def get_file(self, obj):
+        # вернём относительный путь /media/...
+        return obj.file.url
+
     class Meta:
         model = PageAsset
         fields = ['file']
