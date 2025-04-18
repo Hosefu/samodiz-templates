@@ -48,8 +48,13 @@ namespace PdfGenerator.Services
         {
             try
             {
+                _logger.LogInformation("Загрузка шаблона {id} из {url}", templateId, _httpClient.BaseAddress);
+
                 var response = await _httpClient.GetAsync($"api/templates/{templateId}");
                 response.EnsureSuccessStatusCode();
+
+                var jsonResponse = await response.Content.ReadAsStringAsync();
+                _logger.LogInformation("API Response: {response}", jsonResponse.Substring(0, Math.Min(jsonResponse.Length, 100)));
 
                 var template = await response.Content.ReadFromJsonAsync<TemplateMeta>()
                     ?? throw new InvalidOperationException("Invalid template response");
@@ -68,9 +73,14 @@ namespace PdfGenerator.Services
                     foreach (var asset in page.Assets)
                     {
                         _logger.LogInformation("↘ Downloading asset {url}", asset.File);
-
-                        var bytes = await _httpClient.GetByteArrayAsync(asset.File);
-                        _logger.LogInformation("  ↳ {size} bytes downloaded", bytes.Length);
+                        
+                        // Корректируем URL-адрес, убираем первый слэш если он есть
+                        string assetUrl = asset.File;
+                        if (assetUrl.StartsWith("/"))
+                            assetUrl = assetUrl.Substring(1);
+                        
+                        var bytes = await _httpClient.GetByteArrayAsync(assetUrl);
+                        _logger.LogInformation("  ↳ {size} bytes downloaded", bytes.Length);
 
                         var fileName = Path.GetFileName(new Uri(asset.File).LocalPath);
                         var assetPath = Path.Combine(assetsDir, fileName);
