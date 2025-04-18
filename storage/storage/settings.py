@@ -26,7 +26,7 @@ SECRET_KEY = 'django-insecure-sujjk4n!%y^=nlm99bpqlsdwgk#wu@!vjk9=*^sg_jm-!*+apy
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'storage', 'storage:8000']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'storage', 'storage:8000', 'pdf-service']
 
 
 # Application definition
@@ -53,6 +53,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'templates.middleware.ApiKeyMiddleware',
 ]
 
 ROOT_URLCONF = 'storage.urls'
@@ -126,6 +127,8 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
+API_KEY = os.environ.get('API_KEY', 'development-pdf-api-key')
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 MEDIA_URL = '/media/'
@@ -133,3 +136,4 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # (или, во время разработки, просто)
 CORS_ALLOW_ALL_ORIGINS = True
+

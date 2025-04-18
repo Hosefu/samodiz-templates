@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Template, Page, Field, PageAsset
+from .models import Template, Page, Field, PageAsset, GeneratedPdf
 
 class FieldSerializer(serializers.ModelSerializer):
     class Meta:
@@ -31,3 +31,8 @@ class TemplateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Template
         fields = ['id', 'name', 'version', 'pages']  # Убрали 'assets'
+
+class GeneratedPdfSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = GeneratedPdf
+        fields = ['id', 'file', 'created_at']

@@ -24,3 +24,12 @@ class Field(models.Model):
     name = models.TextField()
     label = models.TextField()
     required = models.BooleanField(default=False)
+
+class GeneratedPdf(models.Model):
+    template = models.ForeignKey(Template, on_delete=models.CASCADE, related_name='generated_pdfs')
+    file = models.FileField(upload_to='generated_pdfs/')
+    created_at = models.DateTimeField(auto_now_add=True)
+    data = models.JSONField(blank=True, null=True)  # Сохраняем данные, которые были использованы
+    
+    def __str__(self):
+        return f"PDF для {self.template.name} от {self.created_at.strftime('%d.%m.%Y %H:%M')}"
