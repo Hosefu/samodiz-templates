@@ -95,12 +95,19 @@ namespace PdfGenerator.Controllers
 
         private async Task<string> SaveFileAsync(byte[] content, string ext)
         {
+            // Генерируем имя файла с GUID
             var fileName = $"{Guid.NewGuid()}.{ext}";
+            
+            // Сохраняем файл в корне wwwroot (без подпапки pdfs)
             var webRoot = Path.Combine(_env.ContentRootPath, "wwwroot");
             Directory.CreateDirectory(webRoot);
             var path = Path.Combine(webRoot, fileName);
+            
+            // Записываем файл
             await System.IO.File.WriteAllBytesAsync(path, content);
-            return $"/{fileName}";
+            
+            // Для браузера добавляем префикс /pdfs/ 
+            return $"/pdfs/{fileName}";
         }
     }
 }
