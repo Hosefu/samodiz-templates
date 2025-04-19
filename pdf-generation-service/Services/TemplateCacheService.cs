@@ -34,30 +34,99 @@ namespace PdfGenerator.Services
         {
             var templateDir = Path.Combine(_cacheRoot, templateId.ToString());
             var metaFile = Path.Combine(templateDir, "template.json");
-
-            if (!File.Exists(metaFile))
+            
+            // Сначала проверяем актуальность версии шаблона в API
+            bool needUpdate = true;
+            string currentVersion = "";
+            
+            try 
             {
-                _logger.LogInformation($"Caching template {templateId}...");
+                // Получаем текущую версию из API
+                _logger.LogInformation("Checking template {id} version from API", templateId);
+                var response = await _httpClient.GetAsync($"api/templates/{templateId}");
+                response.EnsureSuccessStatusCode();
+                
+                var apiTemplate = await response.Content.ReadFromJsonAsync<TemplateMeta>();
+                if (apiTemplate == null) 
+                {
+                    throw new InvalidOperationException("Invalid template response");
+                }
+                
+                currentVersion = apiTemplate.Version;
+                _logger.LogInformation("API template version: {version}", currentVersion);
+                
+                // Если есть кэшированный шаблон, проверяем его версию
+                if (File.Exists(metaFile))
+                {
+                    var cachedTemplate = LoadCachedTemplate(metaFile);
+                    _logger.LogInformation("Cached template version: {version}", cachedTemplate.Version);
+                    
+                    // Если версии совпадают, обновление не требуется
+                    if (cachedTemplate.Version == currentVersion)
+                    {
+                        _logger.LogInformation("Template version matches cache, using cached version");
+                        needUpdate = false;
+                        return cachedTemplate;
+                    }
+                    else
+                    {
+                        _logger.LogInformation("Template version mismatch: API={apiVersion}, Cache={cacheVersion}",
+                            currentVersion, cachedTemplate.Version);
+                    }
+                }
+                
+                // Если файла нет или версии не совпадают, обновляем кэш
+                if (needUpdate)
+                {
+                    _logger.LogInformation("Updating template {id} in cache...", templateId);
+                    await CacheTemplateFromApiAsync(templateId, templateDir, apiTemplate);
+                    return apiTemplate;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error checking template version. Trying to use cached version if available.");
+                
+                // Если API недоступен, но есть кэш - используем его
+                if (File.Exists(metaFile))
+                {
+                    _logger.LogWarning("Using cached template as fallback");
+                    return LoadCachedTemplate(metaFile);
+                }
+                
+                // Если нет доступа к API и кэша нет - пробуем еще раз получить шаблон
+                _logger.LogInformation("Trying to cache template {id}...", templateId);
                 await CacheTemplateFromApiAsync(templateId, templateDir);
             }
-
+            
             return LoadCachedTemplate(metaFile);
         }
 
-        private async Task CacheTemplateFromApiAsync(int templateId, string templateDir)
+        private async Task CacheTemplateFromApiAsync(int templateId, string templateDir, TemplateMeta template = null)
         {
             try
             {
-                _logger.LogInformation("Загрузка шаблона {id} из {url}", templateId, _httpClient.BaseAddress);
+                // Если шаблон не передан, загружаем его из API
+                if (template == null)
+                {
+                    _logger.LogInformation("Загрузка шаблона {id} из {url}", templateId, _httpClient.BaseAddress);
 
-                var response = await _httpClient.GetAsync($"api/templates/{templateId}");
-                response.EnsureSuccessStatusCode();
+                    var response = await _httpClient.GetAsync($"api/templates/{templateId}");
+                    response.EnsureSuccessStatusCode();
 
-                var jsonResponse = await response.Content.ReadAsStringAsync();
-                _logger.LogInformation("API Response: {response}", jsonResponse.Substring(0, Math.Min(jsonResponse.Length, 100)));
+                    var jsonResponse = await response.Content.ReadAsStringAsync();
+                    _logger.LogInformation("API Response: {response}", jsonResponse.Substring(0, Math.Min(jsonResponse.Length, 100)));
 
-                var template = await response.Content.ReadFromJsonAsync<TemplateMeta>()
-                    ?? throw new InvalidOperationException("Invalid template response");
+                    template = await response.Content.ReadFromJsonAsync<TemplateMeta>()
+                        ?? throw new InvalidOperationException("Invalid template response");
+                }
+
+                // Очищаем существующую директорию шаблона, если она есть
+                if (Directory.Exists(templateDir))
+                {
+                    _logger.LogInformation("Cleaning existing template directory: {dir}", templateDir);
+                    Directory.Delete(templateDir, true);
+                }
 
                 Directory.CreateDirectory(templateDir);
                 var metaJson = JsonSerializer.Serialize(template, new JsonSerializerOptions { WriteIndented = true });
