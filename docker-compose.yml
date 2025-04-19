@@ -75,8 +75,7 @@ services:
     volumes:
       - ./frontend/build:/usr/share/nginx/html
       - static_data:/usr/share/nginx/html/static
-    # Убираем монтирование media, так как теперь проксируем запросы к storage
-    # - media_data:/usr/share/nginx/html/media
+      - media_data:/usr/share/nginx/html/media
       - pdf_data:/usr/share/nginx/html/pdfs
 
 volumes:
