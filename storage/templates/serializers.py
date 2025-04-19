@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Template, Page, Field, PageAsset, GeneratedPdf
+from .models import Template, Page, Field, PageAsset, GeneratedTemplate, PageSettings
 
 class FieldSerializer(serializers.ModelSerializer):
     class Meta:
@@ -10,29 +10,35 @@ class PageAssetSerializer(serializers.ModelSerializer):
     file = serializers.SerializerMethodField()
 
     def get_file(self, obj):
-        # вернём относительный путь /media/...
+        # Return relative path /media/...
         return obj.file.url
 
     class Meta:
         model = PageAsset
         fields = ['file']
 
+class PageSettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PageSettings
+        fields = ['key', 'value']
+
 class PageSerializer(serializers.ModelSerializer):
     fields = FieldSerializer(many=True, read_only=True)
     assets = PageAssetSerializer(many=True, read_only=True)
+    settings = PageSettingsSerializer(many=True, read_only=True)
 
     class Meta:
         model = Page
-        fields = ['name', 'html', 'width', 'height', 'bleeds', 'assets', 'fields']
+        fields = ['name', 'html', 'width', 'height', 'units', 'bleeds', 'assets', 'fields', 'settings']
 
 class TemplateSerializer(serializers.ModelSerializer):
     pages = PageSerializer(many=True, read_only=True)
 
     class Meta:
         model = Template
-        fields = ['id', 'name', 'version', 'pages']  # Убрали 'assets'
+        fields = ['id', 'name', 'version', 'type', 'pages']
 
-class GeneratedPdfSerializer(serializers.ModelSerializer):
+class GeneratedTemplateSerializer(serializers.ModelSerializer):
     class Meta:
-        model = GeneratedPdf
-        fields = ['id', 'file', 'created_at']
+        model = GeneratedTemplate
+        fields = ['id', 'file', 'format', 'created_at']
