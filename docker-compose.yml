@@ -36,6 +36,8 @@ services:
       - pdf_data:/app/wwwroot
     expose:
       - "8080"
+    depends_on:
+      - storage
     command: ["dotnet", "pdf-generation-service.dll"]
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
@@ -50,15 +52,10 @@ services:
       dockerfile: Dockerfile
     container_name: frontend
     env_file:
-      - .env  # Здесь мы подгружаем переменные окружения из .env
-    # Собираем фронтенд заранее, чтобы папка ./frontend/build появилась локально
-    command: >
-      sh -c "
-        export $(grep ^REACT_APP_ .env | xargs) &&
-        npm ci &&
-        npm run build &&
-        sleep infinity
-      "
+      - .env
+    depends_on:
+      - storage
+      - pdf-service
     volumes:
       - ./frontend/build:/app/build
 
