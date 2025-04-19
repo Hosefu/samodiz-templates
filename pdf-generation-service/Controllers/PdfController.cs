@@ -123,15 +123,21 @@ namespace PdfGenerator.Controllers
             // Настраиваем HTTP клиент с API-ключом
             using var httpClient = new HttpClient();
             var apiKey = _configuration["ApiKey"];
+            _logger.LogInformation($"Using API key: {apiKey}");
+            
             if (!string.IsNullOrEmpty(apiKey))
             {
                 httpClient.DefaultRequestHeaders.Add("X-API-Key", apiKey);
             }
             
+            var uploadUrl = "http://storage:8000/api/upload-pdf/";
+            _logger.LogInformation($"Uploading PDF to: {uploadUrl}");
+            
             // Отправляем запрос
-            var response = await httpClient.PostAsync(
-                "http://storage:8000/api/upload-pdf/", 
-                form);
+            var response = await httpClient.PostAsync(uploadUrl, form);
+            
+            // Всегда логируем статус ответа
+            _logger.LogInformation($"Upload response status: {response.StatusCode}");
             
             if (!response.IsSuccessStatusCode)
             {
@@ -140,7 +146,7 @@ namespace PdfGenerator.Controllers
                 throw new Exception($"Ошибка загрузки PDF: {response.StatusCode}");
             }
             
-            // Исправлено: Читаем JSON-ответ непосредственно, чтобы проверить формат
+            // Читаем JSON-ответ и логируем его для отладки
             var jsonString = await response.Content.ReadAsStringAsync();
             _logger.LogInformation($"API response: {jsonString}");
 
@@ -148,7 +154,9 @@ namespace PdfGenerator.Controllers
                 // Используем JsonDocument для получения URL, который всегда строка
                 using var jsonDoc = JsonDocument.Parse(jsonString);
                 if (jsonDoc.RootElement.TryGetProperty("url", out var urlElement)) {
-                    return urlElement.GetString() ?? "/error";
+                    var url = urlElement.GetString() ?? "/error";
+                    _logger.LogInformation($"PDF URL: {url}");
+                    return url;
                 }
                 else {
                     _logger.LogError("URL не найден в ответе API");

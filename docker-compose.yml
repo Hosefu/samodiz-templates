@@ -21,6 +21,7 @@ services:
       "
     environment:
       - API_KEY=development-pdf-api-key
+      - DJANGO_DEBUG=True
 
   pdf-service:
     build:
@@ -72,10 +73,9 @@ services:
     volumes:
       - ./frontend/build:/usr/share/nginx/html
       - static_data:/usr/share/nginx/html/static
-      - media_data:/usr/share/nginx/html/media
+    # Убираем монтирование media, так как теперь проксируем запросы к storage
+    # - media_data:/usr/share/nginx/html/media
       - pdf_data:/usr/share/nginx/html/pdfs
-
-
 
 volumes:
   media_data:
