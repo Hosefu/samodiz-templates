@@ -4,6 +4,8 @@ from .serializers import TemplateSerializer
 from rest_framework.decorators import api_view, parser_classes
 from rest_framework.parsers import MultiPartParser, JSONParser
 from rest_framework.response import Response
+from django.http import FileResponse
+from django.shortcuts import get_object_or_404
 import json
 
 class TemplateViewSet(viewsets.ReadOnlyModelViewSet):
@@ -52,3 +54,16 @@ def upload_pdf(request):
         'url': generated_pdf.file.url,
         'created_at': generated_pdf.created_at
     })
+
+
+@api_view(['GET'])
+def serve_pdf(request, pdf_id):
+    """Отдаёт PDF-файл с нужными заголовками"""
+    pdf = get_object_or_404(GeneratedPdf, id=pdf_id)
+    response = FileResponse(pdf.file, content_type='application/pdf')
+    
+    # Указываем, что файл нужно отдать как вложение (скачать)
+    filename = pdf.file.name.split('/')[-1]
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    
+    return response
