@@ -3,9 +3,13 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+using System.Net.Http;
+using System.Net.Http.Json;
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Configuration;
 using PdfGenerator.Models;
 using PdfGenerator.Services;
 
@@ -22,6 +26,7 @@ namespace PdfGenerator.Controllers
         private readonly PreviewService _preview;
         private readonly ILogger<PdfController> _logger;
         private readonly IHostEnvironment _env;
+        private readonly IConfiguration _configuration;
 
         public PdfController(
             TemplateCacheService cache,
@@ -30,7 +35,8 @@ namespace PdfGenerator.Controllers
             ValidationService validation,
             PreviewService preview,
             ILogger<PdfController> logger,
-            IHostEnvironment env)
+            IHostEnvironment env,
+            IConfiguration configuration)
         {
             _cache = cache;
             _render = render;
@@ -39,6 +45,7 @@ namespace PdfGenerator.Controllers
             _preview = preview;
             _logger = logger;
             _env = env;
+            _configuration = configuration;
         }
 
         [HttpPost("generate")]
@@ -71,8 +78,7 @@ namespace PdfGenerator.Controllers
 
                 var pdfBytes = _render.RenderPdf(htmlList, uriList);
 
-
-                var pdfPath = await SaveFileAsync(pdfBytes, "pdf");
+                var pdfPath = await SaveFileAsync(pdfBytes, "pdf", request.TemplateId, request.Data);
                 string previewPath = string.Empty;
 
                 if (request.GeneratePreview)
@@ -93,21 +99,66 @@ namespace PdfGenerator.Controllers
             }
         }
 
-        private async Task<string> SaveFileAsync(byte[] content, string ext)
+        private async Task<string> SaveFileAsync(byte[] content, string ext, int templateId, Dictionary<string, string> formData)
         {
-            // Генерируем имя файла с GUID
             var fileName = $"{Guid.NewGuid()}.{ext}";
             
-            // Сохраняем файл в корне wwwroot (без подпапки pdfs)
-            var webRoot = Path.Combine(_env.ContentRootPath, "wwwroot");
-            Directory.CreateDirectory(webRoot);
-            var path = Path.Combine(webRoot, fileName);
+            // Создаем форму для отправки
+            using var form = new MultipartFormDataContent();
             
-            // Записываем файл
-            await System.IO.File.WriteAllBytesAsync(path, content);
+            // Добавляем файл PDF
+            using var fileContent = new ByteArrayContent(content);
+            form.Add(fileContent, "file", fileName);
             
-            // Для браузера добавляем префикс /pdfs/ 
-            return $"/pdfs/{fileName}";
+            // Добавляем ID шаблона
+            form.Add(new StringContent(templateId.ToString()), "template_id");
+            
+            // Добавляем данные в формате JSON
+            if (formData != null)
+            {
+                var formDataJson = JsonSerializer.Serialize(formData);
+                form.Add(new StringContent(formDataJson), "form_data");
+            }
+            
+            // Настраиваем HTTP клиент с API-ключом
+            using var httpClient = new HttpClient();
+            var apiKey = _configuration["ApiKey"];
+            if (!string.IsNullOrEmpty(apiKey))
+            {
+                httpClient.DefaultRequestHeaders.Add("X-API-Key", apiKey);
+            }
+            
+            // Отправляем запрос
+            var response = await httpClient.PostAsync(
+                "http://storage:8000/api/upload-pdf/", 
+                form);
+            
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                _logger.LogError($"Ошибка загрузки PDF: {response.StatusCode}, Error: {errorContent}");
+                throw new Exception($"Ошибка загрузки PDF: {response.StatusCode}");
+            }
+            
+            // Исправлено: Читаем JSON-ответ непосредственно, чтобы проверить формат
+            var jsonString = await response.Content.ReadAsStringAsync();
+            _logger.LogInformation($"API response: {jsonString}");
+
+            try {
+                // Используем JsonDocument для получения URL, который всегда строка
+                using var jsonDoc = JsonDocument.Parse(jsonString);
+                if (jsonDoc.RootElement.TryGetProperty("url", out var urlElement)) {
+                    return urlElement.GetString() ?? "/error";
+                }
+                else {
+                    _logger.LogError("URL не найден в ответе API");
+                    return "/error";
+                }
+            }
+            catch (JsonException ex) {
+                _logger.LogError(ex, "Ошибка разбора JSON");
+                return "/error";
+            }
         }
     }
 }

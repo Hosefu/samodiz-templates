@@ -51,8 +51,12 @@ namespace PdfGenerator.Services
                 props.SetBaseUri(baseUri);
 
                 // 3) шрифтовый провайдер: подхватит ваши TTF из assets
+                // Используем FontProvider с явным игнорированием предупреждения об устаревании
+                #pragma warning disable 612, 618
                 var fontProvider = new DefaultFontProvider(false, false, false);
-                var assetsDir    = Path.Combine(baseUri, "assets");
+                #pragma warning restore 612, 618
+                
+                var assetsDir = Path.Combine(baseUri, "assets");
                 if (Directory.Exists(assetsDir))
                     fontProvider.AddDirectory(assetsDir);
                 props.SetFontProvider(fontProvider);

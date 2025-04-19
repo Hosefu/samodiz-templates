@@ -21,6 +21,9 @@ builder.Services.AddTransient<RazorTemplateService>();
 builder.Services.AddTransient<ValidationService>();
 builder.Services.AddTransient<PreviewService>();
 
+// Добавляем конфигурацию в контейнер служб
+builder.Services.AddSingleton(builder.Configuration);
+
 var app = builder.Build();
 
 var wwwroot = Path.Combine(app.Environment.ContentRootPath, "wwwroot");
