@@ -38,10 +38,10 @@ func NewClient(pdfRendererURL, pngRendererURL string, httpConfig httputil.Client
 }
 
 // RenderPDF отправляет запрос на рендеринг PDF
-func (c *Client) RenderPDF(ctx context.Context, request *models.RendererRequest) (*models.RendererResponse, error) {
-	c.logger.Infof("Sending PDF rendering request to %s", c.pdfRendererURL)
+func (c *Client) RenderPDF(ctx context.Context, request *models.PdfRendererRequest) (*models.RendererResponse, error) {
+	c.logger.Infof("Sending PDF rendering request to %s with %d pages", c.pdfRendererURL, len(request.Pages))
 
-	requestData, err := request.AsJSON()
+	requestData, err := json.Marshal(request)
 	if err != nil {
 		return nil, fmt.Errorf("error marshaling request: %w", err)
 	}

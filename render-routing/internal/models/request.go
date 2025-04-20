@@ -70,6 +70,37 @@ type StorageUploadRequest struct {
 	FormData map[string]string `json:"form_data"`
 }
 
+// PdfRendererRequest представляет запрос к PDF-рендереру с поддержкой многостраничности
+type PdfRendererRequest struct {
+	// Массив страниц для рендеринга
+	Pages []PdfPageRequest `json:"pages"`
+
+	// Данные для подстановки (требуется некоторым рендерерам)
+	Data map[string]string `json:"data"`
+
+	// Генерировать ли превью
+	GeneratePreview bool `json:"generate_preview,omitempty"`
+}
+
+// PdfPageRequest представляет данные одной страницы для PDF-рендерера
+type PdfPageRequest struct {
+	// HTML-контент страницы
+	HTML string `json:"html"`
+
+	// Размеры страницы
+	Width  int `json:"width"`
+	Height int `json:"height"`
+
+	// Единицы измерения (px, mm)
+	Units string `json:"units"`
+
+	// Подрезы (bleed) для PDF
+	Bleeds int `json:"bleeds"`
+
+	// Дополнительные настройки
+	Settings map[string]string `json:"settings,omitempty"`
+}
+
 // AsJSON сериализует объект в JSON
 func (r *RenderRequest) AsJSON() ([]byte, error) {
 	return json.Marshal(r)

@@ -32,7 +32,8 @@ func SetupRouter(handler *Handler) *gin.Engine {
 		// Маршруты для рендеринга
 		render := api.Group("/render")
 		{
-			render.POST("/generate", handler.RenderDocument)
+			render.POST("/template", handler.RenderDocument)
+			render.GET("/status/:id", handler.GetRenderStatus)
 		}
 
 		// Маршрут для проверки работоспособности

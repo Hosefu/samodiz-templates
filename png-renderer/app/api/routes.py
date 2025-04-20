@@ -59,7 +59,7 @@ async def render_png(request: RenderRequest):
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
-@router.get("/health/", response_model=HealthResponse)
+@router.get("/health", response_model=HealthResponse)
 async def health_check():
     """
     Проверка работоспособности сервиса

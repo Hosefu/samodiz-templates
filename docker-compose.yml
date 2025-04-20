@@ -7,7 +7,7 @@ services:
       dockerfile: Dockerfile
     container_name: frontend
     expose:
-      - "5173"
+      - "${FRONTEND_PORT:-5173}"
     environment:
       - VITE_API_URL=http://localhost/api
       - VITE_STORAGE_URL=http://localhost/storage
@@ -25,18 +25,25 @@ services:
       - media_data:/app/media
       - static_data:/app/staticfiles
     expose:
-      - "3000"
+      - "${STORAGE_PORT:-8000}"
     command: >
       sh -c "
         mkdir -p /app/media/generated_templates &&
         chmod 777 /app/media/generated_templates &&
         python manage.py migrate &&
         python manage.py collectstatic --noinput &&
-        gunicorn storage.wsgi:application --bind 0.0.0.0:3000
+        gunicorn storage.wsgi:application --bind 0.0.0.0:${STORAGE_PORT:-8000}
       "
     environment:
       - API_KEY=development-api-key
       - DJANGO_DEBUG=True
+      - STORAGE_PORT=${STORAGE_PORT:-8000}
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:${STORAGE_PORT:-8000}/api/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
   render-routing-service:
     build:
@@ -46,18 +53,27 @@ services:
     env_file:
       - .env
     expose:
-      - "3000"
+      - "${ROUTING_PORT:-8080}"
     depends_on:
-      - storage-service
-      - pdf-renderer
-      - png-renderer
+      storage-service:
+        condition: service_healthy
+      pdf-renderer:
+        condition: service_healthy
+      png-renderer:
+        condition: service_healthy
     environment:
-      - SERVER_PORT=3000
-      - RENDERERS_PDF_RENDERER=http://pdf-renderer:3000/api/pdf/render
-      - RENDERERS_PNG_RENDERER=http://png-renderer:3000/api/png/render
-      - STORAGE_API_BASE_URL=http://storage-service:3000/api
+      - SERVER_PORT=${ROUTING_PORT:-8080}
+      - RENDERERS_PDF_RENDERER=http://pdf-renderer:${PDF_PORT:-8081}/api/pdf/render
+      - RENDERERS_PNG_RENDERER=http://png-renderer:${PNG_PORT:-8082}/api/png/render
+      - STORAGE_API_BASE_URL=http://storage-service:${STORAGE_PORT:-8000}/api
       - STORAGE_API_KEY=development-api-key
       - LOGGER_LEVEL=info
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:${ROUTING_PORT:-8080}/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
   pdf-renderer:
     build:
@@ -69,12 +85,18 @@ services:
     volumes:
       - pdf_data:/app/wwwroot
     expose:
-      - "3000"
+      - "${PDF_PORT:-8081}"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-      - ASPNETCORE_URLS=http://+:3000
+      - ASPNETCORE_URLS=http://+:${PDF_PORT:-8081}
       - Logging__LogLevel__Default=Debug
       - Logging__LogLevel__PdfRenderer=Debug
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:${PDF_PORT:-8081}/api/pdf/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
   png-renderer:
     build:
@@ -86,14 +108,20 @@ services:
     volumes:
       - png_data:/app/output
     expose:
-      - "3000"
+      - "${PNG_PORT:-8082}"
     environment:
       - PNG_RENDERER_HOST=0.0.0.0
-      - PNG_RENDERER_PORT=3000
+      - PNG_RENDERER_PORT=${PNG_PORT:-8082}
       - PNG_RENDERER_LOG_LEVEL=INFO
       - PNG_RENDERER_CACHE_ENABLED=True
       - PNG_RENDERER_BROWSER_HEADLESS=True
       - PNG_RENDERER_MAX_CONCURRENT_BROWSERS=5
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:${PNG_PORT:-8082}/api/png/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
   nginx:
     build:
@@ -102,11 +130,16 @@ services:
     ports:
       - "80:80"
     depends_on:
-      - frontend
-      - storage-service
-      - render-routing-service
-      - pdf-renderer
-      - png-renderer
+      frontend:
+        condition: service_started
+      storage-service:
+        condition: service_healthy
+      render-routing-service:
+        condition: service_healthy
+      pdf-renderer:
+        condition: service_healthy
+      png-renderer:
+        condition: service_healthy
     volumes:
       - static_data:/usr/share/nginx/html/static
       - media_data:/usr/share/nginx/html/media

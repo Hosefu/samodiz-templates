@@ -64,6 +64,23 @@ func (h *Handler) RenderDocument(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
+// GetRenderStatus обрабатывает запрос на получение статуса рендеринга
+func (h *Handler) GetRenderStatus(c *gin.Context) {
+	id := c.Param("id")
+	if id == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Render ID is required"})
+		return
+	}
+
+	// TODO: Implement actual status check logic
+	// For now, return a mock response
+	c.JSON(http.StatusOK, gin.H{
+		"id":     id,
+		"status": "completed",
+		"url":    "http://example.com/rendered-file.pdf",
+	})
+}
+
 // HealthCheck отвечает на запросы проверки работоспособности
 func (h *Handler) HealthCheck(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{

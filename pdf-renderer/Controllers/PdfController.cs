@@ -8,6 +8,12 @@ using System.Threading.Tasks;
 using PdfRenderer.Models;
 using PdfRenderer.Services;
 using Microsoft.Extensions.Logging;
+using System.IO;
+using iText.Kernel.Pdf;
+using iText.Layout;
+using iText.Html2pdf;
+using iText.Kernel.Geom;
+using PdfRenderer.Utils;
 
 namespace PdfRenderer.Controllers;
 
@@ -33,57 +39,80 @@ public class PdfController : ControllerBase
     }
 
     [HttpPost("render")]
-    public async Task<IActionResult> RenderPdf([FromBody] PdfRequest request)
+    public async Task<IActionResult> Render([FromBody] PdfRendererRequest request)
     {
-        var validationResult = _validation.Validate(request);
-        if (!validationResult.IsValid)
-        {
-            var errors = string.Join("; ", validationResult.Errors);
-            _logger.LogError("Validation errors: {Errors}", errors);
-            return BadRequest(new RenderResult { Error = errors });
-        }
-
         try
         {
-            _logger.LogInformation("Rendering PDF with dimensions: {Width}x{Height} {Units}, bleeds: {Bleeds}", 
-                request.Width, request.Height, request.Units, request.Bleeds);
+            _logger.LogInformation($"Received PDF rendering request with {request.Pages.Count} pages");
 
-            // Создаем список HTML-страниц (сейчас только одна)
-            var htmlList = new List<string> { request.Html };
-            
-            // Создаем список базовых URI для разрешения ресурсов
-            var uriList = new List<string> { string.Empty };
+            using var memoryStream = new MemoryStream();
+            using var pdfWriter = new PdfWriter(memoryStream);
+            using var pdf = new PdfDocument(pdfWriter);
+            using var document = new Document(pdf);
 
-            // Получаем настройки рендеринга из запроса
-            var renderSettings = new Dictionary<string, string>();
-            if (request.Settings != null)
+            foreach (var page in request.Pages)
             {
-                renderSettings = request.Settings;
-                _logger.LogInformation("Using render settings: {Settings}", 
-                    string.Join(", ", request.Settings.Select(kvp => $"{kvp.Key}={kvp.Value}")));
+                // Convert dimensions to points if needed
+                float width = UnitConverter.ConvertToPoints(page.Width.GetValueOrDefault(595), page.Units);
+                float height = UnitConverter.ConvertToPoints(page.Height.GetValueOrDefault(842), page.Units);
+
+                var pageSize = new PageSize(width, height);
+
+                // Create a new page with specified dimensions
+                var pdfPage = pdf.AddNewPage(pageSize);
+                document.SetPage(pdfPage);
+
+                // Convert HTML to PDF
+                var converterProperties = new ConverterProperties();
+                HtmlConverter.ConvertToPdf(page.Html, pdf, converterProperties);
+
+                // Apply bleed if specified
+                if (page.Bleed.HasValue && page.Bleed.Value > 0)
+                {
+                    var bleed = UnitConverter.ConvertToPoints(page.Bleed.Value, page.Units);
+                    pdfPage.SetCropBox(new Rectangle(
+                        -bleed,
+                        -bleed,
+                        pageSize.GetWidth() + (2 * bleed),
+                        pageSize.GetHeight() + (2 * bleed)
+                    ));
+                }
             }
 
-            // Рендерим PDF с настройками
-            var pdfBytes = _render.RenderPdf(htmlList, uriList, renderSettings);
-            
-            // Результат операции
-            var result = new RenderResult();
+            document.Close();
 
-            // Если нужно превью, генерируем его
-            if (request.GeneratePreview)
-            {
-                _logger.LogInformation("Generating preview");
-                result.PreviewUrl = await _preview.GeneratePreviewAsync(pdfBytes);
-            }
-            
-            // Возвращаем бинарные данные PDF с правильными заголовками
-            var fileName = $"document-{DateTime.UtcNow:yyyyMMdd-HHmmss}.pdf";
-            return File(pdfBytes, "application/pdf", fileName);
+            var fileBytes = memoryStream.ToArray();
+            _logger.LogInformation($"Generated PDF with {request.Pages.Count} pages, size: {fileBytes.Length} bytes");
+
+            return File(fileBytes, "application/pdf");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error rendering PDF");
-            return StatusCode(500, new RenderResult { Error = "Internal server error: " + ex.Message });
+            return StatusCode(500, new { error = "Failed to render PDF", message = ex.Message });
         }
     }
+
+    [HttpGet("health")]
+    public IActionResult Health()
+    {
+        return Ok(new { status = "healthy" });
+    }
+}
+
+public class PdfRendererRequest
+{
+    public List<PdfPageRequest> Pages { get; set; } = new List<PdfPageRequest>();
+    public Dictionary<string, object> Data { get; set; } = new Dictionary<string, object>();
+    public bool GeneratePreview { get; set; }
+}
+
+public class PdfPageRequest
+{
+    public string Html { get; set; }
+    public float? Width { get; set; }
+    public float? Height { get; set; }
+    public string Units { get; set; } = "pt";
+    public float? Bleed { get; set; }
+    public Dictionary<string, object> Config { get; set; } = new Dictionary<string, object>();
 }

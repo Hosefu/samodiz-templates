@@ -8,7 +8,8 @@ router.register(r'templates', TemplateViewSet, basename='template')
 
 urlpatterns = [
     path('', include(router.urls)),
-    path('upload-template/', upload_template_file, name='upload-template'),
-    path('file/<int:file_id>/', serve_template_file, name='serve-template-file'),
+    path('templates/', include(router.urls)),  # Списки и детали шаблонов
+    path('templates/<int:template_id>/render/', upload_template_file, name='render-template'),
+    path('files/<int:file_id>/', serve_template_file, name='serve-template-file'),
     path('health/', health_check, name='health-check'),
 ]

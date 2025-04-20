@@ -9,6 +9,7 @@ from PIL import Image
 
 from app.config import settings
 from app.models.request import RenderRequest
+from app.utils.unit_converter import calculate_dimensions
 
 # Создаем семафор для ограничения количества параллельных браузеров
 browser_semaphore = asyncio.Semaphore(settings.MAX_CONCURRENT_BROWSERS)
@@ -175,27 +176,8 @@ class PngRenderer:
     def _calculate_dimensions(self, width: int, height: int, units: str, dpi: int) -> Tuple[int, int]:
         """
         Пересчитывает размеры в пиксели в зависимости от единиц измерения
-        
-        Args:
-            width: Ширина
-            height: Высота
-            units: Единицы измерения (px, mm)
-            dpi: Разрешение в точках на дюйм
-            
-        Returns:
-            Tuple[int, int]: Ширина и высота в пикселях
         """
-        if units.lower() == "px":
-            return width, height
-        elif units.lower() == "mm":
-            # Переводим миллиметры в дюймы, затем в пиксели
-            # 1 мм = 0.03937 дюйма
-            width_px = int(round((width * 0.03937) * dpi))
-            height_px = int(round((height * 0.03937) * dpi))
-            return width_px, height_px
-        else:
-            # По умолчанию считаем, что размеры в пикселях
-            return width, height
+        return calculate_dimensions(width, height, units, dpi)
 
 
 # Создаем экземпляр рендерера для использования в приложении
