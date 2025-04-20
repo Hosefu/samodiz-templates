@@ -78,3 +78,75 @@ func (h *Handler) NotFound(c *gin.Context) {
 		"error": "Route not found",
 	})
 }
+
+// GetTemplates обрабатывает запрос на получение списка шаблонов
+func (h *Handler) GetTemplates(c *gin.Context) {
+	templates := []models.Template{
+		{
+			ID:      1,
+			Name:    "Template 1",
+			Version: "1.0",
+			Type:    "pdf",
+			Pages: []models.TemplatePage{
+				{
+					Name:   "Page 1",
+					HTML:   "<div>Template 1 content</div>",
+					Width:  210,
+					Height: 297,
+					Units:  "mm",
+				},
+			},
+		},
+		{
+			ID:      2,
+			Name:    "Template 2",
+			Version: "1.0",
+			Type:    "png",
+			Pages: []models.TemplatePage{
+				{
+					Name:   "Page 1",
+					HTML:   "<div>Template 2 content</div>",
+					Width:  800,
+					Height: 600,
+					Units:  "px",
+				},
+			},
+		},
+	}
+
+	c.JSON(http.StatusOK, templates)
+}
+
+// GenerateDocument обрабатывает запрос на генерацию документа
+func (h *Handler) GenerateDocument(c *gin.Context) {
+	var request models.RenderRequest
+
+	if err := c.ShouldBindJSON(&request); err != nil {
+		h.logger.Errorf("Error binding request JSON: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format"})
+		return
+	}
+
+	if err := request.Validate(); err != nil {
+		h.logger.Errorf("Request validation error: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	h.logger.Infof("Received request to generate document with template ID %d", request.TemplateID)
+
+	response, err := h.rendererRouter.RouteRenderRequest(c.Request.Context(), &request)
+	if err != nil {
+		h.logger.Errorf("Error routing render request: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	if response.Error != "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": response.Error})
+		return
+	}
+
+	h.logger.Infof("Document generated successfully, URL: %s", response.URL)
+	c.JSON(http.StatusOK, response)
+}
