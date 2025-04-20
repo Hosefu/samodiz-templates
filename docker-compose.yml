@@ -141,10 +141,10 @@ services:
       png-renderer:
         condition: service_healthy
     volumes:
-      - static_data:/usr/share/nginx/html/static
-      - media_data:/usr/share/nginx/html/media
-      - pdf_data:/usr/share/nginx/html/pdfs
-      - png_data:/usr/share/nginx/html/images
+      - static_data:/usr/share/nginx/html/static:ro
+      - media_data:/usr/share/nginx/html/media:ro
+      - pdf_data:/usr/share/nginx/html/pdfs:ro
+      - png_data:/usr/share/nginx/html/images:ro
 
 volumes:
   media_data:
