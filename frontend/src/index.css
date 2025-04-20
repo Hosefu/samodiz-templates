@@ -1,0 +1,31 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-slate-50 text-slate-900;
+  }
+}
+
+/* Дополнительные глобальные стили */
+html, body {
+  @apply antialiased;
+}
+
+/* Плавная прокрутка */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Для полей с ошибкой валидации */
+input:invalid {
+  @apply border-red-500 ring-1 ring-red-500;
+}
+
+/* Стили компонентов */
+@layer components {
+  .transition-standard {
+    @apply transition-all duration-300 ease-in-out;
+  }
+}

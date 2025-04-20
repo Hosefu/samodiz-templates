@@ -4,7 +4,6 @@ from django.conf import settings
 from django.conf.urls.static import static
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('djangoadmin/', admin.site.urls),  # Custom admin URL
+    path('admin/', admin.site.urls),  # Оставляем только один маршрут
     path('api/', include('templates.urls')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
