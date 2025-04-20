@@ -105,7 +105,7 @@ const App = () => {
   const fetchTemplates = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch('/api/templates');
+      const response = await fetch('/api/templates/');
       if (!response.ok) {
         throw new Error('Failed to fetch templates');
       }
@@ -126,6 +126,8 @@ const App = () => {
     setCurrentStep(1);
     // Reset form data when selecting a new template
     setFormData({});
+    // Reset active page when selecting a new template
+    setActivePage(0);
   };
 
   const handleFormChange = (e) => {
@@ -142,7 +144,7 @@ const App = () => {
 
     try {
       setIsLoading(true);
-      const response = await fetch('/api/render/template', {
+      const response = await fetch('/api/render/generate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -174,7 +176,7 @@ const App = () => {
     
     // Get all required fields across all pages
     const requiredFields = selectedTemplate.pages
-      .flatMap(page => page.fields)
+      .flatMap(page => page.fields || [])
       .filter(field => field.required)
       .map(field => field.name);
     
@@ -185,7 +187,7 @@ const App = () => {
   const getAllFields = () => {
     if (!selectedTemplate || !selectedTemplate.pages) return [];
     
-    return selectedTemplate.pages.flatMap(page => page.fields);
+    return selectedTemplate.pages.flatMap(page => page.fields || []);
   };
 
   // Рендеринг шагов
@@ -194,7 +196,7 @@ const App = () => {
       case 0:
         return (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {templates.map(template => (
+            {(templates || []).map(template => (
               <TemplateCard
                 key={template.id}
                 template={template}
@@ -214,6 +216,8 @@ const App = () => {
           );
         }
         
+        const fields = getAllFields();
+        
         return (
           <div className="space-y-6">
             <div className="flex justify-between items-center">
@@ -227,7 +231,7 @@ const App = () => {
               </Button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {getAllFields().map(field => (
+              {fields.map(field => (
                 <Input
                   key={field.name}
                   label={field.label}

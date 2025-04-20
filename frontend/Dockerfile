@@ -1,4 +1,3 @@
-# Build stage
 FROM node:18-alpine as build
 
 WORKDIR /app
@@ -10,37 +9,21 @@ RUN npm ci
 # Copy source files
 COPY . .
 
-# Build the app
+# Build static files
 RUN npm run build
 
-# Final stage - the build output will be used by Nginx
-# The actual serving is done by the Nginx container defined in the main Dockerfile
+# Production image
+FROM nginx:alpine
+COPY --from=build /app/build /usr/share/nginx/html
 
-FROM node:18-alpine
+# Default nginx config for React apps
+RUN echo 'server { \
+    listen 80; \
+    root /usr/share/nginx/html; \
+    location / { \
+        try_files $uri $uri/ /index.html; \
+    } \
+}' > /etc/nginx/conf.d/default.conf
 
-WORKDIR /app
-
-# Копируем файлы package.json и package-lock.json
-COPY package*.json ./
-
-# Устанавливаем зависимости
-RUN npm ci
-
-# Копируем исходный код
-COPY . .
-
-# Создаем необходимые директории
-RUN mkdir -p /app/node_modules/.vite
-
-# Устанавливаем переменные окружения
-ENV NODE_ENV=development
-ENV VITE_API_URL=http://localhost/api
-ENV VITE_STORAGE_URL=http://localhost/storage
-ENV VITE_PDF_URL=http://localhost/pdf
-ENV VITE_PNG_URL=http://localhost/png
-
-# Открываем порт
-EXPOSE 5173
-
-# Запускаем dev-сервер
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]

@@ -6,13 +6,16 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: frontend
-    expose:
-      - "${FRONTEND_PORT:-5173}"
+    ports:
+      - "${FRONTEND_PORT:-5173}:80"
     environment:
       - VITE_API_URL=http://localhost/api
       - VITE_STORAGE_URL=http://localhost/storage
       - VITE_PDF_URL=http://localhost/pdf
       - VITE_PNG_URL=http://localhost/png
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
 
   storage-service:
     build:
@@ -130,8 +133,6 @@ services:
     ports:
       - "80:80"
     depends_on:
-      frontend:
-        condition: service_started
       storage-service:
         condition: service_healthy
       render-routing-service:
@@ -141,6 +142,7 @@ services:
       png-renderer:
         condition: service_healthy
     volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - static_data:/usr/share/nginx/html/static:ro
       - media_data:/usr/share/nginx/html/media:ro
       - pdf_data:/usr/share/nginx/html/pdfs:ro
