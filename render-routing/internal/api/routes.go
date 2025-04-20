@@ -33,6 +33,7 @@ func SetupRouter(handler *Handler) *gin.Engine {
 		render := api.Group("/render")
 		{
 			render.POST("/template", handler.RenderDocument)
+			render.POST("/generate", handler.GenerateDocument) // Добавляем новый маршрут
 			render.GET("/status/:id", handler.GetRenderStatus)
 		}
 

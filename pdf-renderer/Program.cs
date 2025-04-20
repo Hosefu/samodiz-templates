@@ -5,6 +5,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using PdfRenderer.Services;
+using PdfRenderer.Models;
+using FluentValidation;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,6 +17,9 @@ builder.Services.AddControllers();
 builder.Services.AddTransient<IPdfRenderService, PdfRenderService>();
 builder.Services.AddTransient<ValidationService>();
 builder.Services.AddTransient<IPreviewService, PreviewService>();
+
+// Регистрируем валидатор
+builder.Services.AddTransient<IValidator<PdfRequest>, PdfRequestValidator>();
 
 // Добавляем конфигурацию в контейнер служб
 builder.Services.AddSingleton(builder.Configuration);
