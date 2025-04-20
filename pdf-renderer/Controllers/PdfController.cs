@@ -9,11 +9,16 @@ using PdfRenderer.Models;
 using PdfRenderer.Services;
 using Microsoft.Extensions.Logging;
 using System.IO;
+using System.Text;
 using iText.Kernel.Pdf;
 using iText.Layout;
 using iText.Html2pdf;
 using iText.Kernel.Geom;
 using PdfRenderer.Utils;
+using iText.Kernel.Utils;
+using iText.Html2pdf.Resolver.Font;
+using iText.Html2pdf.Css.Resolver.Validator;
+using iText.StyledXmlParser.Css.Validate.Impl;
 
 namespace PdfRenderer.Controllers;
 
@@ -45,51 +50,135 @@ public class PdfController : ControllerBase
         {
             _logger.LogInformation($"Received PDF rendering request with {request.Pages.Count} pages");
 
-            using var memoryStream = new MemoryStream();
-            using var pdfWriter = new PdfWriter(memoryStream);
-            using var pdf = new PdfDocument(pdfWriter);
-            using var document = new Document(pdf);
+            List<byte[]> pdfPages = new List<byte[]>();
 
-            foreach (var page in request.Pages)
+            for (int i = 0; i < request.Pages.Count; i++)
             {
-                // Convert dimensions to points if needed
-                float width = UnitConverter.ConvertToPoints(page.Width.GetValueOrDefault(595), page.Units);
-                float height = UnitConverter.ConvertToPoints(page.Height.GetValueOrDefault(842), page.Units);
+                var page = request.Pages[i];
 
-                var pageSize = new PageSize(width, height);
+                _logger.LogInformation($"Rendering page {i+1}: Width={page.Width}, Height={page.Height}, Units={page.Units}, BaseUri={page.BaseUri}");
 
-                // Create a new page with specified dimensions
-                var pdfPage = pdf.AddNewPage(pageSize);
+                using var pageStream = new MemoryStream();
 
-                // Convert HTML to PDF
-                var converterProperties = new ConverterProperties();
-                HtmlConverter.ConvertToPdf(page.Html, pdf, converterProperties);
+                var converterProperties = CreateConverterProperties(page.BaseUri);
 
-                // Apply bleed if specified
-                if (page.Bleed.HasValue && page.Bleed.Value > 0)
+                if (page.Width.HasValue && page.Height.HasValue)
                 {
-                    var bleed = UnitConverter.ConvertToPoints(page.Bleed.Value, page.Units);
-                    pdfPage.SetCropBox(new Rectangle(
-                        -bleed,
-                        -bleed,
-                        pageSize.GetWidth() + (2 * bleed),
-                        pageSize.GetHeight() + (2 * bleed)
-                    ));
+                    float width = UnitConverter.ConvertToPoints(page.Width.Value, page.Units);
+                    float height = UnitConverter.ConvertToPoints(page.Height.Value, page.Units);
+                    var pageSize = new PageSize(width, height);
+                    _logger.LogInformation($"Page {i+1}: Setting explicit page size {width}x{height} pt");
+                }
+
+                _logger.LogInformation($"Page {i+1}: Converting HTML to PDF...");
+                using (var htmlStream = new MemoryStream(Encoding.UTF8.GetBytes(page.Html ?? string.Empty)))
+                {
+                    HtmlConverter.ConvertToPdf(htmlStream, pageStream, converterProperties);
+                }
+                 _logger.LogInformation($"Page {i+1}: Conversion complete, stream length: {pageStream.Length}");
+
+                pdfPages.Add(pageStream.ToArray());
+            }
+
+            if (pdfPages.Count == 1)
+            {
+                _logger.LogInformation("Returning single page PDF.");
+                return File(pdfPages[0], "application/pdf");
+            }
+
+            _logger.LogInformation($"Merging {pdfPages.Count} pages...");
+            using var resultStream = new MemoryStream();
+            using (var resultWriter = new PdfWriter(resultStream))
+            {
+                resultWriter.SetSmartMode(true);
+                using (var resultDoc = new PdfDocument(resultWriter))
+                {
+                    PdfMerger merger = new PdfMerger(resultDoc);
+
+                    foreach (byte[] pdfBytes in pdfPages)
+                    {
+                        using (var srcStream = new MemoryStream(pdfBytes))
+                        using (var reader = new PdfReader(srcStream))
+                        {
+                            reader.SetUnethicalReading(true);
+                            using (var srcDoc = new PdfDocument(reader))
+                            {
+                                merger.Merge(srcDoc, 1, srcDoc.GetNumberOfPages());
+                            }
+                        }
+                    }
                 }
             }
 
-            document.Close();
+            byte[] finalPdf = resultStream.ToArray();
+            _logger.LogInformation($"Merging complete. Final PDF size: {finalPdf.Length} bytes");
 
-            var fileBytes = memoryStream.ToArray();
-            _logger.LogInformation($"Generated PDF with {request.Pages.Count} pages, size: {fileBytes.Length} bytes");
-
-            return File(fileBytes, "application/pdf");
+            return File(finalPdf, "application/pdf");
+        }
+        catch (ValidationException validationEx)
+        {
+            _logger.LogWarning(validationEx, "Validation error during PDF rendering");
+            return BadRequest(new { error = "Validation failed", details = validationEx.Errors.Select(e => e.ErrorMessage) });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error rendering PDF");
-            return StatusCode(500, new { error = "Failed to render PDF", message = ex.Message });
+            return StatusCode(500, new { error = "Failed to render PDF", message = ex.ToString() });
         }
+    }
+
+    private ConverterProperties CreateConverterProperties(string baseUri)
+    {
+        var props = new ConverterProperties();
+
+        if (!string.IsNullOrWhiteSpace(baseUri)) {
+             _logger.LogInformation($"Setting Base URI: {baseUri}");
+             props.SetBaseUri(baseUri);
+        } else {
+            _logger.LogWarning("Base URI is not provided or empty.");
+        }
+
+        var fontProvider = new DefaultFontProvider(false, false, false);
+        bool hasAddedFonts = false;
+
+        if (!string.IsNullOrWhiteSpace(baseUri))
+        {
+            var assetsDir = Path.Combine(baseUri, "assets");
+             _logger.LogInformation($"Checking for fonts in: {assetsDir}");
+            if (Directory.Exists(assetsDir))
+            {
+                try {
+                    var fontFiles = Directory.GetFiles(assetsDir, "*.ttf")
+                        .Concat(Directory.GetFiles(assetsDir, "*.otf"))
+                        .ToList();
+
+                    if (fontFiles.Any())
+                    {
+                        _logger.LogInformation($"Found {fontFiles.Count} font files in {assetsDir}. Adding directory to FontProvider.");
+                        fontProvider.AddDirectory(assetsDir);
+                        hasAddedFonts = true;
+                    }
+                     else {
+                        _logger.LogInformation($"No .ttf or .otf font files found in {assetsDir}.");
+                    }
+                } catch (Exception ex) {
+                     _logger.LogError(ex, $"Error accessing or reading font files from {assetsDir}");
+                }
+            } else {
+                 _logger.LogInformation($"Assets directory not found: {assetsDir}");
+            }
+        } else {
+             _logger.LogWarning("Cannot check for fonts in assets directory because Base URI is not set.");
+        }
+
+        if (!hasAddedFonts)
+        {
+            _logger.LogInformation("Custom fonts not found or not added. Adding standard PDF fonts.");
+            fontProvider = new DefaultFontProvider(true, true, true);
+        }
+
+        props.SetFontProvider(fontProvider);
+        return props;
     }
 
     public class PdfRendererRequest
@@ -107,5 +196,6 @@ public class PdfController : ControllerBase
         public string Units { get; set; } = "pt";
         public float? Bleed { get; set; }
         public Dictionary<string, object> Config { get; set; } = new Dictionary<string, object>();
+        public string BaseUri { get; set; }
     }
 }

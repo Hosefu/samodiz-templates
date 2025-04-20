@@ -8,6 +8,7 @@ from rest_framework.response import Response
 from django.http import FileResponse, JsonResponse
 from django.shortcuts import get_object_or_404
 import json
+import uuid
 
 class TemplateViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Template.objects.all()
@@ -40,6 +41,11 @@ def upload_template_file(request):
     # Get file and data
     template_file = request.FILES['file']
     form_data = request.data.get('form_data', '{}')
+    
+    # Генерируем имя файла с правильным расширением
+    file_name = f"document_{uuid.uuid4()}.{format_type}"
+    # Переименовываем файл перед сохранением
+    template_file.name = file_name
     
     # Convert form data to JSON if it's a string
     if isinstance(form_data, str):
