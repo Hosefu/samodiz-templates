@@ -17,7 +17,6 @@ using iText.Kernel.Geom;
 using PdfRenderer.Utils;
 using iText.Kernel.Utils;
 using iText.Html2pdf.Resolver.Font;
-using iText.Html2pdf.Css.Resolver.Validator;
 using iText.StyledXmlParser.Css.Validate.Impl;
 
 namespace PdfRenderer.Controllers;
@@ -44,7 +43,7 @@ public class PdfController : ControllerBase
     }
 
     [HttpPost("render")]
-    public async Task<IActionResult> Render([FromBody] PdfRendererRequest request)
+    public IActionResult Render([FromBody] PdfRendererRequest request)
     {
         try
         {
@@ -138,12 +137,14 @@ public class PdfController : ControllerBase
             _logger.LogWarning("Base URI is not provided or empty.");
         }
 
+        #pragma warning disable 0612 // DefaultFontProvider is obsolete
         var fontProvider = new DefaultFontProvider(false, false, false);
+        #pragma warning restore 0612
         bool hasAddedFonts = false;
 
         if (!string.IsNullOrWhiteSpace(baseUri))
         {
-            var assetsDir = Path.Combine(baseUri, "assets");
+            var assetsDir = System.IO.Path.Combine(baseUri, "assets");
              _logger.LogInformation($"Checking for fonts in: {assetsDir}");
             if (Directory.Exists(assetsDir))
             {
@@ -174,7 +175,9 @@ public class PdfController : ControllerBase
         if (!hasAddedFonts)
         {
             _logger.LogInformation("Custom fonts not found or not added. Adding standard PDF fonts.");
+            #pragma warning disable 0612 // DefaultFontProvider is obsolete
             fontProvider = new DefaultFontProvider(true, true, true);
+            #pragma warning restore 0612
         }
 
         props.SetFontProvider(fontProvider);
@@ -190,12 +193,12 @@ public class PdfController : ControllerBase
 
     public class PdfPageRequest
     {
-        public string Html { get; set; }
+        public required string Html { get; set; }
         public float? Width { get; set; }
         public float? Height { get; set; }
         public string Units { get; set; } = "pt";
         public float? Bleed { get; set; }
         public Dictionary<string, object> Config { get; set; } = new Dictionary<string, object>();
-        public string BaseUri { get; set; }
+        public required string BaseUri { get; set; }
     }
 }

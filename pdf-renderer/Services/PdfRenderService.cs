@@ -30,7 +30,7 @@ namespace PdfRenderer.Services
         public byte[] RenderPdf(
             List<string> pagesHtml,
             List<string> baseUris,
-            Dictionary<string, string> settings = null)
+            Dictionary<string, string>? settings = null)
         {
             if (pagesHtml.Count != baseUris.Count)
                 throw new ArgumentException("pagesHtml и baseUris должны быть одинаковой длины");
@@ -41,12 +41,12 @@ namespace PdfRenderer.Services
             
             if (settings != null)
             {
-                if (settings.TryGetValue("compression", out string compressionValue))
+                if (settings.TryGetValue("compression", out var compressionValue))
                 {
                     enableCompression = !string.Equals(compressionValue, "false", StringComparison.OrdinalIgnoreCase);
                 }
                 
-                if (settings.TryGetValue("tagged", out string taggedValue))
+                if (settings.TryGetValue("tagged", out var taggedValue))
                 {
                     enableTaggedPdf = !string.Equals(taggedValue, "false", StringComparison.OrdinalIgnoreCase);
                 }

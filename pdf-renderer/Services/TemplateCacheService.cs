@@ -102,7 +102,7 @@ namespace PdfGenerator.Services
             return LoadCachedTemplate(metaFile);
         }
 
-        private async Task CacheTemplateFromApiAsync(int templateId, string templateDir, TemplateMeta template = null)
+        private async Task CacheTemplateFromApiAsync(int templateId, string templateDir, TemplateMeta? template = null)
         {
             try
             {
