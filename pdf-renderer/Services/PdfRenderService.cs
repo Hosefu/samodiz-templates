@@ -14,9 +14,9 @@ using iText.IO.Font.Constants;
 using iText.Html2pdf.Resolver.Font;  
 using Microsoft.Extensions.Logging;
 
-namespace PdfGenerator.Services
+namespace PdfRenderer.Services
 {
-    public class PdfRenderService
+    public class PdfRenderService : IPdfRenderService
     {
         private readonly ILogger<PdfRenderService> _logger;
 
@@ -29,10 +29,30 @@ namespace PdfGenerator.Services
         /// </summary>
         public byte[] RenderPdf(
             List<string> pagesHtml,
-            List<string> baseUris)
+            List<string> baseUris,
+            Dictionary<string, string> settings = null)
         {
             if (pagesHtml.Count != baseUris.Count)
                 throw new ArgumentException("pagesHtml и baseUris должны быть одинаковой длины");
+
+            // Применяем настройки, если они переданы
+            bool enableCompression = true; // По умолчанию сжатие включено
+            bool enableTaggedPdf = true;   // По умолчанию теги PDF включены
+            
+            if (settings != null)
+            {
+                if (settings.TryGetValue("compression", out string compressionValue))
+                {
+                    enableCompression = !string.Equals(compressionValue, "false", StringComparison.OrdinalIgnoreCase);
+                }
+                
+                if (settings.TryGetValue("tagged", out string taggedValue))
+                {
+                    enableTaggedPdf = !string.Equals(taggedValue, "false", StringComparison.OrdinalIgnoreCase);
+                }
+                
+                // Другие настройки можно обрабатывать по аналогии
+            }
 
             // 1) поставить валидатор, чтобы device-cmyk() распознавался
             CssDeclarationValidationMaster.SetValidator(new CssDeviceCmykAwareValidator());
@@ -89,7 +109,8 @@ namespace PdfGenerator.Services
             _logger.LogInformation("Объединение страниц в итоговый PDF");
             
             using MemoryStream resultMs = new MemoryStream();
-            using PdfWriter writer = new PdfWriter(resultMs);
+            using PdfWriter writer = new PdfWriter(resultMs, new WriterProperties()
+                .SetCompressionLevel(enableCompression ? CompressionConstants.BEST_COMPRESSION : CompressionConstants.NO_COMPRESSION));
             using PdfDocument resultDoc = new PdfDocument(writer);
             PdfMerger merger = new PdfMerger(resultDoc);
             

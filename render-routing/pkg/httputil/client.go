@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Hosefu/render-routing/pkg/logger"
+	"render-routing/pkg/logger"
 )
 
 // Client представляет HTTP клиент с расширенной функциональностью

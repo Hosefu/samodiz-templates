@@ -1,0 +1,4 @@
+2025-04-20 03:34:11.580 | INFO     | app.main:startup_event:67 - Starting png-renderer
+2025-04-20 03:34:11.580 | INFO     | app.main:startup_event:74 - Server running at http://0.0.0.0:8082
+2025-04-20 03:34:11.580 | INFO     | app.main:startup_event:75 - Documentation available at http://0.0.0.0:8082/api/docs
+2025-04-20 03:34:34.826 | INFO     | app.main:shutdown_event:81 - Shutting down png-renderer

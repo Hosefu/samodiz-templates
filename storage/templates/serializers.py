@@ -1,3 +1,4 @@
+# storage/templates/serializers.py
 from rest_framework import serializers
 from .models import Template, Page, Field, PageAsset, GeneratedTemplate, PageSettings
 

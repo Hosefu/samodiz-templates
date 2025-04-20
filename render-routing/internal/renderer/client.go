@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/Hosefu/render-routing/internal/models"
-	"github.com/Hosefu/render-routing/pkg/httputil"
-	"github.com/Hosefu/render-routing/pkg/logger"
+	"render-routing/internal/models"
+	"render-routing/pkg/httputil"
+	"render-routing/pkg/logger"
 )
 
 // Client представляет клиент для работы с рендерерами

@@ -20,7 +20,7 @@ public class PdfRequest
     /// <summary>
     /// Ширина страницы
     /// </summary>
-    public int Width { get; set; }
+    public float Width { get; set; }
     
     /// <summary>
     /// Высота страницы

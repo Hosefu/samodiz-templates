@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Hosefu/render-routing/internal/models"
-	"github.com/Hosefu/render-routing/pkg/logger"
+	"render-routing/internal/models"
+	"render-routing/pkg/logger"
 )
 
 // TemplateProcessor обрабатывает шаблоны и подставляет данные

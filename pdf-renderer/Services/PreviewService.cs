@@ -3,9 +3,9 @@ using System;
 using System.IO;
 using System.Threading.Tasks;
 
-namespace PdfGenerator.Services
+namespace PdfRenderer.Services
 {
-    public class PreviewService
+    public class PreviewService : IPreviewService
     {
         public async Task<string> GeneratePreviewAsync(byte[] pdfBytes)
         {

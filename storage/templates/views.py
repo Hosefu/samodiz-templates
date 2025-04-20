@@ -1,10 +1,11 @@
+# storage/templates/views.py
 from rest_framework import viewsets
 from .models import Template, GeneratedTemplate
 from .serializers import TemplateSerializer, GeneratedTemplateSerializer
 from rest_framework.decorators import api_view, parser_classes
 from rest_framework.parsers import MultiPartParser, JSONParser
 from rest_framework.response import Response
-from django.http import FileResponse
+from django.http import FileResponse, JsonResponse
 from django.shortcuts import get_object_or_404
 import json
 
@@ -83,3 +84,7 @@ def serve_template_file(request, file_id):
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     
     return response
+
+@api_view(['GET'])
+def health_check(request):
+    return JsonResponse({'status': 'ok'})

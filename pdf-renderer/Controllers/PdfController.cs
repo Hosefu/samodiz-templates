@@ -1,85 +1,89 @@
-using System;
-using System.IO;
-using System.Threading.Tasks;
-using System.Collections.Generic;
+// Controllers/PdfController.cs
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
+using FluentValidation;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using PdfRenderer.Models;
 using PdfRenderer.Services;
+using Microsoft.Extensions.Logging;
 
-namespace PdfRenderer.Controllers
+namespace PdfRenderer.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class PdfController : ControllerBase
 {
-    [ApiController]
-    [Route("api/pdf")]
-    public class PdfController : ControllerBase
+    private readonly IValidator<PdfRequest> _validation;
+    private readonly ILogger<PdfController> _logger;
+    private readonly IPdfRenderService _render;
+    private readonly IPreviewService _preview;
+
+    public PdfController(
+        IValidator<PdfRequest> validation,
+        ILogger<PdfController> logger,
+        IPdfRenderService render,
+        IPreviewService preview)
     {
-        private readonly PdfRenderService _render;
-        private readonly ValidationService _validation;
-        private readonly PreviewService _preview;
-        private readonly ILogger<PdfController> _logger;
+        _validation = validation;
+        _logger = logger;
+        _render = render;
+        _preview = preview;
+    }
 
-        public PdfController(
-            PdfRenderService render,
-            ValidationService validation,
-            PreviewService preview,
-            ILogger<PdfController> logger)
+    [HttpPost("render")]
+    public async Task<IActionResult> RenderPdf([FromBody] PdfRequest request)
+    {
+        var validationResult = _validation.Validate(request);
+        if (!validationResult.IsValid)
         {
-            _render = render;
-            _validation = validation;
-            _preview = preview;
-            _logger = logger;
+            var errors = string.Join("; ", validationResult.Errors);
+            _logger.LogError("Validation errors: {Errors}", errors);
+            return BadRequest(new RenderResult { Error = errors });
         }
 
-        [HttpPost("render")]
-        public async Task<IActionResult> RenderPdf([FromBody] PdfRequest request)
+        try
         {
-            var validationResult = _validation.Validate(request);
-            if (!validationResult.IsValid)
+            _logger.LogInformation("Rendering PDF with dimensions: {Width}x{Height} {Units}, bleeds: {Bleeds}", 
+                request.Width, request.Height, request.Units, request.Bleeds);
+
+            // Создаем список HTML-страниц (сейчас только одна)
+            var htmlList = new List<string> { request.Html };
+            
+            // Создаем список базовых URI для разрешения ресурсов
+            var uriList = new List<string> { string.Empty };
+
+            // Получаем настройки рендеринга из запроса
+            var renderSettings = new Dictionary<string, string>();
+            if (request.Settings != null)
             {
-                var errors = string.Join("; ", validationResult.Errors);
-                _logger.LogError("Validation errors: {Errors}", errors);
-                return BadRequest(new RenderResult { Error = errors });
+                renderSettings = request.Settings;
+                _logger.LogInformation("Using render settings: {Settings}", 
+                    string.Join(", ", request.Settings.Select(kvp => $"{kvp.Key}={kvp.Value}")));
             }
 
-            try
+            // Рендерим PDF с настройками
+            var pdfBytes = _render.RenderPdf(htmlList, uriList, renderSettings);
+            
+            // Результат операции
+            var result = new RenderResult();
+
+            // Если нужно превью, генерируем его
+            if (request.GeneratePreview)
             {
-                _logger.LogInformation("Rendering PDF with dimensions: {Width}x{Height} {Units}, bleeds: {Bleeds}", 
-                    request.Width, request.Height, request.Units, request.Bleeds);
-
-                // Создаем список HTML-страниц (сейчас только одна)
-                var htmlList = new List<string> { request.Html };
-                
-                // Создаем список базовых URI для разрешения ресурсов
-                // В данном случае у нас нет базовых URI, так как HTML уже должен быть готов
-                var uriList = new List<string> { string.Empty };
-
-                // Рендерим PDF
-                var pdfBytes = _render.RenderPdf(htmlList, uriList);
-                
-                // Результат операции
-                var result = new RenderResult();
-
-                // Если нужно превью, генерируем его
-                if (request.GeneratePreview)
-                {
-                    _logger.LogInformation("Generating preview");
-                    result.PreviewUrl = await _preview.GeneratePreviewAsync(pdfBytes);
-                }
-                
-                // Возвращаем бинарные данные PDF
-                return File(pdfBytes, "application/pdf");
+                _logger.LogInformation("Generating preview");
+                result.PreviewUrl = await _preview.GeneratePreviewAsync(pdfBytes);
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error rendering PDF");
-                return StatusCode(500, new RenderResult { Error = "Internal server error: " + ex.Message });
-            }
+            
+            // Возвращаем бинарные данные PDF с правильными заголовками
+            var fileName = $"document-{DateTime.UtcNow:yyyyMMdd-HHmmss}.pdf";
+            return File(pdfBytes, "application/pdf", fileName);
         }
-        
-        [HttpGet("health")]
-        public IActionResult HealthCheck()
+        catch (Exception ex)
         {
-            return Ok(new { status = "ok", service = "pdf-renderer" });
+            _logger.LogError(ex, "Error rendering PDF");
+            return StatusCode(500, new RenderResult { Error = "Internal server error: " + ex.Message });
         }
     }
 }

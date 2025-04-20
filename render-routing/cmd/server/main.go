@@ -8,12 +8,12 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/Hosefu/render-routing/internal/api"
-	"github.com/Hosefu/render-routing/internal/config"
-	"github.com/Hosefu/render-routing/internal/renderer"
-	"github.com/Hosefu/render-routing/internal/storage"
-	"github.com/Hosefu/render-routing/pkg/httputil"
-	"github.com/Hosefu/render-routing/pkg/logger"
+	"render-routing/internal/api"
+	"render-routing/internal/config"
+	"render-routing/internal/renderer"
+	"render-routing/internal/storage"
+	"render-routing/pkg/httputil"
+	"render-routing/pkg/logger"
 )
 
 func main() {

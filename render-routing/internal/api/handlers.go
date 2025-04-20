@@ -3,9 +3,10 @@ package api
 import (
 	"net/http"
 
-	"github.com/Hosefu/render-routing/internal/models"
-	"github.com/Hosefu/render-routing/internal/renderer"
-	"github.com/Hosefu/render-routing/pkg/logger"
+	"render-routing/internal/models"
+	"render-routing/internal/renderer"
+	"render-routing/pkg/logger"
+
 	"github.com/gin-gonic/gin"
 )
 

@@ -29,8 +29,8 @@ class Settings(BaseSettings):
     TIMEOUT: int = Field(default=30)  # в секундах
     
     # Пути к временным файлам
-    TEMP_DIR: str = Field(default="/tmp/png-renderer/temp")
-    OUTPUT_DIR: str = Field(default="/app/output")
+    TEMP_DIR: str = Field(default="./temp")
+    OUTPUT_DIR: str = Field(default="./output")
     
     # Настройки логгирования
     LOG_LEVEL: str = Field(default="INFO")
@@ -39,6 +39,15 @@ class Settings(BaseSettings):
     BROWSER_TYPE: str = Field(default="chromium")  # chromium, firefox, webkit
     BROWSER_HEADLESS: bool = Field(default=True)
     BROWSER_ARGS: list = Field(default=["--no-sandbox", "--disable-setuid-sandbox"])
+    
+    # Максимальное количество параллельных браузеров
+    MAX_CONCURRENT_BROWSERS: int = Field(default=5)
+    
+    # Максимальный размер HTML в байтах
+    MAX_HTML_SIZE: int = Field(default=10_000_000)  # 10MB
+    
+    # Таймаут для операций рендеринга в секундах
+    RENDER_TIMEOUT: int = Field(default=60)
     
     class Config:
         env_file = ".env"

@@ -1,3 +1,4 @@
+# storage/templates/middleware.py
 from django.http import HttpResponseForbidden
 from django.conf import settings
 
@@ -6,10 +7,10 @@ class ApiKeyMiddleware:
         self.get_response = get_response
         
     def __call__(self, request):
-        # Проверяем только запросы к API загрузки PDF
-        if request.path.startswith('/api/upload-pdf/'):
+        # Проверяем только защищенные API-запросы
+        if request.path.startswith('/api/upload-template/'):
             api_key = request.headers.get('X-API-Key')
             if api_key != settings.API_KEY:
-                return HttpResponseForbidden('Недопустимый API-ключ')
+                return HttpResponseForbidden('Invalid API key')
         
         return self.get_response(request)

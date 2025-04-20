@@ -1,11 +1,11 @@
 version: '3.8'
 
 services:
-  storage:
+  storage-service:
     build:
       context: ./storage
       dockerfile: Dockerfile
-    container_name: storage
+    container_name: storage-service
     env_file:
       - .env
     volumes:
@@ -15,36 +15,72 @@ services:
       - "8000"
     command: >
       sh -c "
-        mkdir -p /app/media/generated_pdfs &&
-        chmod 777 /app/media/generated_pdfs &&
+        mkdir -p /app/media/generated_templates &&
+        chmod 777 /app/media/generated_templates &&
         python manage.py migrate &&
         python manage.py collectstatic --noinput &&
         gunicorn storage.wsgi:application --bind 0.0.0.0:8000
       "
     environment:
-      - API_KEY=development-pdf-api-key
+      - API_KEY=development-api-key
       - DJANGO_DEBUG=True
 
-  pdf-service:
+  render-routing-service:
     build:
-      context: ./pdf-generation-service
+      context: ./render-routing
       dockerfile: Dockerfile
-    container_name: pdf-service
+    container_name: render-routing-service
+    env_file:
+      - .env
+    expose:
+      - "8080"
+    depends_on:
+      - storage-service
+      - pdf-renderer
+      - png-renderer
+    environment:
+      - SERVER_PORT=8080
+      - RENDERERS_PDF_RENDERER=http://pdf-renderer:8081/api/pdf/render
+      - RENDERERS_PNG_RENDERER=http://png-renderer:8082/api/png/render
+      - STORAGE_API_BASE_URL=http://storage-service:8000/api
+      - STORAGE_API_KEY=development-api-key
+      - LOGGER_LEVEL=info
+
+  pdf-renderer:
+    build:
+      context: ./pdf-renderer
+      dockerfile: Dockerfile
+    container_name: pdf-renderer
     env_file:
       - .env
     volumes:
       - pdf_data:/app/wwwroot
     expose:
-      - "8080"
-    depends_on:
-      - storage
-    command: ["dotnet", "pdf-generation-service.dll"]
+      - "8081"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-      - DOTNET_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8081
       - Logging__LogLevel__Default=Debug
-      - Logging__LogLevel__PdfGenerator=Debug
-      - ApiKey=development-pdf-api-key
+      - Logging__LogLevel__PdfRenderer=Debug
+
+  png-renderer:
+    build:
+      context: ./png-renderer
+      dockerfile: Dockerfile
+    container_name: png-renderer
+    env_file:
+      - .env
+    volumes:
+      - png_data:/app/output
+    expose:
+      - "8082"
+    environment:
+      - PNG_RENDERER_HOST=0.0.0.0
+      - PNG_RENDERER_PORT=8082
+      - PNG_RENDERER_LOG_LEVEL=INFO
+      - PNG_RENDERER_CACHE_ENABLED=True
+      - PNG_RENDERER_BROWSER_HEADLESS=True
+      - PNG_RENDERER_MAX_CONCURRENT_BROWSERS=5
 
   frontend:
     build:
@@ -54,8 +90,8 @@ services:
     env_file:
       - .env
     depends_on:
-      - storage
-      - pdf-service
+      - storage-service
+      - render-routing-service
     volumes:
       - ./frontend/build:/app/build
 
@@ -66,16 +102,20 @@ services:
     ports:
       - "80:80"
     depends_on:
-      - storage
-      - pdf-service
+      - storage-service
+      - render-routing-service
+      - pdf-renderer
+      - png-renderer
       - frontend
     volumes:
       - ./frontend/build:/usr/share/nginx/html
       - static_data:/usr/share/nginx/html/static
       - media_data:/usr/share/nginx/html/media
       - pdf_data:/usr/share/nginx/html/pdfs
+      - png_data:/usr/share/nginx/html/images
 
 volumes:
   media_data:
   static_data:
   pdf_data:
+  png_data:

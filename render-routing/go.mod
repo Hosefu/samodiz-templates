@@ -1,4 +1,4 @@
-module github.com/Hosefu/render-routing
+module render-routing
 
 go 1.24.2
 

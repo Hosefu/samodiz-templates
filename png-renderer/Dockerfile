@@ -4,6 +4,7 @@ FROM python:3.10-slim
 RUN apt-get update && apt-get install -y \
     wget \
     gnupg \
+    curl \
     libglib2.0-0 \
     libnss3 \
     libnspr4 \

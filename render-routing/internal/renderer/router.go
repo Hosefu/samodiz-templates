@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/Hosefu/render-routing/internal/models"
-	"github.com/Hosefu/render-routing/internal/storage"
-	"github.com/Hosefu/render-routing/pkg/logger"
+	"render-routing/internal/models"
+	"render-routing/internal/storage"
+	"render-routing/pkg/logger"
 )
 
 // Router маршрутизирует запросы к соответствующим рендерерам
@@ -94,6 +94,11 @@ func (r *Router) RouteRenderRequest(ctx context.Context, request *models.RenderR
 		return &models.RenderResponse{
 			Error: rendererResponse.Error,
 		}, nil
+	}
+
+	// Проверяем на пустой FileContent
+	if len(rendererResponse.FileContent) == 0 && rendererResponse.Error == "" {
+		return nil, fmt.Errorf("renderer returned empty file content without error message")
 	}
 
 	// Загружаем результат в storage-service

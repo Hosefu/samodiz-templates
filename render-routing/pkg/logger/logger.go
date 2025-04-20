@@ -8,13 +8,14 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-// Logger представляет интерфейс для логирования
+// Logger определяет интерфейс для логирования
 type Logger interface {
-	Debug(args ...interface{})
-	Info(args ...interface{})
-	Warn(args ...interface{})
-	Error(args ...interface{})
-	Fatal(args ...interface{})
+	Debug(msg string, fields ...interface{})
+	Info(msg string, fields ...interface{})
+	Warn(msg string, fields ...interface{})
+	Error(msg string, fields ...interface{})
+	Fatal(msg string, fields ...interface{})
+	With(fields ...interface{}) Logger
 	Debugf(template string, args ...interface{})
 	Infof(template string, args ...interface{})
 	Warnf(template string, args ...interface{})
@@ -68,44 +69,43 @@ func New(level, format string) Logger {
 	config.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 
 	// Создание логгера
-	zapLogger, err := config.Build()
+	baseLogger, err := config.Build()
 	if err != nil {
 		// В случае ошибки используем стандартную конфигурацию
-		zapLogger = zap.NewExample().Sugar().Desugar()
+		baseLogger = zap.NewExample().Sugar().Desugar()
 	}
-	defer zapLogger.Sync()
+	defer baseLogger.Sync()
 
-	sugar := zapLogger.Sugar()
+	sugar := baseLogger.Sugar()
 
 	return &zapLogger{
 		zap: sugar,
 	}
 }
 
-// Debug логирует сообщение с уровнем Debug
-func (l *zapLogger) Debug(args ...interface{}) {
-	l.zap.Debug(args...)
+// Debug логирует сообщение на уровне Debug
+func (l *zapLogger) Debug(msg string, fields ...interface{}) {
+	l.zap.Debugw(msg, fields...)
 }
 
-// Info логирует сообщение с уровнем Info
-func (l *zapLogger) Info(args ...interface{}) {
-	l.zap.Info(args...)
+// Info логирует сообщение на уровне Info
+func (l *zapLogger) Info(msg string, fields ...interface{}) {
+	l.zap.Infow(msg, fields...)
 }
 
-// Warn логирует сообщение с уровнем Warn
-func (l *zapLogger) Warn(args ...interface{}) {
-	l.zap.Warn(args...)
+// Warn логирует сообщение на уровне Warn
+func (l *zapLogger) Warn(msg string, fields ...interface{}) {
+	l.zap.Warnw(msg, fields...)
 }
 
-// Error логирует сообщение с уровнем Error
-func (l *zapLogger) Error(args ...interface{}) {
-	l.zap.Error(args...)
+// Error логирует сообщение на уровне Error
+func (l *zapLogger) Error(msg string, fields ...interface{}) {
+	l.zap.Errorw(msg, fields...)
 }
 
-// Fatal логирует сообщение с уровнем Fatal и выход
-func (l *zapLogger) Fatal(args ...interface{}) {
-	l.zap.Fatal(args...)
-	os.Exit(1)
+// Fatal логирует сообщение на уровне Fatal и завершает программу
+func (l *zapLogger) Fatal(msg string, fields ...interface{}) {
+	l.zap.Fatalw(msg, fields...)
 }
 
 // Debugf логирует форматированное сообщение с уровнем Debug
@@ -132,6 +132,13 @@ func (l *zapLogger) Errorf(template string, args ...interface{}) {
 func (l *zapLogger) Fatalf(template string, args ...interface{}) {
 	l.zap.Fatalf(template, args...)
 	os.Exit(1)
+}
+
+// With добавляет поля к логгеру
+func (l *zapLogger) With(fields ...interface{}) Logger {
+	return &zapLogger{
+		zap: l.zap.With(fields...),
+	}
 }
 
 // WithField возвращает новый логгер с добавленным полем

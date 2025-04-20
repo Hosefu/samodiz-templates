@@ -12,9 +12,9 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 
 // Настраиваем сервисы
-builder.Services.AddTransient<PdfRenderService>();
+builder.Services.AddTransient<IPdfRenderService, PdfRenderService>();
 builder.Services.AddTransient<ValidationService>();
-builder.Services.AddTransient<PreviewService>();
+builder.Services.AddTransient<IPreviewService, PreviewService>();
 
 // Добавляем конфигурацию в контейнер служб
 builder.Services.AddSingleton(builder.Configuration);

@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/Hosefu/render-routing/internal/models"
-	"github.com/Hosefu/render-routing/pkg/httputil"
-	"github.com/Hosefu/render-routing/pkg/logger"
+	"render-routing/internal/models"
+	"render-routing/pkg/httputil"
+	"render-routing/pkg/logger"
 )
 
 // Client представляет клиент для работы с API storage-service
@@ -72,8 +72,13 @@ func (c *Client) UploadGeneratedFile(ctx context.Context, request *models.Storag
 	c.logger.Debugf("Uploading generated %s file for template ID %d",
 		request.Format, request.TemplateID)
 
+	// Добавляем заголовки
+	headers := map[string]string{
+		"Accept": "application/json",
+	}
+
 	// Отправляем multipart запрос
-	data, err := c.httpClient.PostMultipart(ctx, path, formData, files, nil)
+	data, err := c.httpClient.PostMultipart(ctx, path, formData, files, headers)
 	if err != nil {
 		return nil, fmt.Errorf("error uploading file: %w", err)
 	}
