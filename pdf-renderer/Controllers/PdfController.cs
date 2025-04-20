@@ -60,7 +60,6 @@ public class PdfController : ControllerBase
 
                 // Create a new page with specified dimensions
                 var pdfPage = pdf.AddNewPage(pageSize);
-                document.SetPage(pdfPage);
 
                 // Convert HTML to PDF
                 var converterProperties = new ConverterProperties();
@@ -93,26 +92,20 @@ public class PdfController : ControllerBase
         }
     }
 
-    [HttpGet("health")]
-    public IActionResult Health()
+    public class PdfRendererRequest
     {
-        return Ok(new { status = "healthy" });
+        public List<PdfPageRequest> Pages { get; set; } = new List<PdfPageRequest>();
+        public Dictionary<string, object> Data { get; set; } = new Dictionary<string, object>();
+        public bool GeneratePreview { get; set; }
     }
-}
 
-public class PdfRendererRequest
-{
-    public List<PdfPageRequest> Pages { get; set; } = new List<PdfPageRequest>();
-    public Dictionary<string, object> Data { get; set; } = new Dictionary<string, object>();
-    public bool GeneratePreview { get; set; }
-}
-
-public class PdfPageRequest
-{
-    public string Html { get; set; }
-    public float? Width { get; set; }
-    public float? Height { get; set; }
-    public string Units { get; set; } = "pt";
-    public float? Bleed { get; set; }
-    public Dictionary<string, object> Config { get; set; } = new Dictionary<string, object>();
+    public class PdfPageRequest
+    {
+        public string Html { get; set; }
+        public float? Width { get; set; }
+        public float? Height { get; set; }
+        public string Units { get; set; } = "pt";
+        public float? Bleed { get; set; }
+        public Dictionary<string, object> Config { get; set; } = new Dictionary<string, object>();
+    }
 }
