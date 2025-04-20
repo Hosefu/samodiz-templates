@@ -110,8 +110,10 @@ const App = () => {
         throw new Error('Failed to fetch templates');
       }
       const data = await response.json();
+      console.log('Fetched templates:', data); // Debug log
       setTemplates(data);
     } catch (err) {
+      console.error('Error fetching templates:', err);
       setError(err.message);
     } finally {
       setIsLoading(false);
@@ -119,8 +121,11 @@ const App = () => {
   };
 
   const handleTemplateSelect = (template) => {
+    console.log('Selected template:', template); // Debug log
     setSelectedTemplate(template);
     setCurrentStep(1);
+    // Reset form data when selecting a new template
+    setFormData({});
   };
 
   const handleFormChange = (e) => {
@@ -157,6 +162,7 @@ const App = () => {
       setPreviewUrl(data.previewUrl);
       setCurrentStep(2);
     } catch (err) {
+      console.error('Error generating document:', err);
       setError(err.message);
     } finally {
       setIsLoading(false);
@@ -166,8 +172,20 @@ const App = () => {
   const validateForm = () => {
     if (!selectedTemplate) return false;
     
-    const requiredFields = selectedTemplate.fields.filter(field => field.required);
-    return requiredFields.every(field => formData[field.name]);
+    // Get all required fields across all pages
+    const requiredFields = selectedTemplate.pages
+      .flatMap(page => page.fields)
+      .filter(field => field.required)
+      .map(field => field.name);
+    
+    return requiredFields.every(fieldName => formData[fieldName] && formData[fieldName].trim() !== '');
+  };
+
+  // Collect all fields from all pages
+  const getAllFields = () => {
+    if (!selectedTemplate || !selectedTemplate.pages) return [];
+    
+    return selectedTemplate.pages.flatMap(page => page.fields);
   };
 
   // Рендеринг шагов
@@ -187,6 +205,15 @@ const App = () => {
           </div>
         );
       case 1:
+        // Added error handling for when template structure is invalid
+        if (!selectedTemplate || !selectedTemplate.pages) {
+          return (
+            <div className="text-red-500 text-center py-4">
+              Invalid template structure. Please select another template.
+            </div>
+          );
+        }
+        
         return (
           <div className="space-y-6">
             <div className="flex justify-between items-center">
@@ -200,7 +227,7 @@ const App = () => {
               </Button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {selectedTemplate.fields.map(field => (
+              {getAllFields().map(field => (
                 <Input
                   key={field.name}
                   label={field.label}
@@ -208,8 +235,8 @@ const App = () => {
                   value={formData[field.name] || ''}
                   onChange={handleFormChange}
                   required={field.required}
-                  type={field.type}
-                  placeholder={field.placeholder}
+                  type="text"
+                  placeholder={field.label}
                 />
               ))}
             </div>
@@ -278,9 +305,24 @@ const App = () => {
 
         <main>
           <Card>
-            {error ? (
+            {isLoading && currentStep === 0 ? (
+              <div className="flex justify-center items-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                <span className="ml-2">Загрузка шаблонов...</span>
+              </div>
+            ) : error ? (
               <div className="text-red-500 text-center py-4">
                 {error}
+                <button 
+                  className="block mx-auto mt-2 text-blue-500 underline"
+                  onClick={() => {
+                    setError(null);
+                    // If error happened during template fetch, try again
+                    if (currentStep === 0) fetchTemplates();
+                  }}
+                >
+                  Попробовать снова
+                </button>
               </div>
             ) : (
               renderStep()
