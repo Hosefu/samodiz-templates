@@ -6,8 +6,6 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: frontend
-    ports:
-      - "${FRONTEND_PORT:-5173}:80"
     environment:
       - VITE_API_URL=http://localhost/api
       - VITE_STORAGE_URL=http://localhost/storage
@@ -133,6 +131,8 @@ services:
     ports:
       - "80:80"
     depends_on:
+      frontend:
+        condition: service_started
       storage-service:
         condition: service_healthy
       render-routing-service:
