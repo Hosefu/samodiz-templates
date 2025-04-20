@@ -1,16 +1,19 @@
-FROM node:18-alpine as build
+FROM node:20-alpine as build
 
 WORKDIR /app
 
-# Copy package.json and install dependencies
+# Сначала копируем только файлы пакетов для кэширования слоев
 COPY package*.json ./
-RUN npm ci
 
-# Copy source files
+# Используем явную установку vite и установку зависимостей
+RUN npm install -g vite
+RUN npm install
+
+# Копируем исходный код
 COPY . .
 
-# Build static files
-RUN npm run build
+# Используем глобальный vite для сборки
+RUN vite build
 
 # Production image
 FROM nginx:alpine
