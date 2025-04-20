@@ -41,6 +41,14 @@ func NewClient(pdfRendererURL, pngRendererURL string, httpConfig httputil.Client
 func (c *Client) RenderPDF(ctx context.Context, request *models.PdfRendererRequest) (*models.RendererResponse, error) {
 	c.logger.Infof("Sending PDF rendering request to %s with %d pages", c.pdfRendererURL, len(request.Pages))
 
+	// Проверяем наличие обязательного поля baseUri в каждой странице
+	for i := range request.Pages {
+		// Если baseUri не установлен, устанавливаем пустую строку (или другое значение)
+		if request.Pages[i].BaseUri == "" {
+			request.Pages[i].BaseUri = "/tmp" // Или любое другое значение, которое ожидает PDF-рендерер
+		}
+	}
+
 	requestData, err := json.Marshal(request)
 	if err != nil {
 		return nil, fmt.Errorf("error marshaling request: %w", err)

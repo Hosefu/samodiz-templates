@@ -9,42 +9,6 @@ namespace PdfRenderer.Utils
         private const float POINTS_PER_INCH = 72.0f;
 
         /// <summary>
-        /// Преобразует миллиметры в пиксели при заданном DPI
-        /// </summary>
-        public static int MillimetersToPixels(float mm, float dpi)
-        {
-            float inches = mm / MM_PER_INCH;
-            return (int)Math.Round(inches * dpi);
-        }
-
-        /// <summary>
-        /// Преобразует пиксели в миллиметры при заданном DPI
-        /// </summary>
-        public static float PixelsToMillimeters(float px, float dpi)
-        {
-            float inches = px / dpi;
-            return inches * MM_PER_INCH;
-        }
-
-        /// <summary>
-        /// Преобразует миллиметры в пункты (используется в PDF)
-        /// </summary>
-        public static float MillimetersToPoints(float mm)
-        {
-            float inches = mm / MM_PER_INCH;
-            return inches * POINTS_PER_INCH;
-        }
-
-        /// <summary>
-        /// Преобразует пункты в миллиметры
-        /// </summary>
-        public static float PointsToMillimeters(float pt)
-        {
-            float inches = pt / POINTS_PER_INCH;
-            return inches * MM_PER_INCH;
-        }
-
-        /// <summary>
         /// Распознает единицы измерения и преобразует в пункты (для PDF)
         /// </summary>
         public static float ConvertToPoints(float value, string units)
@@ -59,6 +23,15 @@ namespace PdfRenderer.Utils
         }
         
         /// <summary>
+        /// Преобразует миллиметры в пункты (используется в PDF)
+        /// </summary>
+        public static float MillimetersToPoints(float mm)
+        {
+            float inches = mm / MM_PER_INCH;
+            return inches * POINTS_PER_INCH;
+        }
+        
+        /// <summary>
         /// Преобразует пиксели в пункты при заданном DPI
         /// </summary>
         public static float PixelsToPoints(float px, float dpi)
@@ -66,4 +39,4 @@ namespace PdfRenderer.Utils
             return (px / dpi) * POINTS_PER_INCH;
         }
     }
-} 
+}

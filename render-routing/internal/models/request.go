@@ -99,6 +99,9 @@ type PdfPageRequest struct {
 
 	// Дополнительные настройки
 	Settings map[string]string `json:"settings,omitempty"`
+
+	// Базовый URI для ресурсов (требуется PDF-рендерером)
+	BaseUri string `json:"baseUri"`
 }
 
 // AsJSON сериализует объект в JSON
