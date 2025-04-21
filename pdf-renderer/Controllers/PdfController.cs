@@ -52,7 +52,7 @@ public class PdfController : ControllerBase
                     // Для каждой страницы устанавливаем правильный baseUri
                     for (int i = 0; i < request.Pages.Count && i < template.Pages.Count; i++)
                     {
-                        string pageDir = Path.Combine(_cacheService.CacheRoot, request.TemplateId.ToString(), template.Pages[i].Name);
+                        string pageDir = System.IO.Path.Combine(_cacheService.CacheRoot, request.TemplateId.ToString(), template.Pages[i].Name);
                         request.Pages[i].BaseUri = pageDir;
                         _logger.LogInformation($"Set baseUri for page {i}: {pageDir}");
                     }
@@ -195,12 +195,12 @@ public class PdfController : ControllerBase
         var assetsDir = System.IO.Path.Combine(baseUri, "assets");
         _logger.LogInformation($"Checking for fonts in: {assetsDir}");
         
-        if (Directory.Exists(assetsDir))
+        if (System.IO.Directory.Exists(assetsDir))
         {
             try
             {
-                var fontFiles = Directory.GetFiles(assetsDir, "*.ttf")
-                    .Concat(Directory.GetFiles(assetsDir, "*.otf"))
+                var fontFiles = System.IO.Directory.GetFiles(assetsDir, "*.ttf")
+                    .Concat(System.IO.Directory.GetFiles(assetsDir, "*.otf"))
                     .ToList();
                 
                 if (fontFiles.Any())
