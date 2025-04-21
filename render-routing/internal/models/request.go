@@ -102,6 +102,15 @@ type PdfPageRequest struct {
 
 	// Базовый URI для ресурсов (требуется PDF-рендерером)
 	BaseUri string `json:"baseUri"`
+
+	// Ассеты (шрифты, изображения и т.д.)
+	Assets []AssetInfo `json:"assets,omitempty"`
+}
+
+// AssetInfo представляет информацию об ассете
+type AssetInfo struct {
+	// Путь к файлу ассета
+	File string `json:"file"`
 }
 
 // AsJSON сериализует объект в JSON

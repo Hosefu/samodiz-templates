@@ -16,6 +16,8 @@ using iText.Html2pdf.Resolver.Font;
 using iText.StyledXmlParser.Css.Validate;
 using Microsoft.Extensions.Logging;
 using PdfRenderer.Services;
+using System.Text.Json;
+using System.Net.Http;
 
 namespace PdfRenderer.Controllers;
 
@@ -76,6 +78,57 @@ public class PdfController : ControllerBase
                 // Используем baseUri из запроса или /tmp по умолчанию
                 string baseUri = page.BaseUri ?? "/tmp";
                 _logger.LogInformation($"Using baseUri: {baseUri}");
+                
+                // Если baseUri указывает на storage-service, проверим наличие Assets
+                if (baseUri.Contains("storage-service") && page.Settings != null && page.Settings.ContainsKey("assets"))
+                {
+                    _logger.LogInformation("Assets found in settings, configuring baseUri");
+                    string assetsStr = page.Settings["assets"];
+                    try 
+                    {
+                        // Парсим список ассетов
+                        var assets = JsonSerializer.Deserialize<List<AssetInfo>>(assetsStr);
+                        if (assets != null && assets.Count > 0)
+                        {
+                            _logger.LogInformation($"Found {assets.Count} assets to download");
+                            
+                            // Создаем временную директорию для ассетов
+                            string tempAssetsDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+                            Directory.CreateDirectory(tempAssetsDir);
+                            Directory.CreateDirectory(Path.Combine(tempAssetsDir, "assets"));
+                            
+                            // Скачиваем каждый ассет
+                            using var httpClient = new HttpClient();
+                            foreach (var asset in assets)
+                            {
+                                try 
+                                {
+                                    string assetUrl = $"{baseUri}{asset.File}";
+                                    _logger.LogInformation($"Downloading asset: {assetUrl}");
+                                    
+                                    var assetData = httpClient.GetByteArrayAsync(assetUrl).Result;
+                                    string fileName = Path.GetFileName(asset.File);
+                                    string savePath = Path.Combine(tempAssetsDir, "assets", fileName);
+                                    
+                                    File.WriteAllBytes(savePath, assetData);
+                                    _logger.LogInformation($"Asset saved to {savePath}");
+                                }
+                                catch (Exception assetEx)
+                                {
+                                    _logger.LogError(assetEx, $"Error downloading asset {asset.File}");
+                                }
+                            }
+                            
+                            // Используем новый baseUri с локальным путем к ассетам
+                            baseUri = tempAssetsDir;
+                            _logger.LogInformation($"Using updated baseUri with local assets: {baseUri}");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error processing assets");
+                    }
+                }
                 
                 // Преобразование единиц измерения для размера страницы
                 float width = 595; // значение по умолчанию A4 в пунктах
@@ -257,5 +310,10 @@ public class PdfController : ControllerBase
         public int Bleeds { get; set; }
         public Dictionary<string, string> Settings { get; set; } = new Dictionary<string, string>();
         public string BaseUri { get; set; } = string.Empty;
+    }
+    
+    public class AssetInfo
+    {
+        public string File { get; set; } = string.Empty;
     }
 }

@@ -41,11 +41,34 @@ func NewClient(pdfRendererURL, pngRendererURL string, httpConfig httputil.Client
 func (c *Client) RenderPDF(ctx context.Context, request *models.PdfRendererRequest) (*models.RendererResponse, error) {
 	c.logger.Infof("Sending PDF rendering request to %s with %d pages", c.pdfRendererURL, len(request.Pages))
 
-	// Проверяем наличие обязательного поля baseUri в каждой странице
-	for i := range request.Pages {
-		// Если baseUri не установлен, устанавливаем пустую строку (или другое значение)
-		if request.Pages[i].BaseUri == "" {
-			request.Pages[i].BaseUri = "/tmp" // Или любое другое значение, которое ожидает PDF-рендерер
+	// Передаем URL ассетов для каждой страницы, если они есть
+	for i, page := range request.Pages {
+		// Если baseUri не установлен и есть ассеты, настраиваем baseUri для доступа к ассетам
+		if page.BaseUri == "" && len(page.Assets) > 0 {
+			// URL для доступа к ассетам через storage-service
+			request.Pages[i].BaseUri = "http://storage-service:8000"
+		} else if page.BaseUri == "" {
+			// Если ассетов нет, используем базовый путь
+			request.Pages[i].BaseUri = "/tmp"
+		}
+		c.logger.Infof("Page %d: Set baseUri to %s, assets count: %d", i, request.Pages[i].BaseUri, len(page.Assets))
+	}
+
+	// Добавляем информацию об ассетах в settings
+	for i, page := range request.Pages {
+		if page.Settings == nil {
+			request.Pages[i].Settings = make(map[string]string)
+		}
+
+		// Если есть Assets, добавляем их в settings для обработки в PDF-рендерере
+		if len(page.Assets) > 0 {
+			assetsJson, err := json.Marshal(page.Assets)
+			if err == nil {
+				request.Pages[i].Settings["assets"] = string(assetsJson)
+				c.logger.Infof("Added %d assets to settings for page %d", len(page.Assets), i)
+			} else {
+				c.logger.Errorf("Failed to marshal assets: %v", err)
+			}
 		}
 	}
 
