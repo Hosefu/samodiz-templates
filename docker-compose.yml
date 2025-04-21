@@ -93,7 +93,7 @@ services:
       - Logging__LogLevel__Default=Debug
       - Logging__LogLevel__PdfRenderer=Debug
     healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:${PDF_PORT:-8081}/api/pdf/health"]
+      test: ["CMD", "curl", "--fail", "http://localhost:${PDF_PORT:-8081}/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3

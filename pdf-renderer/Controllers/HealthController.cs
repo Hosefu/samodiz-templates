@@ -3,10 +3,10 @@ using Microsoft.AspNetCore.Mvc;
 namespace PdfRenderer.Controllers
 {
     [ApiController]
-    [Route("api/pdf")]
+    [Route("api/health")]
     public class HealthController : ControllerBase
     {
-        [HttpGet("health/")]
+        [HttpGet]
         public IActionResult HealthCheck()
         {
             return Ok(new { status = "ok" });

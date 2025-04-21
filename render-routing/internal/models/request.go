@@ -72,6 +72,9 @@ type StorageUploadRequest struct {
 
 // PdfRendererRequest представляет запрос к PDF-рендереру с поддержкой многостраничности
 type PdfRendererRequest struct {
+	// ID шаблона
+	TemplateId int `json:"template_id"`
+
 	// Массив страниц для рендеринга
 	Pages []PdfPageRequest `json:"pages"`
 
