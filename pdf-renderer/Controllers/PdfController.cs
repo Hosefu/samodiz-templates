@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using iText.Html2pdf;
 using iText.Kernel.Geom;
@@ -156,7 +157,12 @@ public class PdfController : ControllerBase
                     try 
                     {
                         // Parse assets list
-                        var assets = JsonSerializer.Deserialize<List<AssetInfo>>(assetsStr);
+                        var options = new JsonSerializerOptions
+                        {
+                            PropertyNameCaseInsensitive = true
+                        };
+                        
+                        var assets = JsonSerializer.Deserialize<List<AssetInfo>>(assetsStr, options);
                         if (assets != null && assets.Count > 0)
                         {
                             _logger.LogInformation($"Found {assets.Count} assets to download");
@@ -175,8 +181,14 @@ public class PdfController : ControllerBase
                             {
                                 try 
                                 {
-                                    string assetUrl = $"{baseUri}{asset.File}";
-                                    _logger.LogInformation($"Downloading asset: {assetUrl}");
+                                    string assetPath = asset.File;
+                                    if (!string.IsNullOrEmpty(assetPath) && !assetPath.StartsWith("/"))
+                                    {
+                                        assetPath = "/" + assetPath;
+                                    }
+                                    
+                                    string assetUrl = $"{baseUri}{assetPath}";
+                                    _logger.LogInformation($"Downloading asset: {assetUrl}, Asset.File={asset.File}");
                                     
                                     var assetData = await httpClient.GetByteArrayAsync(assetUrl);
                                     string fileName = System.IO.Path.GetFileName(asset.File);
@@ -401,6 +413,25 @@ public class PdfController : ControllerBase
         // Add standard fonts
         defaultFontProvider.AddStandardPdfFonts();
         
+        // Check for fonts in assets directory
+        string assetsDir = System.IO.Path.Combine(baseUri, "assets");
+        if (Directory.Exists(assetsDir))
+        {
+            _logger.LogInformation($"Adding assets directory to font provider: {assetsDir}");
+            defaultFontProvider.AddDirectory(assetsDir);
+            
+            // Log available font files
+            var fontFiles = Directory.GetFiles(assetsDir, "*.ttf").Concat(Directory.GetFiles(assetsDir, "*.otf")).ToList();
+            foreach (var font in fontFiles)
+            {
+                _logger.LogInformation($"Found font file: {System.IO.Path.GetFileName(font)}");
+            }
+        }
+        else
+        {
+            _logger.LogWarning($"Assets directory not found: {assetsDir}");
+        }
+        
         // Add system fonts if running on Linux
         if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Linux))
         {
@@ -449,6 +480,7 @@ public class PdfController : ControllerBase
     
     public class AssetInfo
     {
+        [JsonPropertyName("file")]
         public string File { get; set; } = string.Empty;
     }
 }
