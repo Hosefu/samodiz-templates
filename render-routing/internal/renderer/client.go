@@ -43,13 +43,10 @@ func (c *Client) RenderPDF(ctx context.Context, request *models.PdfRendererReque
 
 	// Передаем URL ассетов для каждой страницы, если они есть
 	for i, page := range request.Pages {
-		// Если baseUri не установлен и есть ассеты, настраиваем baseUri для доступа к ассетам
-		if page.BaseUri == "" && len(page.Assets) > 0 {
-			// URL для доступа к ассетам через storage-service
+		// Всегда используем storage-service как baseUri для доступа к системным шрифтам и ресурсам
+		if page.BaseUri == "" {
+			// URL для доступа к ресурсам через storage-service
 			request.Pages[i].BaseUri = "http://storage-service:8000"
-		} else if page.BaseUri == "" {
-			// Если ассетов нет, используем базовый путь
-			request.Pages[i].BaseUri = "/tmp"
 		}
 		c.logger.Infof("Page %d: Set baseUri to %s, assets count: %d", i, request.Pages[i].BaseUri, len(page.Assets))
 	}
@@ -73,7 +70,9 @@ func (c *Client) RenderPDF(ctx context.Context, request *models.PdfRendererReque
 	}
 
 	requestData, err := json.Marshal(request)
+	c.logger.Infof("Final JSON request to PDF renderer: %s", string(requestData))
 	if err != nil {
+		c.logger.Errorf("Failed to marshal PDF request: %v", err)
 		return nil, fmt.Errorf("error marshaling request: %w", err)
 	}
 
