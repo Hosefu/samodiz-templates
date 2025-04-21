@@ -93,9 +93,9 @@ public class PdfController : ControllerBase
                             _logger.LogInformation($"Found {assets.Count} assets to download");
                             
                             // Создаем временную директорию для ассетов
-                            string tempAssetsDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+                            string tempAssetsDir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), Guid.NewGuid().ToString());
                             Directory.CreateDirectory(tempAssetsDir);
-                            Directory.CreateDirectory(Path.Combine(tempAssetsDir, "assets"));
+                            Directory.CreateDirectory(System.IO.Path.Combine(tempAssetsDir, "assets"));
                             
                             // Скачиваем каждый ассет
                             using var httpClient = new HttpClient();
@@ -107,8 +107,8 @@ public class PdfController : ControllerBase
                                     _logger.LogInformation($"Downloading asset: {assetUrl}");
                                     
                                     var assetData = httpClient.GetByteArrayAsync(assetUrl).Result;
-                                    string fileName = Path.GetFileName(asset.File);
-                                    string savePath = Path.Combine(tempAssetsDir, "assets", fileName);
+                                    string fileName = System.IO.Path.GetFileName(asset.File);
+                                    string savePath = System.IO.Path.Combine(tempAssetsDir, "assets", fileName);
                                     
                                     File.WriteAllBytes(savePath, assetData);
                                     _logger.LogInformation($"Asset saved to {savePath}");
@@ -188,7 +188,7 @@ public class PdfController : ControllerBase
             if (pdfPages.Count == 1)
             {
                 _logger.LogInformation("Single page PDF, returning directly");
-                return File(pdfPages[0], "application/pdf");
+                return base.File(pdfPages[0], "application/pdf");
             }
 
             _logger.LogInformation($"Merging {pdfPages.Count} pages into a single PDF");
@@ -217,7 +217,7 @@ public class PdfController : ControllerBase
             resultStream.Dispose();
             
             _logger.LogInformation($"PDF rendering completed successfully, size: {finalPdf.Length} bytes");
-            return File(finalPdf, "application/pdf");
+            return base.File(finalPdf, "application/pdf");
         }
         catch (Exception ex)
         {
