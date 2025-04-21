@@ -15,6 +15,10 @@ __pycache__/
 *.py[cod]
 venv/
 media/
+!media/page_assets/
+!media/page_assets/*.ttf
+!media/page_assets/*.otf
+
 
 # Node
 node_modules/
@@ -23,9 +27,3 @@ build/
 # Docker
 **/Dockerfile.dev
 .dockerignore
-
-# .gitignore
-media/
-!media/page_assets/
-!media/page_assets/*.ttf
-!media/page_assets/*.otf
