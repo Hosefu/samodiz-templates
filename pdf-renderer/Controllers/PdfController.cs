@@ -110,7 +110,7 @@ public class PdfController : ControllerBase
                                     string fileName = System.IO.Path.GetFileName(asset.File);
                                     string savePath = System.IO.Path.Combine(tempAssetsDir, "assets", fileName);
                                     
-                                    File.WriteAllBytes(savePath, assetData);
+                                    System.IO.File.WriteAllBytes(savePath, assetData);
                                     _logger.LogInformation($"Asset saved to {savePath}");
                                 }
                                 catch (Exception assetEx)
