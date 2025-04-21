@@ -6,9 +6,9 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using PdfGenerator.Models;
+using PdfRenderer.Models;
 
-namespace PdfGenerator.Services
+namespace PdfRenderer.Services
 {
     public class TemplateCacheService
     {

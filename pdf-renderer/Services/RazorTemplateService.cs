@@ -1,7 +1,7 @@
 using System.Collections.Generic;
-using PdfGenerator.Models;
+using PdfRenderer.Models;
 
-namespace PdfGenerator.Services
+namespace PdfRenderer.Services
 {
     public class RazorTemplateService
     {

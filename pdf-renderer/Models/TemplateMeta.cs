@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace PdfGenerator.Models;
+namespace PdfRenderer.Models;
 
 public class TemplateMeta
 {
