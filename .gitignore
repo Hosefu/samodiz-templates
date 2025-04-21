@@ -14,10 +14,6 @@ wwwroot/
 __pycache__/
 *.py[cod]
 venv/
-media/
-!media/page_assets/
-!media/page_assets/*.ttf
-!media/page_assets/*.otf
 
 
 # Node
