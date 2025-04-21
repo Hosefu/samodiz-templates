@@ -24,6 +24,19 @@ builder.Services.AddTransient<IValidator<PdfRequest>, PdfRequestValidator>();
 // Добавляем конфигурацию в контейнер служб
 builder.Services.AddSingleton(builder.Configuration);
 
+// Настраиваем HttpClient для TemplateCacheService
+builder.Services.AddHttpClient<TemplateCacheService>(client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["StorageBaseUrl"] ?? "http://storage-service:8000/");
+    if (!string.IsNullOrEmpty(builder.Configuration["ApiKey"]))
+    {
+        client.DefaultRequestHeaders.Add("X-API-Key", builder.Configuration["ApiKey"]);
+    }
+});
+
+// Регистрируем TemplateCacheService как Singleton
+builder.Services.AddSingleton<TemplateCacheService>();
+
 // Настраиваем CORS
 builder.Services.AddCors(options =>
 {

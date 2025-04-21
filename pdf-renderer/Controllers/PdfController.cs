@@ -15,6 +15,7 @@ using iText.StyledXmlParser.Css.Validate.Impl;
 using iText.Html2pdf.Resolver.Font;
 using iText.StyledXmlParser.Css.Validate;
 using Microsoft.Extensions.Logging;
+using PdfRenderer.Services;
 
 namespace PdfRenderer.Controllers;
 
@@ -23,18 +24,44 @@ namespace PdfRenderer.Controllers;
 public class PdfController : ControllerBase
 {
     private readonly ILogger<PdfController> _logger;
+    private readonly TemplateCacheService _cacheService;
 
-    public PdfController(ILogger<PdfController> logger)
+    public PdfController(
+        ILogger<PdfController> logger,
+        TemplateCacheService cacheService)
     {
         _logger = logger;
+        _cacheService = cacheService;
     }
 
     [HttpPost("render")]
-    public IActionResult Render([FromBody] PdfRendererRequest request)
+    public async Task<IActionResult> Render([FromBody] PdfRendererRequest request)
     {
         try
         {
             _logger.LogInformation($"Received PDF rendering request with {request.Pages.Count} pages");
+
+            // Если есть ID шаблона - используем TemplateCacheService
+            if (request.TemplateId > 0)
+            {
+                try
+                {
+                    _logger.LogInformation($"Loading template {request.TemplateId} and its assets");
+                    var template = await _cacheService.GetTemplateAsync(request.TemplateId);
+                    
+                    // Для каждой страницы устанавливаем правильный baseUri
+                    for (int i = 0; i < request.Pages.Count && i < template.Pages.Count; i++)
+                    {
+                        string pageDir = Path.Combine(_cacheService.CacheRoot, request.TemplateId.ToString(), template.Pages[i].Name);
+                        request.Pages[i].BaseUri = pageDir;
+                        _logger.LogInformation($"Set baseUri for page {i}: {pageDir}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error loading template. PDF rendering might fail due to missing assets.");
+                }
+            }
 
             // Настройка поддержки CMYK
             CssDeclarationValidationMaster.SetValidator(new CssDeviceCmykAwareValidator());
@@ -46,7 +73,7 @@ public class PdfController : ControllerBase
             {
                 var page = request.Pages[i];
                 
-                // Используем baseUri из запроса
+                // Используем baseUri из запроса или /tmp по умолчанию
                 string baseUri = page.BaseUri ?? "/tmp";
                 _logger.LogInformation($"Using baseUri: {baseUri}");
                 
@@ -79,6 +106,9 @@ public class PdfController : ControllerBase
                 // Устанавливаем размер страницы
                 pdfDocument.SetDefaultPageSize(new PageSize(width, height));
 
+                // Добавляем более подробное логирование
+                _logger.LogInformation($"HTML content size: {page.Html?.Length ?? 0} characters");
+                
                 // Используем отдельный блок для контроля жизненного цикла htmlStream
                 using (var htmlStream = new MemoryStream(htmlBytes))
                 {
@@ -94,6 +124,11 @@ public class PdfController : ControllerBase
                 // pageStream будет закрыт автоматически при выходе из using блока
                 
                 _logger.LogInformation($"Page {i+1}: Conversion complete, PDF size: {pdfBytes.Length} bytes");
+                
+                if (pdfBytes.Length < 100)
+                {
+                    _logger.LogWarning("Suspiciously small PDF generated. This may indicate missing assets or font problems.");
+                }
             }
 
             // Если всего одна страница, возвращаем ее напрямую
@@ -133,8 +168,12 @@ public class PdfController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error rendering PDF");
-            return StatusCode(500, new { error = "Failed to render PDF", message = ex.Message });
+            _logger.LogError(ex, "Error rendering PDF: {Message}", ex.Message);
+            return StatusCode(500, new { 
+                error = "Failed to render PDF", 
+                message = ex.Message,
+                detail = "PDF renderer failed to process HTML. Check logs for details."
+            });
         }
     }
     
@@ -203,6 +242,7 @@ public class PdfController : ControllerBase
     // Классы запросов
     public class PdfRendererRequest
     {
+        public int TemplateId { get; set; }
         public List<PdfPageRequest> Pages { get; set; } = new List<PdfPageRequest>();
         public Dictionary<string, string> Data { get; set; } = new Dictionary<string, string>();
         public bool GeneratePreview { get; set; }
