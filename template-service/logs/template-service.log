@@ -1,0 +1,26 @@
+2025-04-26 12:26:04.807 | INFO     | app.utils.logger:setup_logging:31 - Logging initialized with level: INFO
+2025-04-26 12:26:04.809 | INFO     | app.main:startup_event:56 - Starting template-service
+2025-04-26 12:26:04.809 | INFO     | app.main:startup_event:57 - Server running at http://0.0.0.0:8083
+2025-04-26 12:26:04.810 | INFO     | app.main:startup_event:58 - Documentation available at http://0.0.0.0:8083/api/docs
+2025-04-26 12:29:36.240 | INFO     | app.main:shutdown_event:63 - Shutting down template-service
+2025-04-26 12:29:48.464 | INFO     | app.utils.logger:setup_logging:31 - Logging initialized with level: INFO
+2025-04-26 12:29:48.466 | INFO     | app.main:startup_event:56 - Starting template-service
+2025-04-26 12:29:48.466 | INFO     | app.main:startup_event:57 - Server running at http://0.0.0.0:8083
+2025-04-26 12:29:48.466 | INFO     | app.main:startup_event:58 - Documentation available at http://0.0.0.0:8083/api/docs
+2025-04-26 12:34:51.825 | INFO     | app.api.routes:render_template:18 - Received template render request: template_id=1, page_index=0
+2025-04-26 12:34:51.828 | WARNING  | app.services.template_engine:_render_simple_template:121 - Variable 'patronymic' not found in data
+2025-04-26 12:34:51.828 | WARNING  | app.services.template_engine:_render_simple_template:121 - Variable 'address' not found in data
+2025-04-26 12:34:51.828 | WARNING  | app.services.template_engine:_render_simple_template:121 - Variable 'phone' not found in data
+2025-04-26 12:34:51.829 | WARNING  | app.services.template_engine:_render_simple_template:121 - Variable 'email' not found in data
+2025-04-26 12:34:51.829 | INFO     | app.api.routes:render_template:34 - Template rendered successfully
+2025-04-26 12:46:49.101 | INFO     | app.api.routes:render_template:18 - Received template render request: template_id=1, page_index=0
+2025-04-26 12:46:49.102 | WARNING  | app.services.template_engine:_render_simple_template:121 - Variable 'address' not found in data
+2025-04-26 12:46:49.103 | WARNING  | app.services.template_engine:_render_simple_template:121 - Variable 'phone' not found in data
+2025-04-26 12:46:49.103 | WARNING  | app.services.template_engine:_render_simple_template:121 - Variable 'email' not found in data
+2025-04-26 12:46:49.104 | INFO     | app.api.routes:render_template:34 - Template rendered successfully
+2025-04-26 12:47:22.100 | INFO     | app.api.routes:render_template:18 - Received template render request: template_id=1, page_index=0
+2025-04-26 12:47:22.101 | WARNING  | app.services.template_engine:_render_simple_template:121 - Variable 'patronymic' not found in data
+2025-04-26 12:47:22.101 | WARNING  | app.services.template_engine:_render_simple_template:121 - Variable 'address' not found in data
+2025-04-26 12:47:22.102 | WARNING  | app.services.template_engine:_render_simple_template:121 - Variable 'phone' not found in data
+2025-04-26 12:47:22.102 | WARNING  | app.services.template_engine:_render_simple_template:121 - Variable 'email' not found in data
+2025-04-26 12:47:22.103 | INFO     | app.api.routes:render_template:34 - Template rendered successfully

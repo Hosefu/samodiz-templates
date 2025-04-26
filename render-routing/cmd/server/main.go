@@ -12,6 +12,7 @@ import (
 	"render-routing/internal/config"
 	"render-routing/internal/renderer"
 	"render-routing/internal/storage"
+	"render-routing/internal/template"
 	"render-routing/pkg/httputil"
 	"render-routing/pkg/logger"
 )
@@ -58,8 +59,20 @@ func main() {
 		log,
 	)
 
+	// Настраиваем клиент для сервиса шаблонизации
+	templateClientConfig := httputil.ClientConfig{
+		Timeout:         cfg.HTTPClient.Timeout,
+		MaxIdleConns:    cfg.HTTPClient.MaxIdleConns,
+		IdleConnTimeout: cfg.HTTPClient.IdleConnTimeout,
+	}
+	templateClient := template.NewClient(
+		cfg.TemplateService.URL,
+		templateClientConfig,
+		log,
+	)
+
 	// Создаем процессор шаблонов
-	templateProcessor := renderer.NewTemplateProcessor(log)
+	templateProcessor := renderer.NewTemplateProcessor(templateClient, log)
 
 	// Создаем маршрутизатор рендереров
 	rendererRouter := renderer.NewRouter(
