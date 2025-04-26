@@ -3,25 +3,101 @@ import uuid
 import json
 import logging
 import os
-from rest_framework import viewsets
+from rest_framework import viewsets, status
 from rest_framework.permissions import AllowAny
-from .models import Template, GeneratedTemplate, Page, PageAsset
-from .serializers import TemplateSerializer, GeneratedTemplateSerializer, PageSerializer, PageAssetSerializer
-from rest_framework.decorators import api_view, parser_classes
+from .models import Template, GeneratedTemplate, Page, PageAsset, TemplatePermission
+from .serializers import TemplateSerializer, GeneratedTemplateSerializer, PageSerializer, PageAssetSerializer, TemplatePermissionSerializer
+from rest_framework.decorators import api_view, parser_classes, action, permission_classes
 from rest_framework.parsers import MultiPartParser, JSONParser
 from rest_framework.response import Response
 from django.http import FileResponse, JsonResponse
 from django.shortcuts import get_object_or_404
+from django.db.models import Q
+from .permissions import IsOwnerOrHasPermission, IsAdminOrReadOnly
 
 # Configure logger
 logger = logging.getLogger('template_service')
 
 class TemplateViewSet(viewsets.ModelViewSet):
-    queryset = Template.objects.all()
     serializer_class = TemplateSerializer
-    authentication_classes = []
-    permission_classes = [AllowAny]
+    permission_classes = [IsOwnerOrHasPermission]
     
+    def get_queryset(self):
+        """
+        Фильтрация шаблонов на основе прав пользователя:
+        1. Администраторы видят все шаблоны
+        2. Обычные пользователи видят:
+           - свои шаблоны
+           - публичные шаблоны
+           - шаблоны, к которым у них есть прямой доступ
+           - шаблоны, к которым есть доступ у групп пользователя
+        """
+        user = self.request.user
+        
+        # Проверка на анонимного пользователя
+        if user.is_anonymous:
+            return Template.objects.filter(is_public=True)
+        
+        # Админы видят всё
+        if user.is_admin():
+            return Template.objects.all()
+            
+        # Получаем ID групп пользователя
+        user_groups = user.custom_groups.all()
+        
+        # Фильтруем шаблоны
+        return Template.objects.filter(
+            Q(owner=user) |  # владелец
+            Q(is_public=True) |  # публичные
+            Q(permissions__user=user, permissions__permission_type='view') |  # с прямым доступом
+            Q(permissions__group__in=user_groups, permissions__permission_type='view')  # с групповым доступом
+        ).distinct()
+    
+    def perform_create(self, serializer):
+        """При создании шаблона автоматически назначаем текущего пользователя владельцем"""
+        serializer.save(owner=self.request.user)
+    
+    @action(detail=True, methods=['get'])
+    def permissions(self, request, pk=None):
+        """Получение списка разрешений для шаблона"""
+        template = self.get_object()
+        permissions = TemplatePermission.objects.filter(template=template)
+        serializer = TemplatePermissionSerializer(permissions, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['post'])
+    def add_permission(self, request, pk=None):
+        """Добавление разрешения для шаблона"""
+        template = self.get_object()
+        
+        # Проверяем, что пользователь - владелец или админ
+        if request.user != template.owner and not request.user.is_admin():
+            return Response({"detail": "You don't have permission to manage permissions"}, 
+                           status=status.HTTP_403_FORBIDDEN)
+        
+        serializer = TemplatePermissionSerializer(data={**request.data, 'template': template.id})
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    @action(detail=True, methods=['delete'])
+    def remove_permission(self, request, pk=None, permission_id=None):
+        """Удаление разрешения"""
+        template = self.get_object()
+        
+        # Проверяем, что пользователь - владелец или админ
+        if request.user != template.owner and not request.user.is_admin():
+            return Response({"detail": "You don't have permission to manage permissions"}, 
+                           status=status.HTTP_403_FORBIDDEN)
+        
+        try:
+            permission = TemplatePermission.objects.get(id=permission_id, template=template)
+            permission.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except TemplatePermission.DoesNotExist:
+            return Response({"detail": "Permission not found"}, status=status.HTTP_404_NOT_FOUND)
+
     def retrieve(self, request, *args, **kwargs):
         """Override to add detailed logging for template retrieval"""
         logger.info(f"--- TEMPLATE RETRIEVAL START ---")
@@ -227,6 +303,7 @@ def serve_template_file(request, file_id):
         return Response({'error': f'Error serving file: {str(e)}'}, status=500)
 
 @api_view(['GET'])
+@permission_classes([])  # Отключаем проверку аутентификации для этого эндпоинта
 def health_check(request):
     """Health check endpoint"""
     logger.info("Health check request received")

@@ -8,11 +8,17 @@ import PageEdit from '../pages/admin/PageEdit';
 import PageCreate from '../pages/admin/PageCreate';
 import PublicLayout from '../components/layout/PublicLayout';
 import Home from '../pages/public/Home';
+import LoginPage from '../pages/auth/LoginPage';
+import PrivateRoute from '../components/auth/PrivateRoute';
 
 const router = createBrowserRouter([
   {
     path: "/admin",
-    element: <AdminLayout />,
+    element: (
+      <PrivateRoute requireAdmin={true}>
+        <AdminLayout />
+      </PrivateRoute>
+    ),
     children: [
       { path: "", element: <Dashboard /> },
       { path: "templates", element: <TemplateList /> },
@@ -26,7 +32,8 @@ const router = createBrowserRouter([
     path: "/",
     element: <PublicLayout />,
     children: [
-      { path: "", element: <Home /> }
+      { path: "", element: <Home /> },
+      { path: "login", element: <LoginPage /> }
     ]
   }
 ]);

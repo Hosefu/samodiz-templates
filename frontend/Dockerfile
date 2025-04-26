@@ -6,10 +6,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 
 # Устанавливаем зависимости
-RUN npm ci
-
-# Устанавливаем недостающие пакеты
-RUN npm install lucide-react
+RUN npm install
 
 # Копируем все файлы проекта
 COPY . .

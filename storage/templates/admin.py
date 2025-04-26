@@ -1,6 +1,7 @@
 from django.contrib import admin
 import nested_admin
-from .models import Template, Page, Field, PageAsset, GeneratedTemplate, PageSettings
+from django.contrib.auth.admin import UserAdmin
+from .models import Template, Page, Field, PageAsset, GeneratedTemplate, PageSettings, User, UserGroup, TemplatePermission
 
 class FieldInline(nested_admin.NestedTabularInline):
     model = Field
@@ -19,15 +20,62 @@ class PageInline(nested_admin.NestedTabularInline):
     inlines = [FieldInline, PageAssetInline, PageSettingsInline]
     extra = 1
 
+# Регистрируем пользовательскую модель
+@admin.register(User)
+class CustomUserAdmin(UserAdmin):
+    list_display = ['username', 'email', 'first_name', 'last_name', 'role', 'is_active']
+    list_filter = ['role', 'is_active', 'date_joined']
+    fieldsets = (
+        (None, {'fields': ('username', 'password')}),
+        ('Personal info', {'fields': ('first_name', 'last_name', 'email')}),
+        ('Permissions', {'fields': ('role', 'is_active', 'is_staff', 'is_superuser')}),
+        ('Advanced options', {'fields': ('additional_info', 'preferences'), 'classes': ('collapse',)}),
+    )
+    search_fields = ['username', 'email', 'first_name', 'last_name']
+
+# Регистрируем группы пользователей
+@admin.register(UserGroup)
+class UserGroupAdmin(admin.ModelAdmin):
+    list_display = ['name', 'description', 'member_count']
+    search_fields = ['name', 'description']
+    filter_horizontal = ['members']
+    
+    def member_count(self, obj):
+        return obj.members.count()
+    member_count.short_description = 'Members'
+
+# Модифицируем администрирование разрешений
+class TemplatePermissionInline(admin.TabularInline):
+    model = TemplatePermission
+    extra = 1
+    fk_name = 'template'
+
+# Обновляем администрирование шаблонов
 @admin.register(Template)
 class TemplateAdmin(nested_admin.NestedModelAdmin):
-    inlines = [PageInline]
-    list_display = ['name', 'version', 'type', 'generated_files_count']
-    list_filter = ['type']
+    list_display = ['label', 'name', 'version', 'type', 'owner', 'is_public', 'created_at']
+    list_filter = ['type', 'is_public', 'created_at']
+    search_fields = ['label', 'name']
+    inlines = [PageInline, TemplatePermissionInline]
     
     def generated_files_count(self, obj):
         return obj.generated_templates.count()
     generated_files_count.short_description = 'Generated Files'
+
+# Регистрируем модель разрешений
+@admin.register(TemplatePermission)
+class TemplatePermissionAdmin(admin.ModelAdmin):
+    list_display = ['template', 'get_user_or_group', 'permission_type', 'created_at']
+    list_filter = ['permission_type', 'created_at']
+    search_fields = ['template__name', 'template__label', 'user__username', 'group__name']
+    
+    def get_user_or_group(self, obj):
+        if obj.user:
+            return f"User: {obj.user.username}"
+        elif obj.group:
+            return f"Group: {obj.group.name}"
+        return "None"
+    get_user_or_group.short_description = 'Granted to'
 
 @admin.register(GeneratedTemplate)
 class GeneratedTemplateAdmin(admin.ModelAdmin):

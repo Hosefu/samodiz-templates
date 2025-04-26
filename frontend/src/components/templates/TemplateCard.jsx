@@ -8,13 +8,13 @@ const TemplateCard = ({ template, selected, onClick }) => (
   >
     <div className="flex justify-between items-center">
       <div>
-        <h3 className="font-medium text-slate-900">{template.name}</h3>
+        <h3 className="font-medium text-slate-900">{template.label || template.name}</h3>
         <p className="text-sm text-slate-500">Версия: {template.version}</p>
         <div className="flex items-center mt-2">
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
             {template.type.toUpperCase()}
           </span>
-          <span className="ml-2 text-xs text-slate-500">{template.pages.length} страниц</span>
+          <span className="ml-2 text-xs text-slate-500">{template.pages?.length || 0} страниц</span>
         </div>
       </div>
       {selected && (

@@ -1,6 +1,24 @@
 version: '3.8'
 
 services:
+  db:
+    image: postgres:16-alpine
+    container_name: db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-postgres}
+      - POSTGRES_USER=${DB_USER:-postgres}
+      - POSTGRES_DB=${DB_NAME:-samodesdb}
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
   frontend:
     build:
       context: ./frontend
@@ -11,6 +29,7 @@ services:
       - VITE_STORAGE_URL=http://localhost/storage
       - VITE_PDF_URL=http://localhost/pdf
       - VITE_PNG_URL=http://localhost/png
+      - VITE_JWT_SECRET=${JWT_SECRET:-your-jwt-secret-key}
     volumes:
       - ./frontend:/app
       - /app/node_modules
@@ -38,15 +57,25 @@ services:
         gunicorn storage.wsgi:application --bind 0.0.0.0:${STORAGE_PORT:-8000}
       "
     environment:
-      - API_KEY=development-api-key
-      - DJANGO_DEBUG=True
+      - API_KEY=${API_KEY:-development-pdf-api-key}
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:-your-secret-key}
+      - JWT_SECRET=${JWT_SECRET:-your-jwt-secret-key}
+      - DEBUG=1
       - STORAGE_PORT=${STORAGE_PORT:-8000}
+      - DB_NAME=${DB_NAME:-samodesdb}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - DB_HOST=${DB_HOST:-db}
+      - DB_PORT=${DB_PORT:-5432}
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:${STORAGE_PORT:-8000}/api/health/"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 10s
+    depends_on:
+      db:
+        condition: service_healthy
 
   render-routing-service:
     build:
@@ -71,7 +100,8 @@ services:
       - RENDERERS_PDF_RENDERER=http://pdf-renderer:${PDF_PORT:-8081}/api/pdf/render
       - RENDERERS_PNG_RENDERER=http://png-renderer:${PNG_PORT:-8082}/api/png/render
       - STORAGE_API_BASE_URL=http://storage-service:${STORAGE_PORT:-8000}/api
-      - STORAGE_API_KEY=development-api-key
+      - STORAGE_API_KEY=${API_KEY:-development-pdf-api-key}
+      - JWT_SECRET=${JWT_SECRET:-your-jwt-secret-key}
       - LOGGER_LEVEL=info
       - TEMPLATE_SERVICE_URL=http://template-service:8083/api/template/render
     healthcheck:
@@ -97,6 +127,8 @@ services:
       - ASPNETCORE_URLS=http://+:${PDF_PORT:-8081}
       - Logging__LogLevel__Default=Debug
       - Logging__LogLevel__PdfRenderer=Debug
+      - API_KEY=${API_KEY:-development-pdf-api-key}
+      - JWT_SECRET=${JWT_SECRET:-your-jwt-secret-key}
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:${PDF_PORT:-8081}/api/health"]
       interval: 30s
@@ -122,6 +154,8 @@ services:
       - PNG_RENDERER_CACHE_ENABLED=True
       - PNG_RENDERER_BROWSER_HEADLESS=True
       - PNG_RENDERER_MAX_CONCURRENT_BROWSERS=5
+      - API_KEY=${API_KEY:-development-pdf-api-key}
+      - JWT_SECRET=${JWT_SECRET:-your-jwt-secret-key}
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:${PNG_PORT:-8082}/api/png/health/"]
       interval: 30s
@@ -145,6 +179,8 @@ services:
       - TEMPLATE_SERVICE_PORT=8083
       - TEMPLATE_SERVICE_LOG_LEVEL=INFO
       - TEMPLATE_SERVICE_DEBUG=False
+      - API_KEY=${API_KEY:-development-pdf-api-key}
+      - JWT_SECRET=${JWT_SECRET:-your-jwt-secret-key}
     healthcheck:
       test: ["CMD", "wget", "-O", "-", "http://localhost:8083/api/template/health"]
       interval: 30s
@@ -169,6 +205,8 @@ services:
         condition: service_healthy
       png-renderer:
         condition: service_healthy
+      template-service:
+        condition: service_healthy
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - static_data:/usr/share/nginx/html/static:ro
@@ -181,3 +219,4 @@ volumes:
   static_data:
   pdf_data:
   png_data:
+  postgres_data:
