@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { createPage } from '../../api/pageService';
+import { getHeaders } from '../../utils/apiConfig';
 import CodeEditor from '../../components/admin/CodeEditor';
 
 const PageCreate = () => {
@@ -44,6 +45,9 @@ const PageCreate = () => {
         fields,
         assets: []
       };
+      
+      // Отладочная информация - выводим заголовки
+      console.log("Creating page with headers:", getHeaders());
       
       const newPage = await createPage(templateId, pageData);
       navigate(`/admin/templates/${templateId}/pages/${newPage.name}`);

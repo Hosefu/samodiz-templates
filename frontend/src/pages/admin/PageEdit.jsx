@@ -326,32 +326,37 @@ const PageEdit = () => {
               <div className="mt-6">
                 <h5 className="text-sm font-medium text-gray-700 mb-3">Uploaded Assets</h5>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {page.assets.map((asset) => (
-                    <div key={asset.id} className="relative group">
-                      <div className="aspect-w-1 aspect-h-1 rounded-lg bg-gray-100 overflow-hidden">
-                        {asset.type && asset.type.startsWith('image/') ? (
-                          <img
-                            src={asset.url}
-                            alt={asset.name}
-                            className="object-cover"
-                          />
-                        ) : (
-                          <div className="flex items-center justify-center h-full">
-                            <span className="text-gray-500">{asset.name}</span>
-                          </div>
-                        )}
+                  {page.assets.map((asset) => {
+                    const fileName = asset.file ? asset.file.split('/').pop() : 'Unknown file';
+                    const isImage = /\.(jpg|jpeg|png|gif|svg)$/i.test(asset.file || '');
+                    
+                    return (
+                      <div key={asset.id} className="relative group">
+                        <div className="aspect-w-1 aspect-h-1 rounded-lg bg-gray-100 overflow-hidden">
+                          {isImage ? (
+                            <img
+                              src={asset.file}
+                              alt={fileName}
+                              className="object-cover"
+                            />
+                          ) : (
+                            <div className="flex items-center justify-center h-full">
+                              <span className="text-gray-500">{fileName}</span>
+                            </div>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteAsset(asset.id)}
+                          className="absolute top-2 right-2 p-1 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteAsset(asset.id)}
-                        className="absolute top-2 right-2 p-1 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}

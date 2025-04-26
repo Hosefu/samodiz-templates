@@ -1,3 +1,5 @@
+import { getHeaders } from '../utils/apiConfig';
+
 const API_BASE_URL = '/api';
 
 export const fetchTemplates = async () => {
@@ -19,9 +21,7 @@ export const fetchTemplateById = async (id) => {
 export const createTemplate = async (templateData) => {
   const response = await fetch(`${API_BASE_URL}/templates/`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: getHeaders(),
     body: JSON.stringify(templateData),
   });
   if (!response.ok) {
@@ -33,9 +33,7 @@ export const createTemplate = async (templateData) => {
 export const updateTemplate = async (id, templateData) => {
   const response = await fetch(`${API_BASE_URL}/templates/${id}/`, {
     method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: getHeaders(),
     body: JSON.stringify(templateData),
   });
   if (!response.ok) {
@@ -47,6 +45,7 @@ export const updateTemplate = async (id, templateData) => {
 export const deleteTemplate = async (id) => {
   const response = await fetch(`${API_BASE_URL}/templates/${id}/`, {
     method: 'DELETE',
+    headers: getHeaders(),
   });
   if (!response.ok) {
     throw new Error(`Failed to delete template: ${response.statusText}`);
