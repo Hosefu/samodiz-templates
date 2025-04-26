@@ -1,72 +1,62 @@
 package renderer
 
 import (
+	"context"
 	"fmt"
-	"strings"
 
 	"render-routing/internal/models"
+	"render-routing/internal/template"
 	"render-routing/pkg/logger"
 )
 
 // TemplateProcessor обрабатывает шаблоны и подставляет данные
 type TemplateProcessor struct {
-	logger logger.Logger
+	logger         logger.Logger
+	templateClient *template.Client
 }
 
 // NewTemplateProcessor создает новый обработчик шаблонов
-func NewTemplateProcessor(logger logger.Logger) *TemplateProcessor {
+func NewTemplateProcessor(templateClient *template.Client, logger logger.Logger) *TemplateProcessor {
 	return &TemplateProcessor{
-		logger: logger,
+		logger:         logger,
+		templateClient: templateClient,
 	}
 }
 
 // ProcessTemplate подставляет данные в шаблон
-func (p *TemplateProcessor) ProcessTemplate(template *models.Template, data map[string]string) ([]string, error) {
-	if !template.IsValid() {
+func (p *TemplateProcessor) ProcessTemplate(ctx context.Context, tmpl *models.Template, data map[string]string) ([]string, error) {
+	if !tmpl.IsValid() {
 		return nil, fmt.Errorf("invalid template: no pages found")
 	}
 
-	p.logger.Debugf("Processing template %s (ID: %d) with %d pages",
-		template.Name, template.ID, len(template.Pages))
+	p.logger.Infof("Processing template %s (ID: %d) with %d pages",
+		tmpl.Name, tmpl.ID, len(tmpl.Pages))
 
 	// Результат - массив обработанных HTML-страниц
-	processedPages := make([]string, 0, len(template.Pages))
+	processedPages := make([]string, 0, len(tmpl.Pages))
 
 	// Обрабатываем каждую страницу
-	for i, page := range template.Pages {
+	for i, page := range tmpl.Pages {
 		p.logger.Debugf("Processing page %d: %s", i+1, page.Name)
 
-		// Берём исходный HTML
-		html := page.HTML
-
-		// Для каждого поля делаем замену {{FieldName}} -> value
-		for _, field := range page.Fields {
-			placeholder := fmt.Sprintf("{{%s}}", field.Name)
-			value, exists := data[field.Name]
-
-			if !exists {
-				// Если значение не предоставлено, проверяем, обязательно ли поле
-				if field.Required {
-					return nil, fmt.Errorf("required field %s not provided", field.Name)
-				}
-				value = "" // Пустая строка для необязательных полей
-			}
-
-			// Замена placeholder на значение
-			html = strings.ReplaceAll(html, placeholder, value)
-			p.logger.Debugf("  ↳ Replaced %s with value of length %d", placeholder, len(value))
+		// Создаем запрос к сервису шаблонизации
+		request := &template.RenderRequest{
+			TemplateHTML: page.HTML,
+			Data:         data,
+			TemplateID:   tmpl.ID,
+			PageIndex:    i,
 		}
 
-		// Ищем неподставленные плейсхолдеры
-		if index := strings.Index(html, "{{"); index != -1 {
-			end := strings.Index(html[index:], "}}") + index + 2
-			if end > index+2 {
-				placeholder := html[index:end]
-				p.logger.Warnf("Unreplaced placeholder found: %s", placeholder)
-			}
+		// Отправляем запрос к сервису шаблонизации
+		renderedHTML, err := p.templateClient.RenderTemplate(ctx, request)
+		if err != nil {
+			p.logger.Errorf("Error processing template page %d: %v", i+1, err)
+			return nil, fmt.Errorf("error processing template page %d: %w", i+1, err)
 		}
 
-		processedPages = append(processedPages, html)
+		// Добавляем обработанную страницу в результат
+		processedPages = append(processedPages, renderedHTML)
+		p.logger.Debugf("Page %d processed successfully (%d bytes)", i+1, len(renderedHTML))
 	}
 
 	p.logger.Infof("Template processing completed: %d pages processed", len(processedPages))

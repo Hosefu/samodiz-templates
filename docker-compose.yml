@@ -63,6 +63,8 @@ services:
         condition: service_healthy
       png-renderer:
         condition: service_healthy
+      template-service:
+        condition: service_healthy
     environment:
       - SERVER_PORT=${ROUTING_PORT:-8080}
       - RENDERERS_PDF_RENDERER=http://pdf-renderer:${PDF_PORT:-8081}/api/pdf/render
@@ -70,6 +72,7 @@ services:
       - STORAGE_API_BASE_URL=http://storage-service:${STORAGE_PORT:-8000}/api
       - STORAGE_API_KEY=development-api-key
       - LOGGER_LEVEL=info
+      - TEMPLATE_SERVICE_URL=http://template-service:8083/api/template/render
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:${ROUTING_PORT:-8080}/api/health"]
       interval: 30s
@@ -124,6 +127,29 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
+
+  template-service:
+    build:
+      context: ./template-service
+      dockerfile: Dockerfile
+    container_name: template-service
+    env_file:
+      - .env
+    volumes:
+      - ./template-service:/app
+    expose:
+      - "8083"
+    environment:
+      - TEMPLATE_SERVICE_HOST=0.0.0.0
+      - TEMPLATE_SERVICE_PORT=8083
+      - TEMPLATE_SERVICE_LOG_LEVEL=INFO
+      - TEMPLATE_SERVICE_DEBUG=False
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8083/api/template/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s 
 
   nginx:
     build:

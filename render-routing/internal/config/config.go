@@ -8,12 +8,13 @@ import (
 
 // Config определяет конфигурацию для сервиса
 type Config struct {
-	Server       ServerConfig       `mapstructure:"server"`
-	Renderers    RenderersConfig    `mapstructure:"renderers"`
-	StorageAPI   StorageAPIConfig   `mapstructure:"storage_api"`
-	TemplateAPI  TemplateAPIConfig  `mapstructure:"template_api"`
-	HTTPClient   HTTPClientConfig   `mapstructure:"http_client"`
-	LoggerConfig LoggerConfig       `mapstructure:"logger"`
+	Server          ServerConfig          `mapstructure:"server"`
+	Renderers       RenderersConfig       `mapstructure:"renderers"`
+	StorageAPI      StorageAPIConfig      `mapstructure:"storage_api"`
+	TemplateAPI     TemplateAPIConfig     `mapstructure:"template_api"`
+	TemplateService TemplateServiceConfig `mapstructure:"template_service"`
+	HTTPClient      HTTPClientConfig      `mapstructure:"http_client"`
+	LoggerConfig    LoggerConfig          `mapstructure:"logger"`
 }
 
 // ServerConfig определяет настройки HTTP сервера
@@ -40,6 +41,11 @@ type StorageAPIConfig struct {
 type TemplateAPIConfig struct {
 	BaseURL string `mapstructure:"base_url"`
 	APIKey  string `mapstructure:"api_key"`
+}
+
+// TemplateServiceConfig настройки для сервиса шаблонизации
+type TemplateServiceConfig struct {
+	URL string `mapstructure:"url"`
 }
 
 // HTTPClientConfig настройки HTTP клиента
@@ -78,7 +84,7 @@ func LoadConfig(path string) (*Config, error) {
 // LoadConfigFromEnv загружает конфигурацию только из переменных окружения
 func LoadConfigFromEnv() *Config {
 	viper.AutomaticEnv()
-	
+
 	cfg := &Config{
 		Server: ServerConfig{
 			Port:            viper.GetString("SERVER_PORT"),
@@ -137,6 +143,11 @@ func setDefaults(cfg *Config) {
 	}
 	if cfg.Renderers.PNGRenderer == "" {
 		cfg.Renderers.PNGRenderer = "http://png-renderer:8082/api/png/render"
+	}
+
+	// Значения по умолчанию для сервиса шаблонизации
+	if cfg.TemplateService.URL == "" {
+		cfg.TemplateService.URL = "http://template-service:8083/api/template/render"
 	}
 
 	// Значения по умолчанию для API хранилища

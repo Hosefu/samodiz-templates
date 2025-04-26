@@ -83,7 +83,7 @@ func (r *Router) RouteRenderRequest(ctx context.Context, request *models.RenderR
 	r.logger.Infof("All required fields validated successfully")
 
 	// Обрабатываем шаблон и подставляем данные
-	processedPages, err := r.templateProcessor.ProcessTemplate(template, request.Data)
+	processedPages, err := r.templateProcessor.ProcessTemplate(ctx, template, request.Data)
 	if err != nil {
 		r.logger.Errorf("Error processing template: %v", err)
 		return nil, fmt.Errorf("error processing template: %w", err)
