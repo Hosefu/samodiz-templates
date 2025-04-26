@@ -2,31 +2,30 @@ FROM node:20-alpine as build
 
 WORKDIR /app
 
-# Копируем файлы зависимостей
-COPY package*.json ./
+# Копируем только файлы для установки пакетов
+COPY package.json package-lock.json ./
 
 # Устанавливаем зависимости
-RUN npm install
+RUN npm ci
 
-# Копируем исходный код
+# Устанавливаем недостающие пакеты
+RUN npm install lucide-react
+
+# Копируем все файлы проекта
 COPY . .
 
-# Используем прямой путь к ES модульному скрипту Vite CLI
-RUN node node_modules/vite/dist/node/cli.js build
+# Собираем проект для production
+RUN npm run build
 
-# Production image (Nginx to serve static files)
+# Второй этап - легкий nginx контейнер с собранным приложением
 FROM nginx:alpine
-COPY --from=build /app/build /usr/share/nginx/html
 
-# Default Nginx config for single-page applications (React)
-RUN echo 'server { \
-    listen 80; \
-    root /usr/share/nginx/html; \
-    index index.html index.htm; \
-    location / { \
-        try_files $uri $uri/ /index.html; \
-    } \
-}' > /etc/nginx/conf.d/default.conf
+# Копируем собранный проект
+COPY --from=build /app/dist /usr/share/nginx/html
+
+# Копируем конфигурацию nginx
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
+
+CMD ["nginx", "-g", "daemon off;"] 

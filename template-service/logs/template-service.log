@@ -29,3 +29,84 @@
 2025-04-26 13:10:31.957 | WARNING  | app.services.template_engine:_render_simple_template:121 - Variable 'phone' not found in data
 2025-04-26 13:10:31.958 | WARNING  | app.services.template_engine:_render_simple_template:121 - Variable 'email' not found in data
 2025-04-26 13:10:31.959 | INFO     | app.api.routes:render_template:34 - Template rendered successfully
+2025-04-26 14:02:37.004 | INFO     | app.main:shutdown_event:63 - Shutting down template-service
+2025-04-26 14:10:01.298 | INFO     | app.utils.logger:setup_logging:31 - Logging initialized with level: INFO
+2025-04-26 14:10:01.300 | INFO     | app.main:startup_event:56 - Starting template-service
+2025-04-26 14:10:01.301 | INFO     | app.main:startup_event:57 - Server running at http://0.0.0.0:8083
+2025-04-26 14:10:01.301 | INFO     | app.main:startup_event:58 - Documentation available at http://0.0.0.0:8083/api/docs
+2025-04-26 14:13:11.400 | INFO     | app.main:shutdown_event:63 - Shutting down template-service
+2025-04-26 14:13:12.455 | INFO     | app.utils.logger:setup_logging:31 - Logging initialized with level: INFO
+2025-04-26 14:13:12.458 | INFO     | app.main:startup_event:56 - Starting template-service
+2025-04-26 14:13:12.459 | INFO     | app.main:startup_event:57 - Server running at http://0.0.0.0:8083
+2025-04-26 14:13:12.459 | INFO     | app.main:startup_event:58 - Documentation available at http://0.0.0.0:8083/api/docs
+2025-04-26 14:21:26.331 | INFO     | app.main:shutdown_event:63 - Shutting down template-service
+2025-04-26 14:24:06.370 | INFO     | app.utils.logger:setup_logging:31 - Logging initialized with level: INFO
+2025-04-26 14:24:06.372 | INFO     | app.main:startup_event:56 - Starting template-service
+2025-04-26 14:24:06.373 | INFO     | app.main:startup_event:57 - Server running at http://0.0.0.0:8083
+2025-04-26 14:24:06.373 | INFO     | app.main:startup_event:58 - Documentation available at http://0.0.0.0:8083/api/docs
+2025-04-26 14:24:54.994 | INFO     | app.main:shutdown_event:63 - Shutting down template-service
+2025-04-26 14:25:07.425 | INFO     | app.utils.logger:setup_logging:31 - Logging initialized with level: INFO
+2025-04-26 14:25:07.427 | INFO     | app.main:startup_event:56 - Starting template-service
+2025-04-26 14:25:07.428 | INFO     | app.main:startup_event:57 - Server running at http://0.0.0.0:8083
+2025-04-26 14:25:07.428 | INFO     | app.main:startup_event:58 - Documentation available at http://0.0.0.0:8083/api/docs
+2025-04-26 14:26:47.527 | INFO     | app.main:shutdown_event:63 - Shutting down template-service
+2025-04-26 14:27:06.961 | INFO     | app.utils.logger:setup_logging:31 - Logging initialized with level: INFO
+2025-04-26 14:27:06.963 | INFO     | app.main:startup_event:56 - Starting template-service
+2025-04-26 14:27:06.963 | INFO     | app.main:startup_event:57 - Server running at http://0.0.0.0:8083
+2025-04-26 14:27:06.964 | INFO     | app.main:startup_event:58 - Documentation available at http://0.0.0.0:8083/api/docs
+2025-04-26 14:28:40.769 | INFO     | app.api.routes:render_template:18 - Received template render request: template_id=1, page_index=0
+2025-04-26 14:28:40.771 | WARNING  | app.services.template_engine:_render_simple_template:121 - Variable 'patronymic' not found in data
+2025-04-26 14:28:40.771 | WARNING  | app.services.template_engine:_render_simple_template:121 - Variable 'address' not found in data
+2025-04-26 14:28:40.772 | WARNING  | app.services.template_engine:_render_simple_template:121 - Variable 'phone' not found in data
+2025-04-26 14:28:40.772 | WARNING  | app.services.template_engine:_render_simple_template:121 - Variable 'email' not found in data
+2025-04-26 14:28:40.772 | INFO     | app.api.routes:render_template:34 - Template rendered successfully
+2025-04-26 14:36:41.456 | INFO     | app.main:shutdown_event:63 - Shutting down template-service
+2025-04-26 14:36:53.905 | INFO     | app.utils.logger:setup_logging:31 - Logging initialized with level: INFO
+2025-04-26 14:36:53.907 | INFO     | app.main:startup_event:56 - Starting template-service
+2025-04-26 14:36:53.908 | INFO     | app.main:startup_event:57 - Server running at http://0.0.0.0:8083
+2025-04-26 14:36:53.908 | INFO     | app.main:startup_event:58 - Documentation available at http://0.0.0.0:8083/api/docs
+2025-04-26 14:39:15.988 | INFO     | app.main:shutdown_event:63 - Shutting down template-service
+2025-04-26 14:39:28.489 | INFO     | app.utils.logger:setup_logging:31 - Logging initialized with level: INFO
+2025-04-26 14:39:28.494 | INFO     | app.main:startup_event:56 - Starting template-service
+2025-04-26 14:39:28.494 | INFO     | app.main:startup_event:57 - Server running at http://0.0.0.0:8083
+2025-04-26 14:39:28.494 | INFO     | app.main:startup_event:58 - Documentation available at http://0.0.0.0:8083/api/docs
+2025-04-26 14:41:34.401 | INFO     | app.main:shutdown_event:63 - Shutting down template-service
+2025-04-26 14:41:46.881 | INFO     | app.utils.logger:setup_logging:31 - Logging initialized with level: INFO
+2025-04-26 14:41:46.884 | INFO     | app.main:startup_event:56 - Starting template-service
+2025-04-26 14:41:46.884 | INFO     | app.main:startup_event:57 - Server running at http://0.0.0.0:8083
+2025-04-26 14:41:46.884 | INFO     | app.main:startup_event:58 - Documentation available at http://0.0.0.0:8083/api/docs
+2025-04-26 14:43:06.848 | INFO     | app.main:shutdown_event:63 - Shutting down template-service
+2025-04-26 14:43:19.577 | INFO     | app.utils.logger:setup_logging:31 - Logging initialized with level: INFO
+2025-04-26 14:43:19.579 | INFO     | app.main:startup_event:56 - Starting template-service
+2025-04-26 14:43:19.580 | INFO     | app.main:startup_event:57 - Server running at http://0.0.0.0:8083
+2025-04-26 14:43:19.580 | INFO     | app.main:startup_event:58 - Documentation available at http://0.0.0.0:8083/api/docs
+2025-04-26 14:44:13.336 | INFO     | app.main:shutdown_event:63 - Shutting down template-service
+2025-04-26 14:44:26.213 | INFO     | app.utils.logger:setup_logging:31 - Logging initialized with level: INFO
+2025-04-26 14:44:26.216 | INFO     | app.main:startup_event:56 - Starting template-service
+2025-04-26 14:44:26.216 | INFO     | app.main:startup_event:57 - Server running at http://0.0.0.0:8083
+2025-04-26 14:44:26.216 | INFO     | app.main:startup_event:58 - Documentation available at http://0.0.0.0:8083/api/docs
+2025-04-26 14:47:22.418 | INFO     | app.main:shutdown_event:63 - Shutting down template-service
+2025-04-26 14:47:34.871 | INFO     | app.utils.logger:setup_logging:31 - Logging initialized with level: INFO
+2025-04-26 14:47:34.874 | INFO     | app.main:startup_event:56 - Starting template-service
+2025-04-26 14:47:34.874 | INFO     | app.main:startup_event:57 - Server running at http://0.0.0.0:8083
+2025-04-26 14:47:34.875 | INFO     | app.main:startup_event:58 - Documentation available at http://0.0.0.0:8083/api/docs
+2025-04-26 14:49:06.032 | INFO     | app.main:shutdown_event:63 - Shutting down template-service
+2025-04-26 14:49:31.322 | INFO     | app.utils.logger:setup_logging:31 - Logging initialized with level: INFO
+2025-04-26 14:49:31.324 | INFO     | app.main:startup_event:56 - Starting template-service
+2025-04-26 14:49:31.325 | INFO     | app.main:startup_event:57 - Server running at http://0.0.0.0:8083
+2025-04-26 14:49:31.325 | INFO     | app.main:startup_event:58 - Documentation available at http://0.0.0.0:8083/api/docs
+2025-04-26 14:55:31.942 | INFO     | app.main:shutdown_event:63 - Shutting down template-service
+2025-04-26 14:55:58.144 | INFO     | app.utils.logger:setup_logging:31 - Logging initialized with level: INFO
+2025-04-26 14:55:58.146 | INFO     | app.main:startup_event:56 - Starting template-service
+2025-04-26 14:55:58.146 | INFO     | app.main:startup_event:57 - Server running at http://0.0.0.0:8083
+2025-04-26 14:55:58.147 | INFO     | app.main:startup_event:58 - Documentation available at http://0.0.0.0:8083/api/docs
+2025-04-26 15:05:58.297 | INFO     | app.main:shutdown_event:63 - Shutting down template-service
+2025-04-26 15:06:25.058 | INFO     | app.utils.logger:setup_logging:31 - Logging initialized with level: INFO
+2025-04-26 15:06:25.061 | INFO     | app.main:startup_event:56 - Starting template-service
+2025-04-26 15:06:25.061 | INFO     | app.main:startup_event:57 - Server running at http://0.0.0.0:8083
+2025-04-26 15:06:25.062 | INFO     | app.main:startup_event:58 - Documentation available at http://0.0.0.0:8083/api/docs
+2025-04-26 15:27:31.481 | INFO     | app.main:shutdown_event:63 - Shutting down template-service
+2025-04-26 15:28:00.119 | INFO     | app.utils.logger:setup_logging:31 - Logging initialized with level: INFO
+2025-04-26 15:28:00.121 | INFO     | app.main:startup_event:56 - Starting template-service
+2025-04-26 15:28:00.122 | INFO     | app.main:startup_event:57 - Server running at http://0.0.0.0:8083
+2025-04-26 15:28:00.122 | INFO     | app.main:startup_event:58 - Documentation available at http://0.0.0.0:8083/api/docs

@@ -97,6 +97,11 @@ const App = () => {
   const [generatedFileUrl, setGeneratedFileUrl] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
 
+  // Переход на админку
+  const goToAdmin = () => {
+    window.location.href = '/admin/';
+  };
+
   // Получение списка шаблонов при загрузке
   useEffect(() => {
     fetchTemplates();
@@ -195,16 +200,27 @@ const App = () => {
     switch (currentStep) {
       case 0:
         return (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {(templates || []).map(template => (
-              <TemplateCard
-                key={template.id}
-                template={template}
-                selected={selectedTemplate?.id === template.id}
-                onClick={() => handleTemplateSelect(template)}
-              />
-            ))}
-          </div>
+          <>
+            <div className="flex justify-end mb-4">
+              <Button
+                variant="outline"
+                onClick={goToAdmin}
+                className="mb-4"
+              >
+                Перейти в админку
+              </Button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {(templates || []).map(template => (
+                <TemplateCard
+                  key={template.id}
+                  template={template}
+                  selected={selectedTemplate?.id === template.id}
+                  onClick={() => handleTemplateSelect(template)}
+                />
+              ))}
+            </div>
+          </>
         );
       case 1:
         // Added error handling for when template structure is invalid

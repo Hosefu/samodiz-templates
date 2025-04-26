@@ -16,7 +16,7 @@ class PageAssetSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PageAsset
-        fields = ['file']
+        fields = ['id', 'file']
 
 class PageSettingsSerializer(serializers.ModelSerializer):
     class Meta:
@@ -30,7 +30,7 @@ class PageSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Page
-        fields = ['name', 'html', 'width', 'height', 'units', 'bleeds', 'assets', 'fields', 'settings']
+        fields = ['id', 'name', 'html', 'width', 'height', 'units', 'bleeds', 'assets', 'fields', 'settings']
 
 class TemplateSerializer(serializers.ModelSerializer):
     pages = PageSerializer(many=True, read_only=True)

@@ -1,30 +1,38 @@
-import React, { createContext, useContext, useState } from 'react';
-import { useTemplates } from '../hooks';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { fetchTemplates } from '../api/templateService';
 
 const TemplateContext = createContext();
 
 export const TemplateProvider = ({ children }) => {
-  const { templates, isLoading, error, fetchTemplates } = useTemplates();
-  const [selectedTemplate, setSelectedTemplate] = useState(null);
+  const [templates, setTemplates] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  const selectTemplate = (template) => {
-    setSelectedTemplate(template);
+  const loadTemplates = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await fetchTemplates();
+      setTemplates(data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const clearSelectedTemplate = () => {
-    setSelectedTemplate(null);
-  };
+  useEffect(() => {
+    loadTemplates();
+  }, []);
 
   return (
-    <TemplateContext.Provider 
-      value={{ 
-        templates, 
-        isLoading, 
-        error, 
-        selectedTemplate, 
-        selectTemplate, 
-        clearSelectedTemplate,
-        refreshTemplates: fetchTemplates
+    <TemplateContext.Provider
+      value={{
+        templates,
+        loading,
+        error,
+        refreshTemplates: loadTemplates,
+        setTemplates
       }}
     >
       {children}
@@ -32,10 +40,10 @@ export const TemplateProvider = ({ children }) => {
   );
 };
 
-export const useTemplateContext = () => {
+export const useTemplates = () => {
   const context = useContext(TemplateContext);
-  if (!context) {
-    throw new Error('useTemplateContext must be used within a TemplateProvider');
+  if (context === undefined) {
+    throw new Error('useTemplates must be used within a TemplateProvider');
   }
   return context;
 }; 

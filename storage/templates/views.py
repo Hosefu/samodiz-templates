@@ -4,8 +4,9 @@ import json
 import logging
 import os
 from rest_framework import viewsets
-from .models import Template, GeneratedTemplate
-from .serializers import TemplateSerializer, GeneratedTemplateSerializer
+from rest_framework.permissions import AllowAny
+from .models import Template, GeneratedTemplate, Page, PageAsset
+from .serializers import TemplateSerializer, GeneratedTemplateSerializer, PageSerializer, PageAssetSerializer
 from rest_framework.decorators import api_view, parser_classes
 from rest_framework.parsers import MultiPartParser, JSONParser
 from rest_framework.response import Response
@@ -15,9 +16,11 @@ from django.shortcuts import get_object_or_404
 # Configure logger
 logger = logging.getLogger('template_service')
 
-class TemplateViewSet(viewsets.ReadOnlyModelViewSet):
+class TemplateViewSet(viewsets.ModelViewSet):
     queryset = Template.objects.all()
     serializer_class = TemplateSerializer
+    authentication_classes = []
+    permission_classes = [AllowAny]
     
     def retrieve(self, request, *args, **kwargs):
         """Override to add detailed logging for template retrieval"""
@@ -228,3 +231,47 @@ def health_check(request):
     """Health check endpoint"""
     logger.info("Health check request received")
     return JsonResponse({'status': 'ok', 'service': 'storage-service'})
+
+@api_view(['GET', 'POST'])
+def pages_list_create(request, template_id):
+    if request.method == 'GET':
+        pages = Page.objects.filter(template_id=template_id)
+        serializer = PageSerializer(pages, many=True)
+        return Response(serializer.data)
+    elif request.method == 'POST':
+        serializer = PageSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(template_id=template_id)
+            return Response(serializer.data, status=201)
+        return Response(serializer.errors, status=400)
+
+@api_view(['GET', 'PUT', 'DELETE'])
+def page_detail(request, template_id, page_id):
+    page = get_object_or_404(Page, template_id=template_id, name=page_id)
+    if request.method == 'GET':
+        serializer = PageSerializer(page)
+        return Response(serializer.data)
+    elif request.method == 'PUT':
+        serializer = PageSerializer(page, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=400)
+    elif request.method == 'DELETE':
+        page.delete()
+        return Response(status=204)
+
+@api_view(['POST'])
+def upload_page_asset(request, template_id, page_id):
+    page = get_object_or_404(Page, template_id=template_id, name=page_id)
+    if 'file' not in request.FILES:
+        return Response({'error': 'File not provided'}, status=400)
+    asset = PageAsset.objects.create(page=page, file=request.FILES['file'])
+    serializer = PageAssetSerializer(asset)
+    return Response(serializer.data)
+
+@api_view(['DELETE'])
+def delete_page_asset(request, template_id, page_id, asset_id):
+    asset = get_object_or_404(PageAsset, id=asset_id, page__template_id=template_id, page__name=page_id)
+    asset.delete()
+    return Response(status=204)

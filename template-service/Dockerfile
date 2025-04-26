@@ -2,9 +2,11 @@ FROM python:3.10-slim
 
 WORKDIR /app
 
-# Установка зависимостей
+# Установка зависимостей и инструментов для health check
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN apt-get update && apt-get install -y wget && \
+    pip install --no-cache-dir -r requirements.txt && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Создание директорий для логов
 RUN mkdir -p /app/logs
