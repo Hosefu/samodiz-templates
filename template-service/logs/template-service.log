@@ -24,3 +24,8 @@
 2025-04-26 12:47:22.102 | WARNING  | app.services.template_engine:_render_simple_template:121 - Variable 'phone' not found in data
 2025-04-26 12:47:22.102 | WARNING  | app.services.template_engine:_render_simple_template:121 - Variable 'email' not found in data
 2025-04-26 12:47:22.103 | INFO     | app.api.routes:render_template:34 - Template rendered successfully
+2025-04-26 13:10:31.954 | INFO     | app.api.routes:render_template:18 - Received template render request: template_id=1, page_index=0
+2025-04-26 13:10:31.957 | WARNING  | app.services.template_engine:_render_simple_template:121 - Variable 'patronymic' not found in data
+2025-04-26 13:10:31.957 | WARNING  | app.services.template_engine:_render_simple_template:121 - Variable 'phone' not found in data
+2025-04-26 13:10:31.958 | WARNING  | app.services.template_engine:_render_simple_template:121 - Variable 'email' not found in data
+2025-04-26 13:10:31.959 | INFO     | app.api.routes:render_template:34 - Template rendered successfully

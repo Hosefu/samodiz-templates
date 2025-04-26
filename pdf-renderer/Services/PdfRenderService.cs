@@ -4,14 +4,14 @@ using System.Text;
 using System.Collections.Generic;
 using System.Linq;
 using iText.Html2pdf;
-using iText.Html2pdf.Css;                             // для CssDeclarationValidationMaster
+using iText.Html2pdf.Css;
 using iText.Kernel.Pdf;
-using iText.Kernel.Utils;                             // для PdfMerger
-using iText.StyledXmlParser.Css.Validate;              // для интерфейса валидатора
-using iText.StyledXmlParser.Css.Validate.Impl;         // для CssDeviceCmykAwareValidator
-using iText.IO.Font;                                   // для шрифтового провайдера
+using iText.Kernel.Utils;
+using iText.StyledXmlParser.Css.Validate;
+using iText.StyledXmlParser.Css.Validate.Impl;
+using iText.IO.Font;
 using iText.IO.Font.Constants;
-using iText.Html2pdf.Resolver.Font;  
+using iText.Html2pdf.Resolver.Font;
 using Microsoft.Extensions.Logging;
 
 namespace PdfRenderer.Services
@@ -24,66 +24,49 @@ namespace PdfRenderer.Services
             => _logger = logger;
 
         /// <summary>
-        /// pagesHtml — список html-строк  
-        /// baseUris  — список папок, откуда брать assets (fonts, картинки) для каждой страницы
+        /// Рендерит HTML в PDF
         /// </summary>
+        /// <param name="htmlPages">Список HTML-строк для рендеринга</param>
+        /// <param name="baseUris">Список базовых путей для ресурсов, по одному на каждую страницу</param>
+        /// <param name="settings">Дополнительные настройки рендеринга</param>
+        /// <returns>PDF-документ в виде массива байтов</returns>
         public byte[] RenderPdf(
-            List<string> pagesHtml,
+            List<string> htmlPages,
             List<string> baseUris,
             Dictionary<string, string>? settings = null)
         {
-            if (pagesHtml.Count != baseUris.Count)
-                throw new ArgumentException("pagesHtml и baseUris должны быть одинаковой длины");
+            // Проверить, что количество HTML-страниц и baseUris совпадает
+            if (htmlPages.Count != baseUris.Count)
+                throw new ArgumentException("htmlPages и baseUris должны быть одинаковой длины");
 
-            // Применяем настройки, если они переданы
-            bool enableCompression = true; // По умолчанию сжатие включено
-            bool enableTaggedPdf = true;   // По умолчанию теги PDF включены
-            
-            if (settings != null)
-            {
-                if (settings.TryGetValue("compression", out var compressionValue))
-                {
-                    enableCompression = !string.Equals(compressionValue, "false", StringComparison.OrdinalIgnoreCase);
-                }
-                
-                if (settings.TryGetValue("tagged", out var taggedValue))
-                {
-                    enableTaggedPdf = !string.Equals(taggedValue, "false", StringComparison.OrdinalIgnoreCase);
-                }
-                
-                // Другие настройки можно обрабатывать по аналогии
-            }
-
-            // 1) поставить валидатор, чтобы device-cmyk() распознавался
+            // Настроить валидатор CSS
             CssDeclarationValidationMaster.SetValidator(new CssDeviceCmykAwareValidator());
 
-            // Если всего одна страница, обрабатываем её напрямую
-            if (pagesHtml.Count == 1)
+            // Если всего одна страница, используем прямое преобразование
+            if (htmlPages.Count == 1)
             {
+                _logger.LogInformation("Рендеринг одностраничного PDF");
                 using var ms = new MemoryStream();
-                
                 var props = CreateConverterProperties(baseUris[0]);
                 
-                using var htmlStream = new MemoryStream(Encoding.UTF8.GetBytes(pagesHtml[0]));
+                using var htmlStream = new MemoryStream(Encoding.UTF8.GetBytes(htmlPages[0]));
                 HtmlConverter.ConvertToPdf(htmlStream, ms, props);
                 
                 return ms.ToArray();
             }
             
-            // Для нескольких страниц - создаем отдельные PDF и объединяем
+            // Для нескольких страниц - создаем каждую отдельно и объединяем
+            _logger.LogInformation($"Рендеринг многостраничного PDF ({htmlPages.Count} страниц)");
             List<byte[]> pdfPages = new List<byte[]>();
             
             // Создаем отдельный PDF для каждой страницы
-            for (int i = 0; i < pagesHtml.Count; i++)
+            for (int i = 0; i < htmlPages.Count; i++)
             {
-                _logger.LogInformation($"Обработка страницы {i+1} из {pagesHtml.Count}");
-                
-                string html = pagesHtml[i];
+                string html = htmlPages[i];
                 string baseUri = baseUris[i];
                 
                 var props = CreateConverterProperties(baseUri);
                 
-                // Создаем отдельный поток для каждой страницы
                 using (MemoryStream pageMs = new MemoryStream())
                 {
                     using (MemoryStream htmlStream = new MemoryStream(Encoding.UTF8.GetBytes(html)))
@@ -91,11 +74,7 @@ namespace PdfRenderer.Services
                         HtmlConverter.ConvertToPdf(htmlStream, pageMs, props);
                     }
                     
-                    // Сохраняем полученный PDF в массив байтов
-                    var pdfBytes = pageMs.ToArray();
-                    pdfPages.Add(pdfBytes);
-                    
-                    _logger.LogInformation($"Страница {i+1} успешно сконвертирована, размер: {pdfBytes.Length} байт");
+                    pdfPages.Add(pageMs.ToArray());
                 }
             }
             
@@ -106,11 +85,8 @@ namespace PdfRenderer.Services
             }
             
             // Объединяем все PDF в один документ
-            _logger.LogInformation("Объединение страниц в итоговый PDF");
-            
             using MemoryStream resultMs = new MemoryStream();
-            using PdfWriter writer = new PdfWriter(resultMs, new WriterProperties()
-                .SetCompressionLevel(enableCompression ? CompressionConstants.BEST_COMPRESSION : CompressionConstants.NO_COMPRESSION));
+            using PdfWriter writer = new PdfWriter(resultMs);
             using PdfDocument resultDoc = new PdfDocument(writer);
             PdfMerger merger = new PdfMerger(resultDoc);
             
@@ -123,30 +99,25 @@ namespace PdfRenderer.Services
                 merger.Merge(srcDoc, 1, srcDoc.GetNumberOfPages());
             }
             
-            resultDoc.Close(); // Важно закрыть документ перед получением данных
+            resultDoc.Close();
             
-            byte[] finalPdf = resultMs.ToArray();
-            _logger.LogInformation($"Итоговый PDF создан, размер: {finalPdf.Length} байт");
-            
-            return finalPdf;
+            return resultMs.ToArray();
         }
         
         /// <summary>
-        /// Создаёт и настраивает ConverterProperties с нужными параметрами и гарантирует наличие шрифтов
+        /// Создаёт настройки для конвертации с поддержкой шрифтов
         /// </summary>
         private ConverterProperties CreateConverterProperties(string baseUri)
         {
             var props = new ConverterProperties();
             props.SetBaseUri(baseUri);
             
-            // Создаем наш провайдер шрифтов
+            // Создаем провайдер шрифтов
             #pragma warning disable 612, 618
             var fontProvider = new DefaultFontProvider(false, false, false);
             #pragma warning restore 612, 618
             
-            bool hasAddedFonts = false;
-            
-            // Проверяем наличие и добавляем шрифты из директории assets
+            // Проверяем наличие шрифтов в директории assets
             var assetsDir = Path.Combine(baseUri, "assets");
             if (Directory.Exists(assetsDir))
             {
@@ -156,26 +127,20 @@ namespace PdfRenderer.Services
                 
                 if (fontFiles.Any())
                 {
-                    _logger.LogInformation($"Добавление шрифтов из {assetsDir} ({fontFiles.Count} файлов)");
+                    _logger.LogInformation($"Найдено {fontFiles.Count} шрифтов в {assetsDir}");
                     fontProvider.AddDirectory(assetsDir);
-                    hasAddedFonts = true;
                 }
                 else
                 {
-                    _logger.LogInformation($"Директория {assetsDir} существует, но не содержит шрифтов .ttf или .otf");
+                    // Если шрифты не найдены, используем стандартные
+                    #pragma warning disable 612, 618
+                    fontProvider = new DefaultFontProvider(true, false, false);
+                    #pragma warning restore 612, 618
                 }
             }
             else
             {
-                _logger.LogInformation($"Директория с шрифтами не найдена: {assetsDir}");
-            }
-            
-            // Если не нашли никаких пользовательских шрифтов, включаем стандартные шрифты
-            if (!hasAddedFonts)
-            {
-                _logger.LogInformation("Пользовательские шрифты не найдены, используем стандартные шрифты");
-                
-                // Создаем новый провайдер со стандартными шрифтами
+                // Если директория assets не найдена, используем стандартные шрифты
                 #pragma warning disable 612, 618
                 fontProvider = new DefaultFontProvider(true, false, false);
                 #pragma warning restore 612, 618

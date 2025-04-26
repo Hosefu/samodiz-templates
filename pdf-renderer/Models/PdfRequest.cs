@@ -3,19 +3,14 @@ using System.Collections.Generic;
 namespace PdfRenderer.Models;
 
 /// <summary>
-/// Запрос на рендеринг PDF от render-routing-service
+/// Запрос на рендеринг PDF
 /// </summary>
 public class PdfRequest
 {
     /// <summary>
-    /// HTML-содержимое, готовое для рендеринга
+    /// HTML-содержимое для рендеринга
     /// </summary>
     public required string Html { get; set; }
-    
-    /// <summary>
-    /// Данные для подстановки в шаблон (опционально)
-    /// </summary>
-    public Dictionary<string, string>? Data { get; set; }
     
     /// <summary>
     /// Ширина страницы
@@ -25,7 +20,7 @@ public class PdfRequest
     /// <summary>
     /// Высота страницы
     /// </summary>
-    public int Height { get; set; }
+    public float Height { get; set; }
     
     /// <summary>
     /// Единицы измерения (px, mm)

@@ -1,6 +1,23 @@
-@pdf_renderer_HostAddress = http://localhost:5296
+@pdf_renderer_HostAddress = http://localhost:8081
 
-GET {{pdf_renderer_HostAddress}}/weatherforecast/
+### Проверка работоспособности сервиса
+GET {{pdf_renderer_HostAddress}}/api/pdf/health
 Accept: application/json
+
+### Генерация PDF из HTML
+POST {{pdf_renderer_HostAddress}}/api/pdf/render
+Content-Type: application/json
+
+{
+  "html": "<html><body><h1>Тестовый документ</h1><p>Содержимое документа</p></body></html>",
+  "width": 210,
+  "height": 297,
+  "units": "mm",
+  "bleeds": 3,
+  "generatePreview": false,
+  "settings": {
+    "compression": "true"
+  }
+}
 
 ###
