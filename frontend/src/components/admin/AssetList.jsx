@@ -3,6 +3,7 @@ import { List, Button, Image, Modal } from 'antd';
 import { DeleteOutlined, EyeOutlined } from '@ant-design/icons';
 import { deleteAsset, getAssetUrl } from '../../api/assetService';
 import { toast } from 'react-hot-toast';
+import * as text from '../../constants/ux-writing';
 
 const AssetList = ({ templateId, pageId, assets, onAssetDeleted }) => {
   const [previewVisible, setPreviewVisible] = useState(false);
@@ -11,12 +12,12 @@ const AssetList = ({ templateId, pageId, assets, onAssetDeleted }) => {
   const handleDelete = async (assetId) => {
     try {
       await deleteAsset(templateId, pageId, assetId);
-      toast.success('Файл успешно удален');
+      toast.success(text.ASSET_LIST_DELETE_SUCCESS);
       if (onAssetDeleted) {
         onAssetDeleted(assetId);
       }
     } catch (error) {
-      toast.error(`Ошибка удаления файла: ${error.message}`);
+      toast.error(text.ASSET_LIST_DELETE_ERROR(error.message));
     }
   };
 
@@ -39,7 +40,7 @@ const AssetList = ({ templateId, pageId, assets, onAssetDeleted }) => {
                 icon={<EyeOutlined />}
                 onClick={() => handlePreview(asset)}
               >
-                Просмотр
+                {text.ASSET_LIST_PREVIEW_BUTTON}
               </Button>,
               <Button
                 key="delete"
@@ -48,13 +49,13 @@ const AssetList = ({ templateId, pageId, assets, onAssetDeleted }) => {
                 icon={<DeleteOutlined />}
                 onClick={() => handleDelete(asset.id)}
               >
-                Удалить
+                {text.ASSET_LIST_DELETE_BUTTON}
               </Button>
             ]}
           >
             <List.Item.Meta
               title={asset.name}
-              description={`Тип: ${asset.type}, Размер: ${(asset.size / 1024).toFixed(2)} KB`}
+              description={`${text.ASSET_LIST_TYPE_LABEL} ${asset.type}, ${text.ASSET_LIST_SIZE_LABEL} ${(asset.size / 1024).toFixed(2)} KB`}
             />
           </List.Item>
         )}
@@ -62,7 +63,7 @@ const AssetList = ({ templateId, pageId, assets, onAssetDeleted }) => {
 
       <Modal
         open={previewVisible}
-        title="Предпросмотр файла"
+        title={text.ASSET_LIST_PREVIEW_TITLE}
         footer={null}
         onCancel={() => setPreviewVisible(false)}
       >

@@ -15,7 +15,6 @@ import { toast } from 'react-hot-toast';
 
 // Добавляем константы
 const TPL_EDIT_TITLE = "Редактирование шаблона";
-const TPL_EDIT_LOADING = "Загрузка данных шаблона...";
 const TPL_EDIT_NOT_FOUND = "Шаблон не найден.";
 const TPL_EDIT_LOAD_ERROR = (msg) => `Ошибка загрузки шаблона: ${msg}`;
 const TPL_EDIT_UPDATE_SUCCESS = "Шаблон успешно обновлен";
@@ -100,7 +99,7 @@ const TemplateEdit = () => {
     return (
       <div className="flex justify-center items-center h-40">
         <Spin size="large" />
-        <span className="ml-2 text-gray-600">{TPL_EDIT_LOADING}</span>
+        <span className="ml-2 text-gray-600">{text.TEMPLATE_EDIT_LOADING}</span>
       </div>
     );
   }

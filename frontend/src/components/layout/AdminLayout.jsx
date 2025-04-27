@@ -1,103 +1,163 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { TemplateProvider } from '../../context/TemplateContext';
-import { useAuth } from '../../context/AuthContext';
-import * as text from '../../constants/ux-writing';
-import { Layout, Menu, Typography, theme } from 'antd';
+import { useDispatch, useSelector } from 'react-redux';
 import { 
-  DashboardOutlined, 
-  FileOutlined, 
-  LogoutOutlined 
+  Layout, Menu, Typography, Avatar, Dropdown, Divider
+} from 'antd';
+import {
+  DashboardOutlined,
+  FileOutlined,
+  UserOutlined,
+  LogoutOutlined,
+  MenuUnfoldOutlined,
+  MenuFoldOutlined,
+  SettingOutlined,
+  BellOutlined
 } from '@ant-design/icons';
+import { logoutUser } from '../../redux/slices/authSlice';
+import { TemplateProvider } from '../../context/TemplateContext';
 
 const { Header, Sider, Content } = Layout;
 
 const AdminLayout = () => {
-  const location = useLocation();
   const navigate = useNavigate();
-  const { hasAdminAccess, logout } = useAuth();
-  
-  // Проверяем права доступа
-  if (!hasAdminAccess()) {
-    navigate('/');
-    return null;
-  }
+  const location = useLocation();
+  const dispatch = useDispatch();
+  const { user } = useSelector(state => state.auth);
+  const [collapsed, setCollapsed] = useState(false);
 
-  const getHeaderTitle = () => {
-    const path = location.pathname;
-    if (path === '/admin/dashboard') return text.ADMIN_HEADER_DASHBOARD;
-    if (path.startsWith('/admin/templates/new')) return text.ADMIN_HEADER_CREATE;
-    if (path.startsWith('/admin/templates/') && path.includes('/pages/')) return text.ADMIN_HEADER_EDIT;
-    if (path.startsWith('/admin/templates/')) return text.ADMIN_HEADER_TEMPLATES;
-    return text.APP_TITLE;
+  const handleLogout = async () => {
+    try {
+      await dispatch(logoutUser()).unwrap();
+      navigate('/login');
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
   };
 
-  const handleLogout = () => {
-    logout();
-    navigate('/');
-  };
+  const userMenu = [
+    {
+      key: 'profile',
+      label: 'Profile',
+      icon: <UserOutlined />,
+      onClick: () => navigate('/admin/profile')
+    },
+    {
+      key: 'settings',
+      label: 'Settings',
+      icon: <SettingOutlined />,
+      onClick: () => navigate('/admin/settings')
+    },
+    {
+      type: 'divider'
+    },
+    {
+      key: 'logout',
+      label: 'Logout',
+      icon: <LogoutOutlined />,
+      onClick: handleLogout
+    }
+  ];
 
   return (
     <TemplateProvider>
       <Layout style={{ minHeight: '100vh' }}>
-        <Sider
-          theme="dark"
-          collapsible
-          breakpoint="lg"
+        <Sider 
+          collapsible 
+          collapsed={collapsed} 
+          onCollapse={setCollapsed}
+          style={{ 
+            background: '#0A0A0A',
+            boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)'
+          }}
         >
-          <div style={{ 
-            height: 32, 
-            margin: 16, 
-            color: 'white', 
-            textAlign: 'center',
-            fontSize: '18px',
-            fontWeight: 'bold'
+          <div className="logo" style={{ 
+            height: '64px', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: collapsed ? 'center' : 'flex-start',
+            padding: collapsed ? '0' : '0 24px',
+            borderBottom: '1px solid #222'
           }}>
-            {text.ADMIN_SIDEBAR_TITLE}
+            {collapsed ? (
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="24" height="24" rx="6" fill="#3B82F6"/>
+                <path d="M6 6V18H18V6H6ZM16 8V12H8V8H16ZM8 16V14H16V16H8Z" fill="white"/>
+              </svg>
+            ) : (
+              <Typography.Title level={4} style={{ margin: 0, color: 'white' }}>
+                Document Gen
+              </Typography.Title>
+            )}
           </div>
+          
           <Menu
             theme="dark"
             mode="inline"
-            defaultSelectedKeys={['dashboard']}
             selectedKeys={[location.pathname.split('/')[2] || 'dashboard']}
+            style={{ background: '#0A0A0A', borderRight: 0 }}
             items={[
               {
                 key: 'dashboard',
                 icon: <DashboardOutlined />,
-                label: text.ADMIN_SIDEBAR_DASHBOARD,
+                label: 'Dashboard',
                 onClick: () => navigate('/admin/dashboard')
               },
               {
                 key: 'templates',
                 icon: <FileOutlined />,
-                label: text.ADMIN_SIDEBAR_TEMPLATES,
+                label: 'Templates',
                 onClick: () => navigate('/admin/templates')
-              },
-              {
-                key: 'logout',
-                icon: <LogoutOutlined />,
-                label: text.ADMIN_SIDEBAR_BACK_TO_PUBLIC,
-                onClick: handleLogout
               }
             ]}
           />
         </Sider>
+        
         <Layout>
           <Header style={{ 
-            padding: '0 16px',
-            background: '#002140',
-            color: 'white',
-            display: 'flex',
-            alignItems: 'center'
+            padding: '0 16px', 
+            background: '#111111', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'space-between',
+            height: '64px',
+            borderBottom: '1px solid #222'
           }}>
-            <Typography.Title 
-              level={4} 
-              style={{ margin: 0, color: 'white' }}
-            >
-              {getHeaderTitle()}
-            </Typography.Title>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              {React.createElement(collapsed ? MenuUnfoldOutlined : MenuFoldOutlined, {
+                className: 'trigger',
+                onClick: () => setCollapsed(!collapsed),
+                style: { color: '#fff', fontSize: '18px', cursor: 'pointer' }
+              })}
+              <Typography.Title level={4} style={{ margin: '0 0 0 16px', color: 'white' }}>
+                {location.pathname.includes('/templates') ? 'Templates' : 
+                 location.pathname.includes('/dashboard') ? 'Dashboard' : 'Admin Panel'}
+              </Typography.Title>
+            </div>
+            
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <BellOutlined style={{ color: '#fff', fontSize: '18px', marginRight: '24px', cursor: 'pointer' }} />
+              
+              <Dropdown menu={{ items: userMenu }} placement="bottomRight" arrow>
+                <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                  <Avatar style={{ backgroundColor: '#3B82F6' }} icon={<UserOutlined />} />
+                  {!collapsed && (
+                    <Typography.Text style={{ margin: '0 0 0 8px', color: 'white' }}>
+                      {user?.username || 'Admin'}
+                    </Typography.Text>
+                  )}
+                </div>
+              </Dropdown>
+            </div>
           </Header>
-          <Content style={{ margin: '24px 16px', padding: 24, background: '#141414' }}>
+          
+          <Content style={{ 
+            margin: '24px 16px', 
+            padding: 24, 
+            minHeight: 280, 
+            background: '#111111',
+            borderRadius: '8px'
+          }}>
             <Outlet />
           </Content>
         </Layout>

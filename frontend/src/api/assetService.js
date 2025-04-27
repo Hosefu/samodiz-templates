@@ -1,6 +1,7 @@
 import { getAuthHeaders } from './templateService';
+import * as text from '../constants/ux-writing';
 
-// Константы для валидации файлов
+// Constants for file validation
 const ALLOWED_MIME_TYPES = [
   'image/jpeg',
   'image/png',
@@ -11,16 +12,20 @@ const ALLOWED_MIME_TYPES = [
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
-// Функция валидации файла
+// File validation function
 const validateFile = (file) => {
-  // Проверка размера
+  if (!file) {
+    throw new Error('No file provided');
+  }
+  
+  // Check file size
   if (file.size > MAX_FILE_SIZE) {
-    throw new Error(`Размер файла превышает максимально допустимый (${MAX_FILE_SIZE/1024/1024}MB)`);
+    throw new Error(`File size exceeds the maximum allowed size (${MAX_FILE_SIZE/1024/1024}MB)`);
   }
 
-  // Проверка типа файла
+  // Check file type
   if (!ALLOWED_MIME_TYPES.includes(file.type)) {
-    throw new Error(`Тип файла ${file.type} не поддерживается. Поддерживаемые типы: ${ALLOWED_MIME_TYPES.join(', ')}`);
+    throw new Error(`File type ${file.type} is not supported. Supported types: ${ALLOWED_MIME_TYPES.join(', ')}`);
   }
 
   return true;
@@ -28,26 +33,21 @@ const validateFile = (file) => {
 
 export const uploadAsset = async (templateId, pageId, file) => {
   try {
-    // Валидация файла перед загрузкой
+    if (!file) {
+      throw new Error('No file provided');
+    }
+    
+    // Validate file before upload
     validateFile(file);
 
     const formData = new FormData();
     formData.append('file', file);
 
-    // Получаем токен из Redux store или localStorage
-    const tokensStr = localStorage.getItem('tokens');
-    
-    // Для multipart/form-data заголовок Content-Type не указываем,
-    // он будет установлен автоматически с правильной boundary
-    let headers = {};
-    
-    // Если есть токен, добавляем его в заголовки запроса
-    if (tokensStr) {
-      const tokens = JSON.parse(tokensStr);
-      headers['Authorization'] = `Bearer ${tokens.access}`;
-    }
+    // Get headers with authentication token
+    const headers = getAuthHeaders();
+    // Don't set Content-Type for FormData, browser will set it with boundary
+    delete headers['Content-Type'];
 
-    // Добавляем просмотр отправляемого FormData для отладки
     console.log('Uploading file:', file.name, file.type, file.size);
     
     const response = await fetch(`/api/templates/${templateId}/pages/${pageId}/assets/`, {
@@ -56,22 +56,20 @@ export const uploadAsset = async (templateId, pageId, file) => {
       body: formData,
     });
     
-    // Полная диагностика ответа
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Error response:', {
+      console.error('Upload error response:', {
         status: response.status,
         statusText: response.statusText,
-        headers: Object.fromEntries([...response.headers.entries()]),
         body: errorText
       });
       
       try {
-        // Пытаемся разобрать как JSON, если возможно
+        // Try to parse as JSON if possible
         const errorData = JSON.parse(errorText);
         throw new Error(errorData.detail || `Failed to upload asset: ${response.statusText}`);
       } catch (e) {
-        throw new Error(`Failed to upload asset: ${response.statusText}, ${errorText.substring(0, 100)}`);
+        throw new Error(`Failed to upload asset: ${response.statusText}`);
       }
     }
     
@@ -84,15 +82,7 @@ export const uploadAsset = async (templateId, pageId, file) => {
 
 export const deleteAsset = async (templateId, pageId, assetId) => {
   try {
-    const tokensStr = localStorage.getItem('tokens');
-    let headers = {
-      'Content-Type': 'application/json'
-    };
-    
-    if (tokensStr) {
-      const tokens = JSON.parse(tokensStr);
-      headers['Authorization'] = `Bearer ${tokens.access}`;
-    }
+    const headers = getAuthHeaders();
 
     const response = await fetch(`/api/templates/${templateId}/pages/${pageId}/assets/${assetId}/`, {
       method: 'DELETE',
@@ -100,8 +90,7 @@ export const deleteAsset = async (templateId, pageId, assetId) => {
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Failed to delete asset: ${response.statusText}, ${errorText}`);
+      throw new Error(`Failed to delete asset: ${response.statusText}`);
     }
 
     return true;

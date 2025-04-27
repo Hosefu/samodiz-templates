@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Upload, message } from 'antd';
 import { InboxOutlined } from '@ant-design/icons';
+import * as text from '../../constants/ux-writing';
 
 const { Dragger } = Upload;
 
@@ -15,11 +16,11 @@ const FileUploader = ({ onFileUpload, templateId, pageId }) => {
         setUploading(true);
         await onFileUpload(templateId, pageId, file);
         onSuccess();
-        message.success(`${file.name} успешно загружен`);
+        message.success(text.FILE_UPLOAD_SUCCESS(file.name));
       } catch (error) {
         console.error('Error uploading file:', error);
         onError();
-        message.error(`Ошибка загрузки ${file.name}`);
+        message.error(text.FILE_UPLOAD_ERROR(file.name));
       } finally {
         setUploading(false);
       }
@@ -34,9 +35,9 @@ const FileUploader = ({ onFileUpload, templateId, pageId }) => {
       <p className="ant-upload-drag-icon">
         <InboxOutlined />
       </p>
-      <p className="ant-upload-text">Нажмите или перетащите файл в эту область для загрузки</p>
+      <p className="ant-upload-text">{text.FILE_UPLOAD_DRAG_TEXT}</p>
       <p className="ant-upload-hint">
-        Поддерживаются файлы PNG, JPG, GIF, SVG, TTF, OTF до 10MB
+        {text.FILE_UPLOAD_HINT}
       </p>
     </Dragger>
   );

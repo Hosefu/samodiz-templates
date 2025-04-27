@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { Provider } from 'react-redux';
 import { PersistGate } from 'redux-persist/integration/react';
-import { ConfigProvider } from 'antd';
+import { ConfigProvider, App as AntApp } from 'antd';
 import { store, persistor } from './redux/store';
 import { AuthProvider } from './context/AuthContext';
 import App from './App';
@@ -74,44 +74,33 @@ try {
           <PersistGate loading={null} persistor={persistor}>
             <ConfigProvider theme={themeConfig}>
               <AuthProvider>
-                <BrowserRouter>
-                  <App />
-                  <Toaster 
-                    position="bottom-right"
-                    toastOptions={{
-                      duration: 5000,
-                      style: {
-                        background: '#333',
-                        color: '#fff',
-                      },
-                      success: {
-                        duration: 3000,
-                        theme: {
-                          primary: 'green',
-                          secondary: 'black',
-                        },
+                <AntApp>
+                  <BrowserRouter>
+                    <App />
+                    <Toaster 
+                      position="bottom-right"
+                      toastOptions={{
+                        duration: 5000,
                         style: {
-                          background: '#10B981',
-                          color: 'white',
+                          background: '#222222',
+                          color: '#fff',
                         },
-                        iconTheme: {
-                          primary: 'white',
-                          secondary: '#10B981',
+                        success: {
+                          style: {
+                            background: '#10B981',
+                            color: 'white',
+                          },
                         },
-                      },
-                      error: {
-                        style: {
-                          background: '#EF4444',
-                          color: 'white',
-                        },
-                        iconTheme: {
-                          primary: 'white',
-                          secondary: '#EF4444',
-                        },
-                      }
-                    }}
-                  />
-                </BrowserRouter>
+                        error: {
+                          style: {
+                            background: '#EF4444',
+                            color: 'white',
+                          },
+                        }
+                      }}
+                    />
+                  </BrowserRouter>
+                </AntApp>
               </AuthProvider>
             </ConfigProvider>
           </PersistGate>

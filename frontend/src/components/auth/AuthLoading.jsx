@@ -1,10 +1,12 @@
 import React from 'react';
+import { Loader2 } from 'lucide-react';
+import * as text from '../../constants/ux-writing';
 
 const AuthLoading = () => {
   return (
-    <div className="flex justify-center items-center py-4">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-      <span className="ml-3 text-sm text-gray-700">Загрузка...</span>
+    <div className="flex items-center justify-center">
+      <Loader2 className="animate-spin h-5 w-5 text-blue-600" />
+      <span className="ml-3 text-sm text-gray-700">{text.AUTH_LOADING}</span>
     </div>
   );
 };

@@ -105,6 +105,18 @@ export const TEMPLATE_CREATE_ERROR = (msg) => `Не удалось создат�
 export const TEMPLATE_CREATE_SUBMIT_BUTTON = "Создать и перейти к страницам";
 export const TEMPLATE_CREATE_SUBMITTING_BUTTON = "Создание...";
 
+// Template Edit
+export const TEMPLATE_EDIT_LOADING = "Загрузка данных шаблона...";
+
+// Page Edit
+export const PAGE_EDIT_LOADING = "Загрузка данных страницы...";
+
+// Template Selection
+export const TEMPLATE_SELECTION_LOADING = "Загрузка шаблонов...";
+
+// Auth Loading
+export const AUTH_LOADING = "Загрузка...";
+
 // Общие
 export const REQUIRED_FIELD_MARKER = "*";
 export const LOADING_TEXT = "Загрузка...";
@@ -130,4 +142,87 @@ export const DELETING_BUTTON_SUFFIX = "...";
 
 // Конкретные страницы
 export const PAGE_CREATE_FIELD_DEFAULT_TITLE = "Заголовок документа";
-export const PAGE_CREATE_FIELD_DEFAULT_NAME = "Имя получателя"; 
+export const PAGE_CREATE_FIELD_DEFAULT_NAME = "Имя получателя";
+
+// Asset Uploader
+export const ASSET_UPLOAD_BUTTON = "Загрузить файл";
+export const ASSET_UPLOADING_BUTTON = "Загрузка...";
+export const ASSET_UPLOAD_SUCCESS = (fileName) => `${fileName} успешно загружен`;
+export const ASSET_UPLOAD_ERROR = "Ошибка при загрузке файла";
+export const ASSET_SUPPORTED_FORMATS = "Поддерживаемые форматы: JPG, PNG, GIF, SVG, PDF";
+export const ASSET_MAX_SIZE = "Максимальный размер: 10MB";
+
+// Asset Manager
+export const ASSET_MANAGER_TITLE = "Управление файлами";
+export const ASSET_MANAGER_UPLOAD_TAB = "Загрузка файлов";
+export const ASSET_MANAGER_LIST_TAB = "Список файлов";
+export const ASSET_MANAGER_NO_ASSETS = "Нет загруженных ассетов.";
+
+// Asset List
+export const ASSET_LIST_PREVIEW_BUTTON = "Просмотр";
+export const ASSET_LIST_DELETE_BUTTON = "Удалить";
+export const ASSET_LIST_DELETE_SUCCESS = "Файл успешно удален";
+export const ASSET_LIST_DELETE_ERROR = (error) => `Ошибка удаления файла: ${error}`;
+export const ASSET_LIST_PREVIEW_TITLE = "Предпросмотр файла";
+export const ASSET_LIST_TYPE_LABEL = "Тип:";
+export const ASSET_LIST_SIZE_LABEL = "Размер:";
+
+// File Uploader
+export const FILE_UPLOAD_DRAG_TEXT = "Нажмите или перетащите файл в эту область для загрузки";
+export const FILE_UPLOAD_HINT = "Поддерживаются файлы PNG, JPG, GIF, SVG, TTF, OTF до 10MB";
+export const FILE_UPLOAD_SUCCESS = (fileName) => `${fileName} успешно загружен`;
+export const FILE_UPLOAD_ERROR = (fileName) => `Ошибка загрузки ${fileName}`;
+
+// Page Form
+export const PAGE_FORM_CREATE_TITLE = "Создание новой страницы";
+export const PAGE_FORM_EDIT_TITLE = (pageId) => `Редактирование страницы: ${pageId}`;
+export const PAGE_FORM_CANCEL_BUTTON = "Отмена";
+export const PAGE_FORM_SAVE_BUTTON = "Сохранить страницу";
+export const PAGE_FORM_SAVING_BUTTON = "Сохранение...";
+export const PAGE_FORM_PAGE_DETAILS_TITLE = "Детали страницы";
+export const PAGE_FORM_PAGE_NAME_LABEL = "Имя страницы (ID)";
+export const PAGE_FORM_PAGE_NAME_TOOLTIP = "Имя нельзя изменить, так как оно используется как ID";
+export const PAGE_FORM_WIDTH_LABEL = "Ширина";
+export const PAGE_FORM_HEIGHT_LABEL = "Высота";
+export const PAGE_FORM_UNITS_LABEL = "Единицы измерения";
+export const PAGE_FORM_BLEEDS_LABEL = "Вылеты";
+export const PAGE_FORM_BLEEDS_TOOLTIP = "Область вылета в выбранных единицах";
+export const PAGE_FORM_HTML_TEMPLATE_TITLE = "HTML шаблон";
+export const PAGE_FORM_TEMPLATE_FIELDS_TITLE = "Поля шаблона";
+export const PAGE_FORM_ADD_FIELD_BUTTON = "Добавить поле";
+export const PAGE_FORM_FIELD_NAME_LABEL = "Имя поля";
+export const PAGE_FORM_FIELD_NAME_PLACEHOLDER = "например, client_name";
+export const PAGE_FORM_DISPLAY_LABEL = "Отображаемая метка";
+export const PAGE_FORM_DISPLAY_LABEL_PLACEHOLDER = "например, Имя клиента";
+export const PAGE_FORM_REQUIRED_LABEL = "Обязательное";
+export const PAGE_FORM_NO_FIELDS_MESSAGE = "Поля еще не добавлены. Нажмите \"Добавить поле\", чтобы создать поля формы для вашего шаблона.";
+export const PAGE_FORM_ASSETS_TITLE = "Ассеты";
+
+// Login Page
+export const LOGIN_PAGE_GENERATOR_TITLE = "Генератор документов";
+export const LOGIN_PAGE_SIGN_IN_TEXT = "Войдите для доступа к генератору документов";
+export const LOGIN_PAGE_AUTH_ERROR_TITLE = "Ошибка аутентификации";
+export const LOGIN_PAGE_USERNAME_LABEL = "Имя пользователя";
+export const LOGIN_PAGE_USERNAME_PLACEHOLDER = "Имя пользователя";
+export const LOGIN_PAGE_PASSWORD_LABEL = "Пароль";
+export const LOGIN_PAGE_PASSWORD_PLACEHOLDER = "Пароль";
+export const LOGIN_PAGE_SIGN_IN_BUTTON = "Войти";
+
+// Admin Layout
+export const ADMIN_LAYOUT_DOCUMENT_GEN_TITLE = "Генератор документов";
+export const ADMIN_LAYOUT_DASHBOARD_MENU = "Панель управления";
+export const ADMIN_LAYOUT_TEMPLATES_MENU = "Шаблоны";
+export const ADMIN_LAYOUT_PROFILE_MENU = "Профиль";
+export const ADMIN_LAYOUT_SETTINGS_MENU = "Настройки";
+export const ADMIN_LAYOUT_LOGOUT_MENU = "Выход";
+export const ADMIN_LAYOUT_TEMPLATES_HEADER = "Шаблоны";
+export const ADMIN_LAYOUT_DASHBOARD_HEADER = "Панель управления";
+export const ADMIN_LAYOUT_ADMIN_PANEL_HEADER = "Панель администратора";
+export const ADMIN_LAYOUT_ADMIN_DEFAULT = "Администратор";
+
+// Asset Service
+export const ASSET_SERVICE_NO_FILE_ERROR = "Файл не предоставлен";
+export const ASSET_SERVICE_FILE_SIZE_ERROR = (maxSize) => `Размер файла превышает максимально допустимый (${maxSize}MB)`;
+export const ASSET_SERVICE_FILE_TYPE_ERROR = (type, allowedTypes) => `Тип файла ${type} не поддерживается. Поддерживаемые типы: ${allowedTypes.join(', ')}`;
+export const ASSET_SERVICE_UPLOAD_ERROR = (statusText) => `Не удалось загрузить ассет: ${statusText}`;
+export const ASSET_SERVICE_DELETE_ERROR = (statusText) => `Не удалось удалить ассет: ${statusText}`; 

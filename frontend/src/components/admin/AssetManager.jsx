@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Card, Tabs } from 'antd';
 import AssetUploader from './AssetUploader';
 import AssetList from './AssetList';
+import * as text from '../../constants/ux-writing';
 
 const AssetManager = ({ templateId, pageId, assets = [], onAssetsChange }) => {
   const [activeTab, setActiveTab] = useState('upload');
@@ -19,14 +20,14 @@ const AssetManager = ({ templateId, pageId, assets = [], onAssetsChange }) => {
   };
 
   return (
-    <Card title="Управление файлами">
+    <Card title={text.ASSET_MANAGER_TITLE}>
       <Tabs
         activeKey={activeTab}
         onChange={setActiveTab}
         items={[
           {
             key: 'upload',
-            label: 'Загрузка файлов',
+            label: text.ASSET_MANAGER_UPLOAD_TAB,
             children: (
               <AssetUploader
                 templateId={templateId}
@@ -37,7 +38,7 @@ const AssetManager = ({ templateId, pageId, assets = [], onAssetsChange }) => {
           },
           {
             key: 'list',
-            label: 'Список файлов',
+            label: text.ASSET_MANAGER_LIST_TAB,
             children: (
               <AssetList
                 templateId={templateId}

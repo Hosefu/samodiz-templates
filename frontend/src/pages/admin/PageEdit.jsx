@@ -20,7 +20,6 @@ import { toast } from 'react-hot-toast';
 
 // Локальные константы
 const PAGE_EDIT_TITLE = "Редактирование страницы";
-const PAGE_EDIT_LOADING = "Загрузка данных страницы...";
 const PAGE_EDIT_NOT_FOUND = "Страница не найдена в этом шаблоне.";
 const PAGE_EDIT_LOAD_ERROR = (msg) => `Ошибка загрузки страницы: ${msg}`;
 const PAGE_EDIT_UPDATE_SUCCESS = "Страница успешно обновлена";
@@ -214,7 +213,7 @@ const PageEdit = () => {
     return (
        <div className="flex justify-center items-center h-40">
          <Loader2 className="animate-spin h-8 w-8 text-blue-600" />
-         <span className="ml-2 text-gray-600">{PAGE_EDIT_LOADING}</span>
+         <span className="ml-2 text-gray-600">{text.PAGE_EDIT_LOADING}</span>
        </div>
     );
   }

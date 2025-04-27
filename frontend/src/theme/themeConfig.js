@@ -3,57 +3,55 @@ const { darkAlgorithm } = theme;
 
 // Новая темная тема в стиле Krea.ai
 const themeConfig = {
+  algorithm: darkAlgorithm,
   token: {
-    colorPrimary: '#3B82F6', // Синий, как на примере Krea.ai
-    colorSuccess: '#10B981', // Зеленый для успешных операций
-    colorError: '#EF4444',   // Красный для ошибок
-    colorWarning: '#F59E0B', // Оранжевый для предупреждений
-    colorInfo: '#6366F1',    // Индиго для информации
+    // Base colors
+    colorPrimary: '#3B82F6', // Bright blue
+    colorSuccess: '#10B981', // Green
+    colorError: '#EF4444',   // Red
+    colorWarning: '#F59E0B', // Amber
+    colorInfo: '#6366F1',    // Indigo
     
-    // Базовые цвета темы
-    colorBgBase: '#141414',      // Очень темный фон
-    colorTextBase: '#F5F5F5',    // Светлый текст
+    // Background colors
+    colorBgBase: '#111111',        // Base background
+    colorBgContainer: '#1A1A1A',   // Container background
+    colorBgElevated: '#222222',    // Elevated elements
+    colorBgLayout: '#0A0A0A',      // Layout background
     
-    // Основные цвета фона
-    colorBgContainer: '#1F1F1F', // Фон контейнеров
-    colorBgElevated: '#262626',  // Приподнятые элементы
-    colorBgLayout: '#0A0A0A',    // Фон лейаута
+    // Border colors
+    colorBorder: '#333333',        // Border
+    colorBorderSecondary: '#2C2C2C', // Secondary border
     
-    // Границы
-    colorBorder: '#333333',        // Цвет границ
-    colorBorderSecondary: '#2C2C2C', // Вторичный цвет границ
+    // Text colors
+    colorText: '#F3F4F6',          // Primary text
+    colorTextSecondary: '#D1D5DB', // Secondary text
+    colorTextTertiary: '#9CA3AF',  // Tertiary text
     
-    // Тексты
-    colorText: '#D1D5DB',         // Основной текст
-    colorTextSecondary: '#9CA3AF', // Вторичный текст
-    colorTextTertiary: '#6B7280',  // Третичный текст
-    colorTextQuaternary: '#4B5563', // Четвертичный текст
-    
-    // Дополнительные параметры
-    borderRadius: 8,              // Закругление углов
-    wireframe: false,             // Отключаем каркас
-    fontSize: 14,                 // Базовый размер шрифта
+    // Component styles
+    borderRadius: 8,               // Border radius
+    wireframe: false,              // Disable wireframe
+    fontSize: 14,                  // Base font size
   },
   components: {
     Button: {
       colorPrimary: '#3B82F6',
-      algorithm: true, // Включаем автоматическое создание темных вариантов
+      algorithm: true,
     },
     Card: {
-      colorBgContainer: '#1F1F1F',
+      colorBgContainer: '#1A1A1A',
       colorBorderSecondary: '#2C2C2C',
     },
     Input: {
-      colorBgContainer: '#262626',
+      colorBgContainer: '#222222',
       colorBorder: '#333333',
     },
     Select: {
-      colorBgContainer: '#262626',
+      colorBgContainer: '#222222',
       colorBorder: '#333333',
     },
     Layout: {
-      colorBgHeader: '#0A0A0A', 
-      colorBgBody: '#141414',
+      colorBgHeader: '#0A0A0A',
+      colorBgBody: '#111111',
       colorBgFooter: '#0A0A0A',
     },
     Menu: {
@@ -61,14 +59,16 @@ const themeConfig = {
       colorItemText: '#D1D5DB',
       colorItemTextSelected: '#3B82F6',
       colorItemBgSelected: 'rgba(59, 130, 246, 0.1)',
-      colorItemTextHover: '#F5F5F5',
     },
     Table: {
-      colorBgContainer: '#262626',
+      colorBgContainer: '#1A1A1A',
       colorText: '#D1D5DB',
     },
     Modal: {
-      colorBgElevated: '#262626',
+      colorBgElevated: '#1A1A1A',
+    },
+    Form: {
+      colorText: '#F3F4F6',
     },
   },
 };

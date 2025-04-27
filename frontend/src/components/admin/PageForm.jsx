@@ -1,38 +1,31 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { Form, Space, Alert, Row, Col, Typography } from 'antd';
-import { toast } from 'react-hot-toast';
-import { ChevronLeft, Save, PlusCircle, Trash2 } from 'lucide-react';
+import { useSelector, useDispatch } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
+import { Form, Row, Col, Space, Typography, Alert } from 'antd';
+import { SaveOutlined, PlusOutlined, DeleteOutlined } from '@ant-design/icons';
+import { createPage, updatePage } from '../../redux/slices/pageSlice';
 import CodeEditor from './CodeEditor';
-import { Button, Input, Select, Checkbox, Card } from '../ui/UIComponents';
 import AssetManager from './AssetManager';
-
-// Общие константы для страниц создания/редактирования
-const PAGE_FORM_FIELD_NAME_LABEL = "Название поля (переменной)";
-const PAGE_FORM_FIELD_LABEL_LABEL = "Метка поля (для формы)";
-const PAGE_FORM_FIELD_REQUIRED_LABEL = "Обязательное";
-const PAGE_FORM_ADD_FIELD_BUTTON = "Добавить поле";
-const PAGE_FORM_DELETE_FIELD_BUTTON = "Удалить поле";
-const PAGE_FORM_UNITS_OPTIONS = [
-  { value: 'mm', label: 'Миллиметры (mm)' },
-  { value: 'px', label: 'Пиксели (px)' },
-];
+import { Button, Input, Select, Checkbox, Card } from '../ui/UIComponents';
 
 const PageForm = ({ 
   mode = 'create', 
   templateId, 
-  initialData = null, 
   pageId = null, 
-  onSubmit,
-  isSubmitting,
-  error
+  initialData = null 
 }) => {
+  const dispatch = useDispatch();
   const navigate = useNavigate();
   const [form] = Form.useForm();
   const [fields, setFields] = useState([]);
+  const [html, setHtml] = useState('');
   const [assets, setAssets] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   
-  // Задание значений по умолчанию в зависимости от режима
+  const { currentTemplate } = useSelector(state => state.templates);
+  
+  // Initialize form with data
   useEffect(() => {
     if (mode === 'edit' && initialData) {
       form.setFieldsValue({
@@ -40,108 +33,115 @@ const PageForm = ({
         width: initialData.width,
         height: initialData.height,
         units: initialData.units,
-        bleeds: initialData.bleeds,
-        html: initialData.html
+        bleeds: initialData.bleeds
       });
+      setHtml(initialData.html || '');
       setFields(initialData.fields || []);
       setAssets(initialData.assets || []);
     } else {
-      // Значения по умолчанию для создания
+      // Default values for new page
       form.setFieldsValue({
-        name: '',
         width: 210,
         height: 297,
         units: 'mm',
-        bleeds: 3,
-        html: defaultHtml
+        bleeds: 3
       });
+      setHtml(DEFAULT_HTML_TEMPLATE);
       setFields([
-        { name: 'title', label: 'Заголовок документа', required: true },
-        { name: 'name', label: 'Имя получателя', required: true }
+        { name: 'title', label: 'Document Title', required: true },
+        { name: 'name', label: 'Recipient Name', required: true }
       ]);
-      setAssets([]);
     }
-  }, [mode, initialData, form]);
-
-  const handleHtmlChange = (newValue) => {
-    form.setFieldsValue({ html: newValue });
+  }, [form, initialData, mode]);
+  
+  const handleHtmlChange = (value) => {
+    setHtml(value);
   };
-
-  const handleSubmit = (values) => {
-    const pageData = {
-      ...values,
-      fields,
-      assets
-    };
-    
-    onSubmit(pageData);
+  
+  const handleSubmit = async (values) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const pageData = {
+        ...values,
+        html,
+        fields,
+        assets
+      };
+      
+      if (mode === 'create') {
+        await dispatch(createPage({ templateId, pageData })).unwrap();
+        navigate(`/admin/templates/${templateId}`);
+      } else {
+        await dispatch(updatePage({ templateId, pageId, pageData })).unwrap();
+        navigate(`/admin/templates/${templateId}`);
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to save page');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleAddField = () => {
     setFields([...fields, { name: '', label: '', required: false }]);
   };
 
-  const handleFieldChange = (index, fieldData) => {
-    const updatedFields = [...fields];
-    updatedFields[index] = fieldData;
-    setFields(updatedFields);
+  const handleFieldChange = (index, field) => {
+    const newFields = [...fields];
+    newFields[index] = field;
+    setFields(newFields);
   };
 
   const handleDeleteField = (index) => {
     setFields(fields.filter((_, i) => i !== index));
   };
 
-  const handleAssetsChange = (newAssets) => {
-    setAssets(newAssets);
-  };
-
-  // Определяем заголовок и текст кнопок в зависимости от режима
-  const title = mode === 'create' ? 'Создание новой страницы' : 'Редактирование страницы';
-  const submitButtonText = mode === 'create' ? 'Создать страницу' : 'Сохранить страницу';
-  
   return (
     <Form 
-      form={form}
+      layout="vertical" 
+      form={form} 
       onFinish={handleSubmit}
-      layout="vertical"
+      initialValues={{
+        name: '',
+        width: 210,
+        height: 297,
+        units: 'mm',
+        bleeds: 3
+      }}
     >
-      {/* Заголовок и кнопки действий */}
-      <Space style={{ marginBottom: 16, justifyContent: 'space-between', width: '100%' }}>
+      {/* Header */}
+      <div className="flex justify-between items-center mb-6">
+        <Typography.Title level={4}>
+          {mode === 'create' ? 'Create New Page' : `Edit Page: ${pageId}`}
+        </Typography.Title>
         <Space>
-          <Link to={`/admin/templates/${templateId}`}>
-            <Button icon={<ChevronLeft size={16} />} variant="ghost" />
-          </Link>
-          <Typography.Title level={4} style={{ margin: 0 }}>
-            {title}
-            {mode === 'edit' && pageId && <span className="font-normal ml-2">{pageId}</span>}
-          </Typography.Title>
-        </Space>
-        <Space>
-          <Link to={`/admin/templates/${templateId}`}>
-            <Button variant="outline">Отмена</Button>
-          </Link>
+          <Button onClick={() => navigate(`/admin/templates/${templateId}`)}>
+            Cancel
+          </Button>
           <Button 
-            type="submit"
-            isLoading={isSubmitting}
-            icon={<Save size={16} />}
+            type="primary" 
+            htmlType="submit" 
+            icon={<SaveOutlined />} 
+            loading={loading}
           >
-            {isSubmitting ? 'Сохранение...' : submitButtonText}
+            {loading ? 'Saving...' : 'Save Page'}
           </Button>
         </Space>
-      </Space>
+      </div>
 
-      {/* Ошибка */}
-      {error && <Alert message={error} type="error" showIcon style={{ marginBottom: 16 }} />}
+      {error && <Alert message={error} type="error" className="mb-4" />}
 
-      {/* Детали страницы */}
-      <Card title="Детали страницы" className="mb-6">
+      {/* Page Details */}
+      <Card title="Page Details" className="mb-4">
         <Row gutter={16}>
           <Col span={mode === 'edit' ? 8 : 6}>
             <Form.Item
               name="name"
-              label="Название страницы (ID)"
-              rules={[{ required: true, message: "Название страницы обязательно" }]}
-              tooltip={mode === 'edit' ? "Имя страницы используется как ID и не может быть изменено." : null}
+              label="Page Name (ID)"
+              rules={[{ required: true, message: "Page name is required" }]}
+              tooltip={mode === 'edit' ? "Name cannot be changed as it is used as an ID" : null}
             >
               <Input disabled={mode === 'edit'} />
             </Form.Item>
@@ -149,8 +149,8 @@ const PageForm = ({
           <Col span={4}>
             <Form.Item
               name="width"
-              label="Ширина"
-              rules={[{ required: true, message: "Ширина обязательна" }]}
+              label="Width"
+              rules={[{ required: true, message: "Width is required" }]}
             >
               <Input type="number" min={1} />
             </Form.Item>
@@ -158,26 +158,29 @@ const PageForm = ({
           <Col span={4}>
             <Form.Item
               name="height"
-              label="Высота"
-              rules={[{ required: true, message: "Высота обязательна" }]}
+              label="Height"
+              rules={[{ required: true, message: "Height is required" }]}
             >
               <Input type="number" min={1} />
             </Form.Item>
           </Col>
-          <Col span={mode === 'edit' ? 4 : 5}>
+          <Col span={5}>
             <Form.Item
               name="units"
-              label="Единицы изм."
-              rules={[{ required: true, message: "Выберите единицы измерения" }]}
+              label="Units"
+              rules={[{ required: true, message: "Units are required" }]}
             >
-              <Select options={PAGE_FORM_UNITS_OPTIONS} />
+              <Select options={[
+                { value: 'mm', label: 'Millimeters (mm)' },
+                { value: 'px', label: 'Pixels (px)' }
+              ]} />
             </Form.Item>
           </Col>
-          <Col span={mode === 'edit' ? 4 : 5}>
+          <Col span={5}>
             <Form.Item
               name="bleeds"
-              label="Вылеты (bleeds)"
-              tooltip="Отступы под обрез (в выбранных единицах)"
+              label="Bleeds"
+              tooltip="Bleed area in selected units"
             >
               <Input type="number" min={0} />
             </Form.Item>
@@ -185,111 +188,106 @@ const PageForm = ({
         </Row>
       </Card>
 
-      {/* HTML редактор */}
-      <Card title="HTML разметка страницы" className="mb-6">
-        <Form.Item name="html">
-          <CodeEditor 
-            language="html" 
-            height="400px"
-            onChange={handleHtmlChange}
-          />
-        </Form.Item>
+      {/* HTML Editor */}
+      <Card title="HTML Template" className="mb-4">
+        <CodeEditor
+          language="html"
+          value={html}
+          onChange={handleHtmlChange}
+          height="400px"
+        />
       </Card>
 
-      {/* Поля шаблона */}
+      {/* Template Fields */}
       <Card 
-        title="Поля шаблона (переменные)" 
+        title="Template Fields" 
+        className="mb-4"
         extra={
           <Button 
-            variant="primary" 
-            icon={<PlusCircle size={16} />} 
+            type="primary" 
+            icon={<PlusOutlined />} 
             onClick={handleAddField}
           >
-            {PAGE_FORM_ADD_FIELD_BUTTON}
+            Add Field
           </Button>
         }
-        className="mb-6"
       >
-        {fields.length === 0 ? (
-          <Typography.Text type="secondary" style={{ display: 'block', textAlign: 'center', padding: '24px 0' }}>
-            Поля еще не добавлены
-          </Typography.Text>
-        ) : (
-          <div className="space-y-4">
-            {fields.map((field, index) => (
-              <div key={index} className="grid grid-cols-8 gap-4 items-end border-b border-gray-600 pb-4">
-                <div className="col-span-3">
-                  <Form.Item
-                    label={PAGE_FORM_FIELD_NAME_LABEL}
-                    required
-                  >
-                    <Input
-                      placeholder="например, client_name"
-                      value={field.name}
-                      onChange={(e) => handleFieldChange(index, { ...field, name: e.target.value })}
-                    />
-                  </Form.Item>
-                </div>
-                <div className="col-span-3">
-                  <Form.Item
-                    label={PAGE_FORM_FIELD_LABEL_LABEL}
-                    required
-                  >
-                    <Input
-                      placeholder="Например, Имя клиента"
-                      value={field.label}
-                      onChange={(e) => handleFieldChange(index, { ...field, label: e.target.value })}
-                    />
-                  </Form.Item>
-                </div>
-                <div className="col-span-1 pt-5">
-                  <Checkbox
-                    checked={field.required}
-                    onChange={(e) => handleFieldChange(index, { ...field, required: e.target.checked })}
-                    label={PAGE_FORM_FIELD_REQUIRED_LABEL}
-                  />
-                </div>
-                <div className="col-span-1 flex justify-end pt-5">
-                  <Button
-                    variant="ghost"
-                    icon={<Trash2 className="text-red-500" size={16} />}
-                    onClick={() => handleDeleteField(index)}
-                    title={PAGE_FORM_DELETE_FIELD_BUTTON}
-                  />
-                </div>
-              </div>
-            ))}
+        {fields.map((field, index) => (
+          <Row key={index} gutter={16} className="mb-4 pb-4 border-b border-gray-800">
+            <Col span={8}>
+              <Form.Item label="Field Name" required>
+                <Input
+                  value={field.name}
+                  onChange={e => handleFieldChange(index, {...field, name: e.target.value})}
+                  placeholder="e.g., client_name"
+                />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item label="Display Label" required>
+                <Input
+                  value={field.label}
+                  onChange={e => handleFieldChange(index, {...field, label: e.target.value})}
+                  placeholder="e.g., Client Name"
+                />
+              </Form.Item>
+            </Col>
+            <Col span={4}>
+              <Form.Item label=" ">
+                <Checkbox
+                  checked={field.required}
+                  onChange={e => handleFieldChange(index, {...field, required: e.target.checked})}
+                >
+                  Required
+                </Checkbox>
+              </Form.Item>
+            </Col>
+            <Col span={4}>
+              <Form.Item label=" ">
+                <Button
+                  danger
+                  icon={<DeleteOutlined />}
+                  onClick={() => handleDeleteField(index)}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+        ))}
+        {fields.length === 0 && (
+          <div className="text-center py-4 text-gray-500">
+            No fields added yet. Click "Add Field" to create form fields for your template.
           </div>
         )}
       </Card>
 
-      {/* Управление файлами */}
-      <Card title="Управление файлами" className="mb-6">
+      {/* Asset Manager */}
+      <Card title="Assets" className="mb-4">
         <AssetManager
           templateId={templateId}
           pageId={pageId}
           assets={assets}
-          onAssetsChange={handleAssetsChange}
+          onAssetsChange={setAssets}
         />
       </Card>
-
-      {/* Нижние кнопки */}
-      <div className="flex justify-end space-x-3">
-        <Link to={`/admin/templates/${templateId}`}>
-          <Button variant="outline" disabled={isSubmitting}>
-            Отмена
-          </Button>
-        </Link>
-        <Button 
-          type="submit"
-          isLoading={isSubmitting}
-          icon={<Save size={16} />}
-        >
-          {isSubmitting ? 'Сохранение...' : submitButtonText}
-        </Button>
-      </div>
     </Form>
   );
 };
 
-export default PageForm; 
+export default PageForm;
+
+const DEFAULT_HTML_TEMPLATE = `<!DOCTYPE html>
+<html>
+<head>
+  <title>Document Template</title>
+  <style>
+    body { font-family: sans-serif; margin: 0; }
+    .content { padding: 20mm; }
+  </style>
+</head>
+<body>
+  <div class="content">
+    <h1>{{title}}</h1>
+    <p>Hello, {{name}}!</p>
+  </div>
+</body>
+</html>`; 

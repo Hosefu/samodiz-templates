@@ -2,6 +2,7 @@ import React from 'react';
 import { Card } from '../components/ui';
 import { TemplateList } from '../components/templates';
 import { useTemplateContext } from '../context/TemplateContext';
+import * as text from '../../constants/ux-writing';
 
 const TemplateSelection = ({ onSelectTemplate }) => {
   const { templates, isLoading, error, selectedTemplate, selectTemplate } = useTemplateContext();
@@ -16,7 +17,7 @@ const TemplateSelection = ({ onSelectTemplate }) => {
   return (
     <Card title="Выберите шаблон документа">
       {isLoading ? (
-        <div className="text-center py-4">Загрузка шаблонов...</div>
+        <div className="text-center py-4">{text.TEMPLATE_SELECTION_LOADING}</div>
       ) : error ? (
         <div className="text-red-500 text-center py-4">
           {error}
