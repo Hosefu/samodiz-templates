@@ -7,9 +7,9 @@ import {
   message, Icons
 } from '../../components/ui/AntComponents';
 import { 
-  ArrowLeftOutlined, DeleteOutlined, PlusOutlined 
+  ArrowLeftOutlined, DeleteOutlined, PlusOutlined, SaveOutlined 
 } from '@ant-design/icons';
-import { Space, Alert, Divider, Row, Col } from 'antd';
+import { Space, Alert, Divider, Row, Col, Typography } from 'antd';
 import CodeEditor from '../../components/admin/CodeEditor';
 
 // Локальные константы для страницы
@@ -62,49 +62,50 @@ const PageCreate = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [formData, setFormData] = useState({
-    name: '',
-    width: 210,
-    height: 297,
-    units: 'mm',
-    bleeds: 3,
-    html: PAGE_CREATE_DEFAULT_HTML
-  });
-  // Начальные поля по умолчанию из HTML
+  const [form] = Form.useForm();
   const [fields, setFields] = useState([
     { name: 'title', label: text.PAGE_CREATE_FIELD_DEFAULT_TITLE, required: true },
     { name: 'name', label: text.PAGE_CREATE_FIELD_DEFAULT_NAME, required: true }
   ]);
 
-  const handleChange = (e) => {
-    const { name, value, type } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'number' ? parseFloat(value) || 0 : value // Используем parseFloat
-    }));
-    setError(null); // Сброс ошибки при изменении
-  };
-
   const handleHtmlChange = (newValue) => {
-    setFormData(prev => ({ ...prev, html: newValue }));
+    console.log('HTML changed:', newValue);
+    form.setFieldsValue({ html: newValue });
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const validateFields = () => {
+    // Проверяем, что все поля заполнены
+    const hasEmptyFields = fields.some(field => !field.name || !field.label);
+    if (hasEmptyFields) {
+      message.error('Все поля должны быть заполнены');
+      return false;
+    }
+    return true;
+  };
+
+  const handleSubmit = async (values) => {
+    console.log('Form submitted with values:', values);
+    console.log('Current fields:', fields);
+    
+    if (!validateFields()) {
+      return;
+    }
+    
     setLoading(true);
     setError(null);
     
     try {
-      // TODO: Валидация данных (особенно уникальность имени)
       const pageData = {
-        ...formData,
+        ...values,
         fields,
         assets: [] // Assets пока не реализованы
       };
       
+      console.log('Sending page data:', pageData);
       const newPage = await createPage(templateId, pageData);
+      console.log('Page created successfully:', newPage);
+      
       message.success(`Страница "${newPage.name}" успешно создана!`);
-      // Переходим на страницу редактирования созданного шаблона
       navigate(`/admin/templates/${templateId}`); 
     } catch (err) {
       console.error('Failed to create page:', err);
@@ -121,6 +122,7 @@ const PageCreate = () => {
   };
 
   const handleFieldChange = (index, fieldData) => {
+    console.log('Field changed:', index, fieldData);
     const updatedFields = [...fields];
     updatedFields[index] = fieldData;
     setFields(updatedFields);
@@ -132,7 +134,19 @@ const PageCreate = () => {
   };
 
   return (
-    <Form onFinish={handleSubmit} layout="vertical" initialValues={formData}>
+    <Form 
+      form={form}
+      onFinish={handleSubmit}
+      layout="vertical"
+      initialValues={{
+        name: '',
+        width: 210,
+        height: 297,
+        units: 'mm',
+        bleeds: 3,
+        html: PAGE_CREATE_DEFAULT_HTML
+      }}
+    >
       {/* Header с кнопками */}
       <Space style={{ marginBottom: 16, justifyContent: 'space-between', width: '100%' }}>
         <Space>
@@ -223,8 +237,7 @@ const PageCreate = () => {
           <CodeEditor 
             language="html" 
             height="400px"
-            value={formData.html}
-            onChange={(value) => setFormData(prev => ({ ...prev, html: value }))}
+            onChange={handleHtmlChange}
           />
         </Form.Item>
       </Card>

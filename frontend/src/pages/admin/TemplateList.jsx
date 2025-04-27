@@ -3,9 +3,12 @@ import { Link } from 'react-router-dom';
 import { useTemplates } from '../../context/TemplateContext';
 import { deleteTemplate } from '../../api/templateService';
 import * as text from '../../constants/ux-writing';
-import Button from '../../components/ui/Button';
-import { Loader2, FilePlus, Edit, Trash2, AlertCircle } from 'lucide-react';
-import Modal from '../../components/ui/Modal';
+import { 
+  Button, Card, Space, Typography, Spin, Alert, Table, Tag, Modal 
+} from '../../components/ui/AntComponents';
+import { 
+  FileAddOutlined, EditOutlined, DeleteOutlined, ExclamationCircleOutlined 
+} from '@ant-design/icons';
 
 const TemplateList = () => {
   const { templates, loading, error, refreshTemplates } = useTemplates();
@@ -45,126 +48,148 @@ const TemplateList = () => {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-40">
-        <Loader2 className="animate-spin h-8 w-8 text-blue-600" />
+        <Spin size="large" />
         <span className="ml-2 text-gray-600">{text.ADMIN_TEMPLATE_LIST_LOADING}</span>
       </div>
     );
   }
 
   if (error) {
-    return <div className="text-red-600 bg-red-100 p-4 rounded-md">{text.ADMIN_TEMPLATE_LIST_ERROR(error)}</div>;
+    return (
+      <Alert
+        message="Ошибка"
+        description={text.ADMIN_TEMPLATE_LIST_ERROR(error)}
+        type="error"
+        showIcon
+      />
+    );
   }
+
+  const columns = [
+    {
+      title: text.ADMIN_TEMPLATE_LIST_TABLE_HEADER_NAME,
+      dataIndex: 'name',
+      key: 'name',
+      render: (text) => text || '-'
+    },
+    {
+      title: text.ADMIN_TEMPLATE_LIST_TABLE_HEADER_VERSION,
+      dataIndex: 'version',
+      key: 'version',
+      render: (text) => text || '-'
+    },
+    {
+      title: text.ADMIN_TEMPLATE_LIST_TABLE_HEADER_TYPE,
+      dataIndex: 'type',
+      key: 'type',
+      render: (type) => type ? (
+        <Tag color="blue">{type.toUpperCase()}</Tag>
+      ) : (
+        <span className="text-gray-400">N/A</span>
+      )
+    },
+    {
+      title: text.ADMIN_TEMPLATE_LIST_TABLE_HEADER_PAGES,
+      dataIndex: 'pages',
+      key: 'pages',
+      align: 'center',
+      render: (pages) => pages?.length ?? 0
+    },
+    {
+      title: text.ADMIN_TEMPLATE_LIST_TABLE_HEADER_ACTIONS,
+      key: 'actions',
+      align: 'right',
+      render: (_, record) => (
+        <Space>
+          <Link to={`/admin/templates/${record.id}`}>
+            <Button 
+              type="text" 
+              icon={<EditOutlined />} 
+              title={text.ADMIN_TEMPLATE_LIST_EDIT_BUTTON}
+            />
+          </Link>
+          <Button
+            type="text"
+            danger
+            icon={<DeleteOutlined />}
+            onClick={() => openDeleteConfirm(record)}
+            title={text.ADMIN_TEMPLATE_LIST_DELETE_BUTTON}
+          />
+        </Space>
+      )
+    }
+  ];
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-semibold text-gray-800">{text.ADMIN_TEMPLATE_LIST_TITLE}</h1>
+        <Typography.Title level={2}>
+          {text.ADMIN_TEMPLATE_LIST_TITLE}
+        </Typography.Title>
         <Link to="/admin/templates/new">
-           <Button variant="default" icon={<FilePlus />}>
-             {text.ADMIN_TEMPLATE_LIST_CREATE_BUTTON}
-           </Button>
+          <Button type="primary" icon={<FileAddOutlined />}>
+            {text.ADMIN_TEMPLATE_LIST_CREATE_BUTTON}
+          </Button>
         </Link>
       </div>
 
       {templates.length === 0 ? (
-        <div className="text-center py-12 bg-white rounded-lg shadow border border-gray-200">
-          <p className="text-gray-500">{text.ADMIN_TEMPLATE_LIST_NO_TEMPLATES}</p>
-          <Link to="/admin/templates/new" className="mt-4 inline-block">
-            <Button variant="default" icon={<FilePlus />}>
-               {text.ADMIN_TEMPLATE_LIST_CREATE_BUTTON}
-            </Button>
-           </Link>
-        </div>
+        <Card>
+          <div className="text-center py-12">
+            <Typography.Text type="secondary">
+              {text.ADMIN_TEMPLATE_LIST_NO_TEMPLATES}
+            </Typography.Text>
+            <div className="mt-4">
+              <Link to="/admin/templates/new">
+                <Button type="primary" icon={<FileAddOutlined />}>
+                  {text.ADMIN_TEMPLATE_LIST_CREATE_BUTTON}
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </Card>
       ) : (
-        <div className="bg-white shadow overflow-hidden rounded-lg border border-gray-200">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  {text.ADMIN_TEMPLATE_LIST_TABLE_HEADER_NAME}
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  {text.ADMIN_TEMPLATE_LIST_TABLE_HEADER_VERSION}
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  {text.ADMIN_TEMPLATE_LIST_TABLE_HEADER_TYPE}
-                </th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  {text.ADMIN_TEMPLATE_LIST_TABLE_HEADER_PAGES}
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  {text.ADMIN_TEMPLATE_LIST_TABLE_HEADER_ACTIONS}
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {templates.map((template) => (
-                <tr key={template.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{template.name || '-'}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-500">{template.version || '-'}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {template.type ? (
-                      <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                        {template.type.toUpperCase()}
-                      </span>
-                    ) : (
-                       <span className="text-gray-400 text-xs">N/A</span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
-                    {template.pages?.length ?? 0}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
-                    <Link 
-                      to={`/admin/templates/${template.id}`}
-                      className="text-blue-600 hover:text-blue-800"
-                      title={text.ADMIN_TEMPLATE_LIST_EDIT_BUTTON}
-                    >
-                       <Button variant="ghost" size="sm" icon={<Edit />} />
-                    </Link>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      icon={<Trash2 className="text-red-600" />} 
-                      onClick={() => openDeleteConfirm(template)}
-                      title={text.ADMIN_TEMPLATE_LIST_DELETE_BUTTON}
-                    />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <Table
+          columns={columns}
+          dataSource={templates}
+          rowKey="id"
+          pagination={false}
+        />
       )}
       
-      <Modal 
-        isOpen={showDeleteConfirm}
-        onClose={closeDeleteConfirm}
+      <Modal
         title={text.ADMIN_TEMPLATE_LIST_CONFIRM_DELETE_TITLE}
+        open={showDeleteConfirm}
+        onCancel={closeDeleteConfirm}
+        footer={[
+          <Button key="cancel" onClick={closeDeleteConfirm} disabled={isDeleting}>
+            {text.ADMIN_TEMPLATE_LIST_CANCEL_BUTTON}
+          </Button>,
+          <Button 
+            key="delete" 
+            type="primary" 
+            danger 
+            onClick={handleDelete} 
+            loading={isDeleting}
+          >
+            {text.ADMIN_TEMPLATE_LIST_DELETE_BUTTON}
+          </Button>
+        ]}
       >
-        <div className="space-y-4">
-           <div className="flex items-start space-x-3">
-                <AlertCircle className="h-6 w-6 text-red-500 flex-shrink-0"/>
-                <p className="text-sm text-gray-600">
-                    {text.ADMIN_TEMPLATE_LIST_CONFIRM_DELETE_MSG(templateToDelete?.name || '')}
-                </p>
-           </div>
-           {deleteError && (
-              <p className="text-sm text-red-600 bg-red-50 p-2 rounded">{deleteError}</p>
-           )}
-           <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
-                <Button variant="outline" onClick={closeDeleteConfirm} disabled={isDeleting}>
-                    {text.ADMIN_TEMPLATE_LIST_CANCEL_BUTTON}
-                </Button>
-                <Button variant="danger" onClick={handleDelete} isLoading={isDeleting}>
-                    {text.ADMIN_TEMPLATE_LIST_DELETE_BUTTON}
-                </Button>
-           </div>
-        </div>
+        <Space>
+          <ExclamationCircleOutlined style={{ color: '#ff4d4f' }} />
+          <Typography.Text>
+            {text.ADMIN_TEMPLATE_LIST_CONFIRM_DELETE_MSG(templateToDelete?.name || '')}
+          </Typography.Text>
+        </Space>
+        {deleteError && (
+          <Alert
+            message={deleteError}
+            type="error"
+            showIcon
+            style={{ marginTop: 16 }}
+          />
+        )}
       </Modal>
     </div>
   );

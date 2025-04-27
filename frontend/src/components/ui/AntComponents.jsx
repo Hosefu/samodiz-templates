@@ -1,6 +1,6 @@
 import { Button as AntButton, Input as AntInput, Select as AntSelect, 
   Checkbox as AntCheckbox, Card as AntCard, Modal as AntModal, 
-  Spin, Form, Upload, message, Alert, Space } from 'antd';
+  Spin, Form, Upload, message, Alert, Space, Typography, Table, Tag } from 'antd';
 import { 
   SaveOutlined, PlusOutlined, DeleteOutlined, 
   UploadOutlined, CopyOutlined, LoadingOutlined 
@@ -103,4 +103,4 @@ export const Icons = {
 };
 
 // Экспортируем оригинальные компоненты Ant Design
-export { Form, Upload, message, Spin, Alert, Space }; 
+export { Form, Upload, message, Spin, Alert, Space, Typography, Table, Tag }; 

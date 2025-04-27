@@ -4,15 +4,18 @@ import { fetchTemplateById } from '../../api/templateService'; // Fetch template
 import { updatePage } from '../../api/pageService';
 import { uploadAsset, deleteAsset } from '../../api/assetService';
 import * as text from '../../constants/ux-writing';
-import Button from '../../components/ui/Button';
-import Input from '../../components/ui/Input';
-import Card from '../../components/ui/Card';
-import Select from '../../components/ui/Select';
-import Checkbox from '../../components/ui/Checkbox';
+import { 
+  Button, Input, Card, Select, Checkbox, Form, message
+} from '../../components/ui/AntComponents';
+import { 
+  ArrowLeftOutlined, SaveOutlined, PlusOutlined, 
+  DeleteOutlined, UploadOutlined, CopyOutlined 
+} from '@ant-design/icons';
+import { Space, Alert, Divider, Row, Col, Typography, Spin } from 'antd';
 import CodeEditor from '../../components/admin/CodeEditor';
 import FileUploader from '../../components/admin/FileUploader';
 import Modal from '../../components/ui/Modal';
-import { ChevronLeft, Save, PlusCircle, Trash2, Loader2, AlertTriangle, UploadCloud, Copy, ExternalLink, Image as ImageIcon } from 'lucide-react';
+import { ChevronLeft, Save, PlusCircle, Trash2, Loader2, AlertTriangle, UploadCloud, ExternalLink, Image as ImageIcon } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 // Локальные константы

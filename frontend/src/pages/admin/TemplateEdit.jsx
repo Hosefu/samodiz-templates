@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { fetchTemplateById, updateTemplate } from '../../api/templateService';
 import { useTemplates } from '../../context/TemplateContext';
 import * as text from '../../constants/ux-writing';
@@ -10,7 +10,7 @@ import {
   ArrowLeftOutlined, SaveOutlined, FileAddOutlined, 
   EditOutlined, DeleteOutlined 
 } from '@ant-design/icons';
-import { Alert, List, Typography, Space } from 'antd';
+import { Alert, List, Typography, Space, Spin } from 'antd';
 import { toast } from 'react-hot-toast';
 
 // Добавляем константы
@@ -98,34 +98,37 @@ const TemplateEdit = () => {
 
   if (loading) {
     return (
-       <div className="flex justify-center items-center h-40">
-         <Loader2 className="animate-spin h-8 w-8 text-blue-600" />
-         <span className="ml-2 text-gray-600">{TPL_EDIT_LOADING}</span>
-       </div>
+      <div className="flex justify-center items-center h-40">
+        <Spin size="large" />
+        <span className="ml-2 text-gray-600">{TPL_EDIT_LOADING}</span>
+      </div>
     );
   }
 
   // Показываем ошибку загрузки, если шаблон не загружен
   if (error && !template) {
-      return (
-        <div className="text-center py-10">
-           <AlertTriangle className="mx-auto h-12 w-12 text-red-400" />
-           <h3 className="mt-2 text-lg font-medium text-red-800">Ошибка</h3>
-           <p className="mt-1 text-sm text-red-600">{error}</p>
-           <div className="mt-6">
-             <Link to="/admin/templates">
-               <Button variant="outline">
-                 {text.BACK_TO_LIST_BUTTON}
-               </Button>
-             </Link>
-           </div>
-         </div>
-       );
+    return (
+      <div className="text-center py-10">
+        <Alert
+          message="Ошибка"
+          description={error}
+          type="error"
+          showIcon
+        />
+        <div className="mt-6">
+          <Link to="/admin/templates">
+            <Button variant="outline">
+              {text.BACK_TO_LIST_BUTTON}
+            </Button>
+          </Link>
+        </div>
+      </div>
+    );
   }
   
   // Если шаблон не найден после загрузки
   if (!template) {
-      return <div className="text-center py-10 text-gray-500">{TPL_EDIT_NOT_FOUND}</div>;
+    return <div className="text-center py-10 text-gray-500">{TPL_EDIT_NOT_FOUND}</div>;
   }
 
   return (
@@ -200,49 +203,47 @@ const TemplateEdit = () => {
       <Card 
         title={TPL_EDIT_SECTION_PAGES}
         extra={
-          <Link to={`/admin/templates/${id}/pages/new`}>
-            <Button 
-              type="primary" 
-              icon={<FileAddOutlined />}
-            >
-              {TPL_EDIT_ADD_PAGE_BUTTON}
-            </Button>
-          </Link>
+          <Button
+            type="primary"
+            icon={<FileAddOutlined />}
+            onClick={() => navigate(`/admin/templates/${id}/pages/new`)}
+          >
+            {TPL_EDIT_ADD_PAGE_BUTTON}
+          </Button>
         }
-        style={{ marginTop: 16 }}
       >
-        {template.pages?.length === 0 ? (
-          <Typography.Text type="secondary" style={{ display: 'block', textAlign: 'center', padding: '24px 0' }}>
-            {TPL_EDIT_NO_PAGES}
-          </Typography.Text>
-        ) : (
+        {template.pages && template.pages.length > 0 ? (
           <List
-            itemLayout="horizontal"
-            dataSource={template.pages || []}
+            dataSource={template.pages}
             renderItem={page => (
               <List.Item
                 actions={[
-                  <Link to={`/admin/templates/${id}/pages/${page.name}`}>
-                    <Button 
-                      icon={<EditOutlined />} 
-                      title={TPL_EDIT_EDIT_PAGE_BUTTON}
-                    />
-                  </Link>
+                  <Button
+                    key="edit"
+                    icon={<EditOutlined />}
+                    onClick={() => navigate(`/admin/templates/${id}/pages/${page.name}`)}
+                  >
+                    {TPL_EDIT_EDIT_PAGE_BUTTON}
+                  </Button>
                 ]}
               >
                 <List.Item.Meta
                   title={page.name}
                   description={TPL_EDIT_PAGE_DETAILS(
-                    page.width, 
-                    page.height, 
-                    page.units, 
-                    page.fields?.length || 0, 
+                    page.width,
+                    page.height,
+                    page.units,
+                    page.fields?.length || 0,
                     page.assets?.length || 0
                   )}
                 />
               </List.Item>
             )}
           />
+        ) : (
+          <div className="text-center py-4 text-gray-500">
+            {TPL_EDIT_NO_PAGES}
+          </div>
         )}
       </Card>
     </div>
