@@ -1,4 +1,4 @@
-import { createBrowserRouter } from 'react-router-dom';
+import { createBrowserRouter, Navigate } from 'react-router-dom';
 import AdminLayout from '../components/layout/AdminLayout';
 import Dashboard from '../pages/admin/Dashboard';
 import TemplateList from '../pages/admin/TemplateList';
@@ -10,18 +10,33 @@ import PublicLayout from '../components/layout/PublicLayout';
 import Home from '../pages/public/Home';
 import LoginPage from '../pages/auth/LoginPage';
 import PrivateRoute from '../components/auth/PrivateRoute';
+import App from '../App';
 
-// Роутер для административной панели
 const router = createBrowserRouter([
   {
     path: "/",
+    element: <App />,
+    children: [
+      {
+        path: "",
+        element: <Home />
+      },
+      {
+        path: "login",
+        element: <LoginPage />
+      },
+    ]
+  },
+  {
+    path: "/admin",
     element: (
       <PrivateRoute requireAdmin={true}>
         <AdminLayout />
       </PrivateRoute>
     ),
     children: [
-      { path: "", element: <Dashboard /> },
+      { index: true, element: <Navigate to="dashboard" replace /> },
+      { path: "dashboard", element: <Dashboard /> },
       { path: "templates", element: <TemplateList /> },
       { path: "templates/new", element: <TemplateCreate /> },
       { path: "templates/:id", element: <TemplateEdit /> },
@@ -29,16 +44,6 @@ const router = createBrowserRouter([
       { path: "templates/:templateId/pages/:pageId", element: <PageEdit /> },
     ]
   },
-  {
-    path: "/",
-    element: <PublicLayout />,
-    children: [
-      { path: "", element: <Home /> },
-      { path: "login", element: <LoginPage /> }
-    ]
-  }
-], {
-  basename: "/admin"
-});
+]);
 
 export default router; 

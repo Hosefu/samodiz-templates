@@ -8,12 +8,15 @@ const Input = ({
   required = false, 
   type = 'text', 
   placeholder = '',
-  error = null
+  error,
+  hint
 }) => (
   <div className="mb-4">
-    <label htmlFor={name} className="block text-sm font-medium text-slate-700 mb-1">
-      {label} {required && <span className="text-red-500">*</span>}
-    </label>
+    {label && (
+      <label htmlFor={name} className="block text-sm font-medium text-gray-700 mb-1">
+        {label} {required && <span className="text-red-500">*</span>}
+      </label>
+    )}
     <input
       type={type}
       id={name}
@@ -22,9 +25,12 @@ const Input = ({
       onChange={onChange}
       required={required}
       placeholder={placeholder}
-      className={`w-full px-3 py-2 border ${error ? 'border-red-500' : 'border-slate-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500`}
+      className={`w-full px-3 py-2 border ${error ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 ${error ? 'focus:ring-red-500' : 'focus:ring-blue-500'} focus:border-transparent`}
+      aria-invalid={error ? "true" : "false"}
+      aria-describedby={error ? `${name}-error` : hint ? `${name}-hint` : undefined}
     />
-    {error && <p className="mt-1 text-sm text-red-500">{error}</p>}
+    {hint && !error && <p className="mt-1 text-xs text-gray-500" id={`${name}-hint`}>{hint}</p>}
+    {error && <p className="mt-1 text-xs text-red-600" id={`${name}-error`}>{error}</p>}
   </div>
 );
 

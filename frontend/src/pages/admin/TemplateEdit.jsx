@@ -1,7 +1,31 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { fetchTemplateById, updateTemplate } from '../../api/templateService';
 import { useTemplates } from '../../context/TemplateContext';
+import * as text from '../../constants/ux-writing';
+import Button from '../../components/ui/Button';
+import Input from '../../components/ui/Input';
+import Card from '../../components/ui/Card';
+import Select from '../../components/ui/Select';
+import { ChevronLeft, Save, FilePlus, Loader2, AlertTriangle, List, Edit } from 'lucide-react';
+import { toast } from 'react-hot-toast';
+
+// Добавляем константы
+const TPL_EDIT_TITLE = "Редактирование шаблона";
+const TPL_EDIT_LOADING = "Загрузка данных шаблона...";
+const TPL_EDIT_NOT_FOUND = "Шаблон не найден.";
+const TPL_EDIT_LOAD_ERROR = (msg) => `Ошибка загрузки шаблона: ${msg}`;
+const TPL_EDIT_UPDATE_SUCCESS = "Шаблон успешно обновлен";
+const TPL_EDIT_UPDATE_ERROR = (msg) => `Ошибка обновления шаблона: ${msg}`;
+const TPL_EDIT_SAVE_BUTTON = "Сохранить изменения";
+const TPL_EDIT_SAVING_BUTTON = "Сохранение...";
+const TPL_EDIT_CANCEL_BUTTON = "Отменить";
+const TPL_EDIT_SECTION_DETAILS = "Детали шаблона";
+const TPL_EDIT_SECTION_PAGES = "Страницы шаблона";
+const TPL_EDIT_ADD_PAGE_BUTTON = "Добавить страницу";
+const TPL_EDIT_NO_PAGES = "Страницы еще не добавлены.";
+const TPL_EDIT_PAGE_DETAILS = (w, h, u, f, a) => `${w}x${h} ${u}, ${f} полей, ${a} ассетов`;
+const TPL_EDIT_EDIT_PAGE_BUTTON = "Редактировать страницу";
 
 const TemplateEdit = () => {
   const { id } = useParams();
@@ -11,32 +35,27 @@ const TemplateEdit = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
-  const [formData, setFormData] = useState({
-    name: '',
-    version: '',
-    type: 'pdf'
-  });
+  const [formData, setFormData] = useState({ name: '', version: '', type: 'pdf' });
+
+  // useCallback для предотвращения лишних ререндеров
+  const loadTemplate = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await fetchTemplateById(id);
+      setTemplate(data);
+      setFormData({ name: data.name, version: data.version, type: data.type });
+    } catch (err) {
+      console.error('Error loading template:', err);
+      setError(TPL_EDIT_LOAD_ERROR(err.message || text.UNKNOWN_ERROR_MSG));
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
 
   useEffect(() => {
-    const loadTemplate = async () => {
-      try {
-        setLoading(true);
-        const data = await fetchTemplateById(id);
-        setTemplate(data);
-        setFormData({
-          name: data.name,
-          version: data.version,
-          type: data.type
-        });
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     loadTemplate();
-  }, [id]);
+  }, [loadTemplate]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -47,145 +66,173 @@ const TemplateEdit = () => {
     e.preventDefault();
     setSaving(true);
     setError(null);
-    
     try {
+      // TODO: Добавить валидацию
       await updateTemplate(id, formData);
-      refreshTemplates();
-      alert('Template updated successfully');
+      refreshTemplates(); // Обновляем список в контексте
+      toast.success(TPL_EDIT_UPDATE_SUCCESS); // Показываем уведомление
+      // Обновляем данные на странице после сохранения
+      setTemplate(prev => ({ ...prev, ...formData })); 
     } catch (err) {
       console.error('Failed to update template:', err);
-      setError(err.message);
+      const errorMsg = TPL_EDIT_UPDATE_ERROR(err.message || text.UNKNOWN_ERROR_MSG);
+      setError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setSaving(false);
     }
   };
 
-  if (loading) return <div className="text-center">Loading template...</div>;
-  if (error && !template) return <div className="text-red-500">Error: {error}</div>;
-  if (!template) return <div className="text-center">Template not found</div>;
+  const templateTypeOptions = [
+    { value: 'pdf', label: 'PDF' },
+    { value: 'png', label: 'PNG' },
+    { value: 'svg', label: 'SVG' },
+  ];
+
+  if (loading) {
+    return (
+       <div className="flex justify-center items-center h-40">
+         <Loader2 className="animate-spin h-8 w-8 text-blue-600" />
+         <span className="ml-2 text-gray-600">{TPL_EDIT_LOADING}</span>
+       </div>
+    );
+  }
+
+  // Показываем ошибку загрузки, если шаблон не загружен
+  if (error && !template) {
+      return (
+        <div className="text-center py-10">
+           <AlertTriangle className="mx-auto h-12 w-12 text-red-400" />
+           <h3 className="mt-2 text-lg font-medium text-red-800">Ошибка</h3>
+           <p className="mt-1 text-sm text-red-600">{error}</p>
+           <div className="mt-6">
+             <Link to="/admin/templates">
+               <Button variant="outline">
+                 {text.BACK_TO_LIST_BUTTON}
+               </Button>
+             </Link>
+           </div>
+         </div>
+       );
+  }
+  
+  // Если шаблон не найден после загрузки
+  if (!template) {
+      return <div className="text-center py-10 text-gray-500">{TPL_EDIT_NOT_FOUND}</div>;
+  }
 
   return (
-    <div>
-      <div className="mb-6">
-        <h3 className="text-lg font-medium">Edit Template</h3>
-        <p className="text-gray-500">Update template details and manage pages</p>
+    <div className="space-y-8">
+      <div className="flex items-center justify-between">
+         <div className="flex items-center gap-3">
+            <Link to="/admin/templates" className="text-gray-500 hover:text-gray-700">
+                <ChevronLeft size={24}/>
+            </Link>
+            <h1 className="text-2xl font-semibold text-gray-800">{TPL_EDIT_TITLE}: <span className="font-normal">{template.name}</span></h1>
+         </div>
+         {/* Можно добавить кнопку "Просмотр" или другие действия */} 
       </div>
 
-      {error && (
-        <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6">
-          <div className="flex">
-            <div>
-              <p className="text-sm text-red-700">
-                {error}
-              </p>
-            </div>
+      {/* Форма редактирования деталей шаблона */} 
+      <Card title={TPL_EDIT_SECTION_DETAILS}>
+        <form onSubmit={handleSubmit} className="space-y-6">
+           {/* Показываем ошибку сохранения */} 
+           {error && !loading && (
+             <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-md text-sm" role="alert">
+               {error}
+             </div>
+           )}
+          <Input
+            label={text.TPL_CREATE_NAME_LABEL} // Используем константы из Create
+            id="name"
+            name="name"
+            value={formData.name}
+            onChange={handleChange}
+            required
+          />
+          <Input
+            label={text.TPL_CREATE_VERSION_LABEL}
+            id="version"
+            name="version"
+            value={formData.version}
+            onChange={handleChange}
+            required
+          />
+          <Select
+             label={text.TPL_CREATE_TYPE_LABEL}
+             id="type"
+             name="type"
+             value={formData.type}
+             onChange={handleChange}
+             options={templateTypeOptions}
+             required
+           />
+          <div className="pt-4 flex justify-end space-x-3 border-t border-gray-200">
+             {/* Кнопка отмены может просто сбрасывать изменения */} 
+             <Button
+               type="button"
+               variant="outline"
+               onClick={() => setFormData({ name: template.name, version: template.version, type: template.type })} // Сброс
+               disabled={saving}
+             >
+               {TPL_EDIT_CANCEL_BUTTON}
+             </Button>
+             <Button
+               type="submit"
+               isLoading={saving}
+               icon={<Save size={16}/>}
+             >
+               {saving ? TPL_EDIT_SAVING_BUTTON : TPL_EDIT_SAVE_BUTTON}
+             </Button>
           </div>
-        </div>
-      )}
+        </form>
+      </Card>
 
-      <div className="bg-white shadow overflow-hidden rounded-lg mb-6">
-        <div className="px-4 py-5 sm:p-6">
-          <form onSubmit={handleSubmit}>
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-              <div>
-                <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-                  Template Name
-                </label>
-                <input
-                  type="text"
-                  name="name"
-                  id="name"
-                  value={formData.name}
-                  onChange={handleChange}
-                  required
-                  className="mt-1 focus:ring-blue-500 focus:border-blue-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
-                />
-              </div>
-              <div>
-                <label htmlFor="version" className="block text-sm font-medium text-gray-700">
-                  Version
-                </label>
-                <input
-                  type="text"
-                  name="version"
-                  id="version"
-                  value={formData.version}
-                  onChange={handleChange}
-                  required
-                  className="mt-1 focus:ring-blue-500 focus:border-blue-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
-                />
-              </div>
-              <div>
-                <label htmlFor="type" className="block text-sm font-medium text-gray-700">
-                  Type
-                </label>
-                <select
-                  name="type"
-                  id="type"
-                  value={formData.type}
-                  onChange={handleChange}
-                  required
-                  className="mt-1 focus:ring-blue-500 focus:border-blue-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
-                >
-                  <option value="pdf">PDF</option>
-                  <option value="png">PNG</option>
-                  <option value="svg">SVG</option>
-                </select>
-              </div>
-            </div>
-            <div className="mt-6">
-              <button
-                type="submit"
-                disabled={saving}
-                className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-500 hover:bg-blue-600 disabled:bg-blue-400"
-              >
-                {saving ? 'Saving...' : 'Save Changes'}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-
-      {/* Pages section */}
-      <div className="bg-white shadow overflow-hidden rounded-lg">
-        <div className="px-4 py-5 sm:px-6 flex justify-between items-center">
-          <h3 className="text-lg font-medium text-gray-900">Pages</h3>
-          <Link
-            to={`/admin/templates/${id}/pages/new`}
-            className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-500 hover:bg-blue-600"
-          >
-            Add Page
-          </Link>
-        </div>
-        <div className="border-t border-gray-200">
-          {template.pages?.length === 0 ? (
-            <div className="px-4 py-5 sm:p-6 text-center text-gray-500">
-              No pages found. Add your first page!
+      {/* Секция управления страницами */} 
+      <Card 
+         title={TPL_EDIT_SECTION_PAGES}
+         titleRight={
+             <Link to={`/admin/templates/${id}/pages/new`}>
+               <Button variant="default" size="sm" icon={<FilePlus size={16}/>}>
+                 {TPL_EDIT_ADD_PAGE_BUTTON}
+               </Button>
+             </Link>
+         }
+      >
+         {template.pages?.length === 0 ? (
+            <div className="text-center py-6 text-gray-500">
+              {TPL_EDIT_NO_PAGES}
             </div>
           ) : (
-            <ul className="divide-y divide-gray-200">
+            <ul className="divide-y divide-gray-200 -mx-6"> {/* Убираем отступы Card */} 
               {template.pages?.map((page) => (
-                <li key={page.name} className="px-4 py-4 sm:px-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="text-md font-medium">{page.name}</h4>
-                      <p className="text-sm text-gray-500">
-                        {page.width}x{page.height} {page.units}, {page.fields?.length || 0} fields, {page.assets?.length || 0} assets
-                      </p>
-                    </div>
-                    <Link
-                      to={`/admin/templates/${id}/pages/${page.name}`}
-                      className="text-blue-600 hover:text-blue-900"
-                    >
-                      Edit
-                    </Link>
-                  </div>
+                <li key={page.name} className="px-6 py-4 flex items-center justify-between hover:bg-gray-50">
+                   <div className="flex items-center space-x-3">
+                       <List className="text-gray-400"/> {/* Иконка страницы */} 
+                       <div>
+                         <h4 className="text-sm font-medium text-gray-900">{page.name}</h4>
+                         <p className="text-xs text-gray-500">
+                            {TPL_EDIT_PAGE_DETAILS(
+                                page.width, 
+                                page.height, 
+                                page.units, 
+                                page.fields?.length || 0, 
+                                page.assets?.length || 0
+                            )}
+                         </p>
+                       </div>
+                   </div>
+                  <Link
+                    to={`/admin/templates/${id}/pages/${page.name}`} // TODO: Убедиться, что ID страницы это name
+                    title={TPL_EDIT_EDIT_PAGE_BUTTON}
+                  >
+                    <Button variant="ghost" size="sm" icon={<Edit size={16}/>} />
+                  </Link>
                 </li>
               ))}
             </ul>
           )}
-        </div>
-      </div>
+      </Card>
     </div>
   );
 };

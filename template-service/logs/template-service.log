@@ -175,3 +175,23 @@
 2025-04-27 10:40:34.942 | INFO     | app.main:startup_event:56 - Starting template-service
 2025-04-27 10:40:34.942 | INFO     | app.main:startup_event:57 - Server running at http://0.0.0.0:8083
 2025-04-27 10:40:34.943 | INFO     | app.main:startup_event:58 - Documentation available at http://0.0.0.0:8083/api/docs
+2025-04-27 10:47:42.299 | INFO     | app.main:shutdown_event:63 - Shutting down template-service
+2025-04-27 10:48:09.289 | INFO     | app.utils.logger:setup_logging:31 - Logging initialized with level: INFO
+2025-04-27 10:48:09.290 | INFO     | app.main:startup_event:56 - Starting template-service
+2025-04-27 10:48:09.291 | INFO     | app.main:startup_event:57 - Server running at http://0.0.0.0:8083
+2025-04-27 10:48:09.291 | INFO     | app.main:startup_event:58 - Documentation available at http://0.0.0.0:8083/api/docs
+2025-04-27 11:16:56.563 | INFO     | app.main:shutdown_event:63 - Shutting down template-service
+2025-04-27 11:21:27.738 | INFO     | app.utils.logger:setup_logging:31 - Logging initialized with level: INFO
+2025-04-27 11:21:27.747 | INFO     | app.main:startup_event:56 - Starting template-service
+2025-04-27 11:21:27.747 | INFO     | app.main:startup_event:57 - Server running at http://0.0.0.0:8083
+2025-04-27 11:21:27.748 | INFO     | app.main:startup_event:58 - Documentation available at http://0.0.0.0:8083/api/docs
+2025-04-27 11:24:37.913 | INFO     | app.main:shutdown_event:63 - Shutting down template-service
+2025-04-27 11:25:06.411 | INFO     | app.utils.logger:setup_logging:31 - Logging initialized with level: INFO
+2025-04-27 11:25:06.413 | INFO     | app.main:startup_event:56 - Starting template-service
+2025-04-27 11:25:06.414 | INFO     | app.main:startup_event:57 - Server running at http://0.0.0.0:8083
+2025-04-27 11:25:06.414 | INFO     | app.main:startup_event:58 - Documentation available at http://0.0.0.0:8083/api/docs
+2025-04-27 11:32:57.961 | INFO     | app.main:shutdown_event:63 - Shutting down template-service
+2025-04-27 11:33:23.603 | INFO     | app.utils.logger:setup_logging:31 - Logging initialized with level: INFO
+2025-04-27 11:33:23.605 | INFO     | app.main:startup_event:56 - Starting template-service
+2025-04-27 11:33:23.605 | INFO     | app.main:startup_event:57 - Server running at http://0.0.0.0:8083
+2025-04-27 11:33:23.605 | INFO     | app.main:startup_event:58 - Documentation available at http://0.0.0.0:8083/api/docs

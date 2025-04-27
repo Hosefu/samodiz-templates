@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react'
 import ReactDOM from 'react-dom/client'
-import { BrowserRouter, RouterProvider } from 'react-router-dom'
+import { RouterProvider } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import router from './routes'
-import App from './App'
 import './index.css'
+import { Toaster } from 'react-hot-toast'
 
 // Error boundary component
 const ErrorBoundary = ({ children }) => {
@@ -52,19 +52,48 @@ const ErrorBoundary = ({ children }) => {
   return children;
 };
 
-// Создаем wrapper для добавления контекста авторизации
-const AppWithAuth = () => (
-  <ErrorBoundary>
-    <BrowserRouter>
-      <AuthProvider>
-        <App />
-      </AuthProvider>
-    </BrowserRouter>
-  </ErrorBoundary>
-);
-
+// Основной рендер приложения с RouterProvider и Toaster
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <AppWithAuth />
+    <ErrorBoundary>
+      <AuthProvider>
+        <RouterProvider router={router} />
+        <Toaster 
+          position="bottom-right"
+          toastOptions={{
+            duration: 5000,
+            style: {
+              background: '#333',
+              color: '#fff',
+            },
+            success: {
+              duration: 3000,
+              theme: {
+                primary: 'green',
+                secondary: 'black',
+              },
+               style: {
+                 background: '#10B981',
+                 color: 'white',
+               },
+               iconTheme: {
+                 primary: 'white',
+                 secondary: '#10B981',
+               },
+            },
+            error: {
+               style: {
+                 background: '#EF4444',
+                 color: 'white',
+               },
+               iconTheme: {
+                 primary: 'white',
+                 secondary: '#EF4444',
+               },
+            }
+          }}
+        />
+      </AuthProvider>
+    </ErrorBoundary>
   </React.StrictMode>
 )

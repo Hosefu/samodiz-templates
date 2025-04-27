@@ -1,44 +1,53 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useTemplates } from '../../context/TemplateContext';
+import * as text from '../../constants/ux-writing';
+import { Loader2, FilePlus, Settings } from 'lucide-react';
+import Button from '../../components/ui/Button';
+import Card from '../../components/ui/Card';
 
 const Dashboard = () => {
   const { templates, loading, error } = useTemplates();
 
-  if (loading) return <div className="text-center">Loading...</div>;
-  if (error) return <div className="text-red-500">Error: {error}</div>;
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-40">
+        <Loader2 className="animate-spin h-8 w-8 text-blue-600" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return <div className="text-red-600 bg-red-100 p-4 rounded-md">{text.ADMIN_TEMPLATE_LIST_ERROR(error)}</div>;
+  }
 
   return (
-    <div>
-      <div className="mb-8">
-        <h2 className="text-2xl font-bold mb-4">Document Generator Dashboard</h2>
+    <div className="space-y-6">
+      <div className="bg-white p-6 rounded-lg shadow border border-gray-200">
+        <h2 className="text-2xl font-bold mb-2 text-gray-800">{text.ADMIN_DASHBOARD_TITLE}</h2>
         <p className="text-gray-600">
-          Welcome to the admin panel. Here you can manage your templates and generate documents.
+          {text.ADMIN_DASHBOARD_WELCOME}
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <h3 className="text-lg font-semibold mb-2">Templates</h3>
-          <p className="text-gray-600 mb-4">You have {templates.length} templates in your system.</p>
-          <Link
-            to="/admin/templates"
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
-          >
-            Manage Templates
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card title={text.ADMIN_DASHBOARD_TEMPLATES_CARD_TITLE}>
+          <p className="text-gray-600 mb-4">{text.ADMIN_DASHBOARD_TEMPLATES_CARD_INFO(templates.length)}</p>
+          <Link to="/admin/templates">
+            <Button variant="secondary" icon={<Settings />}>
+              {text.ADMIN_DASHBOARD_MANAGE_TEMPLATES_BUTTON}
+            </Button>
           </Link>
-        </div>
+        </Card>
 
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <h3 className="text-lg font-semibold mb-2">Create New Template</h3>
-          <p className="text-gray-600 mb-4">Start by creating a new template for your documents.</p>
-          <Link
-            to="/admin/templates/new"
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700"
-          >
-            Create Template
+        <Card title={text.ADMIN_DASHBOARD_CREATE_TEMPLATE_CARD_TITLE}>
+          <p className="text-gray-600 mb-4">{text.ADMIN_DASHBOARD_CREATE_TEMPLATE_CARD_INFO}</p>
+          <Link to="/admin/templates/new">
+            <Button variant="default" icon={<FilePlus />}>
+              {text.ADMIN_DASHBOARD_CREATE_TEMPLATE_BUTTON}
+            </Button>
           </Link>
-        </div>
+        </Card>
       </div>
     </div>
   );

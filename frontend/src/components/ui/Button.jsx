@@ -15,17 +15,18 @@ const Button = ({
   const baseClasses = 'inline-flex items-center justify-center rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
   
   const variantClasses = {
-    default: 'bg-blue-500 text-white hover:bg-blue-600',
-    outline: 'border border-slate-200 hover:bg-slate-100 hover:text-slate-900',
-    secondary: 'bg-slate-100 text-slate-900 hover:bg-slate-200',
-    ghost: 'hover:bg-slate-100 hover:text-slate-900',
-    link: 'text-blue-500 underline-offset-4 hover:underline',
+    default: 'bg-blue-600 text-white hover:bg-blue-700',
+    outline: 'border border-gray-300 text-gray-700 hover:bg-gray-50',
+    secondary: 'bg-gray-100 text-gray-800 hover:bg-gray-200',
+    ghost: 'text-gray-600 hover:bg-gray-100 hover:text-gray-900',
+    link: 'text-blue-600 underline-offset-4 hover:underline',
+    danger: 'bg-red-600 text-white hover:bg-red-700'
   };
   
   const sizeClasses = {
-    default: 'h-10 py-2 px-4',
-    sm: 'h-8 px-3 text-sm',
-    lg: 'h-12 px-8 text-lg',
+    default: 'h-10 py-2 px-4 text-sm',
+    sm: 'h-8 px-3 text-xs',
+    lg: 'h-12 px-8 text-base',
     icon: 'h-10 w-10',
   };
   
@@ -41,7 +42,7 @@ const Button = ({
       {isLoading ? (
         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
       ) : icon ? (
-        <span className="mr-2">{icon}</span>
+        <span className="mr-2 -ml-1 h-5 w-5">{React.cloneElement(icon, { className: "h-4 w-4" })}</span>
       ) : null}
       {children}
     </button>
