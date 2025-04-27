@@ -11,9 +11,10 @@ import Home from '../pages/public/Home';
 import LoginPage from '../pages/auth/LoginPage';
 import PrivateRoute from '../components/auth/PrivateRoute';
 
+// Роутер для административной панели
 const router = createBrowserRouter([
   {
-    path: "/admin",
+    path: "/",
     element: (
       <PrivateRoute requireAdmin={true}>
         <AdminLayout />
@@ -36,6 +37,8 @@ const router = createBrowserRouter([
       { path: "login", element: <LoginPage /> }
     ]
   }
-]);
+], {
+  basename: "/admin"
+});
 
 export default router; 

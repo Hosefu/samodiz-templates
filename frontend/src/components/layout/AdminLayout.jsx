@@ -19,23 +19,23 @@ const AdminLayout = () => {
           </div>
           <nav className="mt-6">
             <Link 
-              to="/admin" 
-              className={`flex items-center px-4 py-2 hover:bg-blue-700 ${isActive('/admin') && location.pathname === '/admin' ? 'bg-blue-700' : ''}`}
+              to="/" 
+              className={`flex items-center px-4 py-2 hover:bg-blue-700 ${location.pathname === '/' ? 'bg-blue-700' : ''}`}
             >
               Dashboard
             </Link>
             <Link 
-              to="/admin/templates" 
-              className={`flex items-center px-4 py-2 hover:bg-blue-700 ${isActive('/admin/templates') ? 'bg-blue-700' : ''}`}
+              to="/templates" 
+              className={`flex items-center px-4 py-2 hover:bg-blue-700 ${isActive('/templates') ? 'bg-blue-700' : ''}`}
             >
               Templates
             </Link>
-            <Link 
-              to="/" 
+            <a 
+              href="/" 
               className="flex items-center px-4 py-2 hover:bg-blue-700 mt-10"
             >
               Back to Public Site
-            </Link>
+            </a>
           </nav>
         </div>
         
@@ -44,8 +44,8 @@ const AdminLayout = () => {
           <header className="bg-white shadow">
             <div className="p-4">
               <h2 className="text-xl font-semibold text-gray-800">
-                {location.pathname === '/admin' ? 'Dashboard' : 
-                 location.pathname === '/admin/templates' ? 'Templates' :
+                {location.pathname === '/' ? 'Dashboard' : 
+                 location.pathname === '/templates' ? 'Templates' :
                  location.pathname.includes('new') ? 'Create' : 'Edit'}
               </h2>
             </div>

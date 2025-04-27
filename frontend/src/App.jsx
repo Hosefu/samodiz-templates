@@ -130,13 +130,18 @@ const Login = () => {
 };
 
 const Admin = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   
   if (!isAuthenticated) {
     return <Navigate to="/login" />;
   }
   
-  return <div className="p-8">Административная панель</div>;
+  if (user && user.isAdmin) {
+    window.location.href = '/admin.html';
+    return null;
+  }
+  
+  return <div className="p-8">У вас нет прав для доступа к административной панели</div>;
 };
 
 // Диагностический компонент
