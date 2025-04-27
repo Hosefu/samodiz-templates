@@ -1,11 +1,19 @@
 import React from 'react';
-import { Outlet, Link, useLocation } from 'react-router-dom';
+import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { TemplateProvider } from '../../context/TemplateContext';
 import * as text from '../../constants/ux-writing';
-import { LayoutDashboard, Files, LogOut } from 'lucide-react';
+import { Layout, Menu, Typography, theme } from 'antd';
+import { 
+  DashboardOutlined, 
+  FileOutlined, 
+  LogoutOutlined 
+} from '@ant-design/icons';
+
+const { Header, Sider, Content } = Layout;
 
 const AdminLayout = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   
   const getHeaderTitle = () => {
     const path = location.pathname;
@@ -16,62 +24,71 @@ const AdminLayout = () => {
     return text.APP_TITLE;
   };
 
-  const isActive = (path) => {
-    if (path === '/admin/dashboard') {
-      return location.pathname === path ? 'bg-blue-700 text-white' : 'text-blue-100 hover:bg-blue-700 hover:text-white';
-    }
-    return location.pathname.startsWith(path) ? 'bg-blue-700 text-white' : 'text-blue-100 hover:bg-blue-700 hover:text-white';
-  };
-
   return (
     <TemplateProvider>
-      <div className="flex h-screen bg-gray-100">
-        {/* Sidebar */}
-        <aside className="w-64 bg-blue-800 text-white flex flex-col">
-          <div className="p-5 border-b border-blue-700">
-            <h1 className="text-2xl font-semibold text-center">{text.ADMIN_SIDEBAR_TITLE}</h1>
+      <Layout style={{ minHeight: '100vh' }}>
+        <Sider
+          theme="dark"
+          collapsible
+          breakpoint="lg"
+        >
+          <div style={{ 
+            height: 32, 
+            margin: 16, 
+            color: 'white', 
+            textAlign: 'center',
+            fontSize: '18px',
+            fontWeight: 'bold'
+          }}>
+            {text.ADMIN_SIDEBAR_TITLE}
           </div>
-          <nav className="flex-grow mt-6 space-y-1 px-2">
-            <Link
-              to="/admin/dashboard" 
-              className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${isActive('/admin/dashboard')}`}
+          <Menu
+            theme="dark"
+            mode="inline"
+            defaultSelectedKeys={['dashboard']}
+            selectedKeys={[location.pathname.split('/')[2] || 'dashboard']}
+            items={[
+              {
+                key: 'dashboard',
+                icon: <DashboardOutlined />,
+                label: text.ADMIN_SIDEBAR_DASHBOARD,
+                onClick: () => navigate('/admin/dashboard')
+              },
+              {
+                key: 'templates',
+                icon: <FileOutlined />,
+                label: text.ADMIN_SIDEBAR_TEMPLATES,
+                onClick: () => navigate('/admin/templates')
+              },
+              {
+                key: 'back',
+                icon: <LogoutOutlined />,
+                label: text.ADMIN_SIDEBAR_BACK_TO_PUBLIC,
+                onClick: () => navigate('/')
+              }
+            ]}
+          />
+        </Sider>
+        <Layout>
+          <Header style={{ 
+            padding: '0 16px',
+            background: '#002140',
+            color: 'white',
+            display: 'flex',
+            alignItems: 'center'
+          }}>
+            <Typography.Title 
+              level={4} 
+              style={{ margin: 0, color: 'white' }}
             >
-              <LayoutDashboard className="mr-3 h-5 w-5" />
-              {text.ADMIN_SIDEBAR_DASHBOARD}
-            </Link>
-            <Link
-              to="/admin/templates" 
-              className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${isActive('/admin/templates')}`}
-            >
-              <Files className="mr-3 h-5 w-5" />
-              {text.ADMIN_SIDEBAR_TEMPLATES}
-            </Link>
-          </nav>
-          <div className="p-4 border-t border-blue-700 mt-auto">
-             <a 
-               href="/" 
-               className="flex items-center px-3 py-2 rounded-md text-sm font-medium text-blue-100 hover:bg-blue-700 hover:text-white transition-colors"
-             >
-               <LogOut className="mr-3 h-5 w-5 transform rotate-180" />
-               {text.ADMIN_SIDEBAR_BACK_TO_PUBLIC}
-             </a>
-          </div>
-        </aside>
-        
-        {/* Main Content */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <header className="bg-white shadow-sm border-b border-gray-200">
-            <div className="px-6 py-4">
-              <h2 className="text-xl font-semibold text-gray-800">
-                {getHeaderTitle()}
-              </h2>
-            </div>
-          </header>
-          <main className="flex-1 overflow-auto p-6 bg-gray-50">
+              {getHeaderTitle()}
+            </Typography.Title>
+          </Header>
+          <Content style={{ margin: '24px 16px', padding: 24, background: '#141414' }}>
             <Outlet />
-          </main>
-        </div>
-      </div>
+          </Content>
+        </Layout>
+      </Layout>
     </TemplateProvider>
   );
 };

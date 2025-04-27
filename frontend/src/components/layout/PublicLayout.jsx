@@ -2,6 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import * as text from '../../constants/ux-writing';
+import { Layout, Menu, Typography, Button, Divider, Badge } from 'antd';
+import {
+  HomeOutlined,
+  SettingOutlined,
+  UserOutlined,
+  LogoutOutlined
+} from '@ant-design/icons';
+
+const { Header, Content, Footer } = Layout;
 
 // Диагностический компонент
 const Diagnostics = () => {
@@ -50,44 +59,72 @@ const Diagnostics = () => {
   );
 };
 
-// Навигация
-const Navigation = () => {
-  const { isAuthenticated, logout, user, hasAdminAccess } = useAuth();
-  
-  return (
-    <nav className="bg-white text-gray-800 p-4 shadow-md border-b border-gray-200">
-      <div className="container mx-auto flex justify-between items-center">
-        <Link to="/" className="font-bold text-xl text-blue-600">{text.APP_TITLE}</Link>
-        <ul className="flex space-x-6 items-center">
-          <li><Link to="/" className="text-gray-600 hover:text-blue-600 transition-colors">{text.NAV_HOME}</Link></li>
-          {isAuthenticated ? (
-            <>
-              {hasAdminAccess() && (
-                 <li><Link to="/admin/dashboard" className="text-gray-600 hover:text-blue-600 transition-colors">{text.NAV_ADMIN}</Link></li>
-              )}
-              {user && <li className='text-sm text-gray-500'>{text.NAV_GREETING(user.username)}</li>}
-              <li><button onClick={logout} className="text-sm text-red-600 hover:text-red-800 transition-colors">{text.NAV_LOGOUT}</button></li>
-            </>
-          ) : (
-            <li><Link to="/login" className="text-gray-600 hover:text-blue-600 transition-colors">{text.NAV_LOGIN}</Link></li>
-          )}
-        </ul>
-      </div>
-    </nav>
-  );
-};
-
 const PublicLayout = () => {
+  const { isAuthenticated, logout, user, hasAdminAccess } = useAuth();
+  const location = useLocation();
+
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
-      <Diagnostics />
-      <Navigation />
-      <main className="flex-grow">
-        <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+    <Layout style={{ minHeight: '100vh' }}>
+      <Header style={{ 
+        display: 'flex', 
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '0 24px'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <Link to="/">
+            <Typography.Title level={4} style={{ margin: 0, color: 'white' }}>
+              {text.APP_TITLE}
+            </Typography.Title>
+          </Link>
+        </div>
+        <Menu
+          theme="dark"
+          mode="horizontal"
+          selectedKeys={[location.pathname]}
+          style={{ flex: 1, justifyContent: 'flex-end' }}
+          items={[
+            {
+              key: '/',
+              icon: <HomeOutlined />,
+              label: text.NAV_HOME,
+              onClick: () => navigate('/')
+            },
+            isAuthenticated && hasAdminAccess() ? {
+              key: '/admin/dashboard',
+              icon: <SettingOutlined />,
+              label: text.NAV_ADMIN,
+              onClick: () => navigate('/admin/dashboard')
+            } : null,
+            isAuthenticated ? {
+              key: 'user',
+              icon: <UserOutlined />,
+              label: text.NAV_GREETING(user?.username || ''),
+              disabled: true
+            } : null,
+            isAuthenticated ? {
+              key: 'logout',
+              icon: <LogoutOutlined />,
+              label: text.NAV_LOGOUT,
+              onClick: logout
+            } : {
+              key: '/login',
+              icon: <UserOutlined />,
+              label: text.NAV_LOGIN,
+              onClick: () => navigate('/login')
+            }
+          ].filter(Boolean)}
+        />
+      </Header>
+      <Content style={{ padding: '0 50px', marginTop: 24 }}>
+        <div style={{ padding: 24, minHeight: 280, backgroundColor: '#141414' }}>
           <Outlet />
         </div>
-      </main>
-    </div>
+      </Content>
+      <Footer style={{ textAlign: 'center', backgroundColor: '#141414', color: 'rgba(255,255,255,0.45)' }}>
+        Document Generator ©{new Date().getFullYear()}
+      </Footer>
+    </Layout>
   );
 };
 

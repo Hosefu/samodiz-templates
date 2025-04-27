@@ -3,11 +3,14 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { fetchTemplateById, updateTemplate } from '../../api/templateService';
 import { useTemplates } from '../../context/TemplateContext';
 import * as text from '../../constants/ux-writing';
-import Button from '../../components/ui/Button';
-import Input from '../../components/ui/Input';
-import Card from '../../components/ui/Card';
-import Select from '../../components/ui/Select';
-import { ChevronLeft, Save, FilePlus, Loader2, AlertTriangle, List, Edit } from 'lucide-react';
+import { 
+  Button, Input, Card, Select, Form, message
+} from '../../components/ui/AntComponents';
+import { 
+  ArrowLeftOutlined, SaveOutlined, FileAddOutlined, 
+  EditOutlined, DeleteOutlined 
+} from '@ant-design/icons';
+import { Alert, List, Typography, Space } from 'antd';
 import { toast } from 'react-hot-toast';
 
 // Добавляем константы
@@ -83,10 +86,14 @@ const TemplateEdit = () => {
     }
   };
 
+  // Список типов шаблонов
   const templateTypeOptions = [
     { value: 'pdf', label: 'PDF' },
     { value: 'png', label: 'PNG' },
     { value: 'svg', label: 'SVG' },
+    { value: 'docx', label: 'DOCX' },
+    { value: 'xlsx', label: 'XLSX' },
+    { value: 'html', label: 'HTML' }
   ];
 
   if (loading) {
@@ -122,116 +129,121 @@ const TemplateEdit = () => {
   }
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between">
-         <div className="flex items-center gap-3">
-            <Link to="/admin/templates" className="text-gray-500 hover:text-gray-700">
-                <ChevronLeft size={24}/>
-            </Link>
-            <h1 className="text-2xl font-semibold text-gray-800">{TPL_EDIT_TITLE}: <span className="font-normal">{template.name}</span></h1>
-         </div>
-         {/* Можно добавить кнопку "Просмотр" или другие действия */} 
-      </div>
+    <div>
+      {/* Заголовок и кнопки действий */}
+      <Space style={{ marginBottom: 16, justifyContent: 'space-between', width: '100%' }}>
+        <Space>
+          <Link to="/admin/templates">
+            <Button icon={<ArrowLeftOutlined />} />
+          </Link>
+          <Typography.Title level={4} style={{ margin: 0 }}>
+            {TPL_EDIT_TITLE}: {template.name}
+          </Typography.Title>
+        </Space>
+      </Space>
 
-      {/* Форма редактирования деталей шаблона */} 
+      {/* Форма */}
       <Card title={TPL_EDIT_SECTION_DETAILS}>
-        <form onSubmit={handleSubmit} className="space-y-6">
-           {/* Показываем ошибку сохранения */} 
-           {error && !loading && (
-             <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-md text-sm" role="alert">
-               {error}
-             </div>
-           )}
+        <Form
+          layout="vertical"
+          initialValues={formData}
+          onFinish={handleSubmit}
+        >
           <Input
-            label={text.TPL_CREATE_NAME_LABEL} // Используем константы из Create
-            id="name"
             name="name"
             value={formData.name}
             onChange={handleChange}
+            label={text.TEMPLATE_CREATE_NAME_LABEL}
             required
           />
+          
           <Input
-            label={text.TPL_CREATE_VERSION_LABEL}
-            id="version"
             name="version"
             value={formData.version}
             onChange={handleChange}
+            label={text.TEMPLATE_CREATE_VERSION_LABEL}
             required
           />
+          
           <Select
-             label={text.TPL_CREATE_TYPE_LABEL}
-             id="type"
-             name="type"
-             value={formData.type}
-             onChange={handleChange}
-             options={templateTypeOptions}
-             required
-           />
-          <div className="pt-4 flex justify-end space-x-3 border-t border-gray-200">
-             {/* Кнопка отмены может просто сбрасывать изменения */} 
-             <Button
-               type="button"
-               variant="outline"
-               onClick={() => setFormData({ name: template.name, version: template.version, type: template.type })} // Сброс
-               disabled={saving}
-             >
-               {TPL_EDIT_CANCEL_BUTTON}
-             </Button>
-             <Button
-               type="submit"
-               isLoading={saving}
-               icon={<Save size={16}/>}
-             >
-               {saving ? TPL_EDIT_SAVING_BUTTON : TPL_EDIT_SAVE_BUTTON}
-             </Button>
-          </div>
-        </form>
+            name="type"
+            value={formData.type}
+            onChange={(value) => setFormData(prev => ({ ...prev, type: value }))}
+            label={text.TEMPLATE_CREATE_TYPE_LABEL}
+            options={templateTypeOptions}
+            required
+          />
+          
+          {/* Кнопки действий */}
+          <Form.Item>
+            <Space style={{ justifyContent: 'flex-end', width: '100%' }}>
+              <Button 
+                onClick={() => setFormData({ name: template.name, version: template.version, type: template.type })}
+                disabled={saving}
+              >
+                {TPL_EDIT_CANCEL_BUTTON}
+              </Button>
+              <Button 
+                type="primary" 
+                htmlType="submit" 
+                loading={saving}
+                icon={<SaveOutlined />}
+              >
+                {saving ? TPL_EDIT_SAVING_BUTTON : TPL_EDIT_SAVE_BUTTON}
+              </Button>
+            </Space>
+          </Form.Item>
+        </Form>
       </Card>
 
-      {/* Секция управления страницами */} 
+      {/* Список страниц */}
       <Card 
-         title={TPL_EDIT_SECTION_PAGES}
-         titleRight={
-             <Link to={`/admin/templates/${id}/pages/new`}>
-               <Button variant="default" size="sm" icon={<FilePlus size={16}/>}>
-                 {TPL_EDIT_ADD_PAGE_BUTTON}
-               </Button>
-             </Link>
-         }
+        title={TPL_EDIT_SECTION_PAGES}
+        extra={
+          <Link to={`/admin/templates/${id}/pages/new`}>
+            <Button 
+              type="primary" 
+              icon={<FileAddOutlined />}
+            >
+              {TPL_EDIT_ADD_PAGE_BUTTON}
+            </Button>
+          </Link>
+        }
+        style={{ marginTop: 16 }}
       >
-         {template.pages?.length === 0 ? (
-            <div className="text-center py-6 text-gray-500">
-              {TPL_EDIT_NO_PAGES}
-            </div>
-          ) : (
-            <ul className="divide-y divide-gray-200 -mx-6"> {/* Убираем отступы Card */} 
-              {template.pages?.map((page) => (
-                <li key={page.name} className="px-6 py-4 flex items-center justify-between hover:bg-gray-50">
-                   <div className="flex items-center space-x-3">
-                       <List className="text-gray-400"/> {/* Иконка страницы */} 
-                       <div>
-                         <h4 className="text-sm font-medium text-gray-900">{page.name}</h4>
-                         <p className="text-xs text-gray-500">
-                            {TPL_EDIT_PAGE_DETAILS(
-                                page.width, 
-                                page.height, 
-                                page.units, 
-                                page.fields?.length || 0, 
-                                page.assets?.length || 0
-                            )}
-                         </p>
-                       </div>
-                   </div>
-                  <Link
-                    to={`/admin/templates/${id}/pages/${page.name}`} // TODO: Убедиться, что ID страницы это name
-                    title={TPL_EDIT_EDIT_PAGE_BUTTON}
-                  >
-                    <Button variant="ghost" size="sm" icon={<Edit size={16}/>} />
+        {template.pages?.length === 0 ? (
+          <Typography.Text type="secondary" style={{ display: 'block', textAlign: 'center', padding: '24px 0' }}>
+            {TPL_EDIT_NO_PAGES}
+          </Typography.Text>
+        ) : (
+          <List
+            itemLayout="horizontal"
+            dataSource={template.pages || []}
+            renderItem={page => (
+              <List.Item
+                actions={[
+                  <Link to={`/admin/templates/${id}/pages/${page.name}`}>
+                    <Button 
+                      icon={<EditOutlined />} 
+                      title={TPL_EDIT_EDIT_PAGE_BUTTON}
+                    />
                   </Link>
-                </li>
-              ))}
-            </ul>
-          )}
+                ]}
+              >
+                <List.Item.Meta
+                  title={page.name}
+                  description={TPL_EDIT_PAGE_DETAILS(
+                    page.width, 
+                    page.height, 
+                    page.units, 
+                    page.fields?.length || 0, 
+                    page.assets?.length || 0
+                  )}
+                />
+              </List.Item>
+            )}
+          />
+        )}
       </Card>
     </div>
   );

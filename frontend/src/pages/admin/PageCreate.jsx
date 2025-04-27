@@ -2,14 +2,15 @@ import React, { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { createPage } from '../../api/pageService';
 import * as text from '../../constants/ux-writing';
-import Button from '../../components/ui/Button';
-import Input from '../../components/ui/Input';
-import Card from '../../components/ui/Card';
-import Select from '../../components/ui/Select';
-import Checkbox from '../../components/ui/Checkbox';
+import { 
+  Button, Card, Form, Input, Select, Checkbox,
+  message, Icons
+} from '../../components/ui/AntComponents';
+import { 
+  ArrowLeftOutlined, DeleteOutlined, PlusOutlined 
+} from '@ant-design/icons';
+import { Space, Alert, Divider, Row, Col } from 'antd';
 import CodeEditor from '../../components/admin/CodeEditor';
-import { ChevronLeft, Save, PlusCircle, Trash2 } from 'lucide-react';
-import { toast } from 'react-hot-toast';
 
 // Локальные константы для страницы
 const PAGE_CREATE_TITLE = "Создание новой страницы";
@@ -102,14 +103,14 @@ const PageCreate = () => {
       };
       
       const newPage = await createPage(templateId, pageData);
-      toast.success(`Страница "${newPage.name}" успешно создана!`);
+      message.success(`Страница "${newPage.name}" успешно создана!`);
       // Переходим на страницу редактирования созданного шаблона
       navigate(`/admin/templates/${templateId}`); 
     } catch (err) {
       console.error('Failed to create page:', err);
       const errorMsg = PAGE_CREATE_ERROR(err.response?.data?.detail || err.message || text.UNKNOWN_ERROR_MSG);
       setError(errorMsg);
-      toast.error(errorMsg);
+      message.error(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -131,175 +132,173 @@ const PageCreate = () => {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-8">
-       <div className="flex items-center justify-between">
-         <div className="flex items-center gap-3">
-            <Link to={`/admin/templates/${templateId}`} className="text-gray-500 hover:text-gray-700">
-                <ChevronLeft size={24}/>
-            </Link>
-            <div>
-                <h1 className="text-2xl font-semibold text-gray-800">{PAGE_CREATE_TITLE}</h1>
-                <p className="text-sm text-gray-500">{PAGE_CREATE_DESCRIPTION(templateId)}</p>
-            </div>
-         </div>
-         <div className="flex space-x-3">
-            <Link to={`/admin/templates/${templateId}`}>
-                <Button type="button" variant="outline" disabled={loading}>
-                    {PAGE_CREATE_CANCEL_BUTTON}
-                </Button>
-             </Link>
-             <Button type="submit" isLoading={loading} icon={<Save size={16} />}>
-               {loading ? PAGE_CREATE_SUBMITTING_BUTTON : PAGE_CREATE_SUBMIT_BUTTON}
-             </Button>
-         </div>
-      </div>
+    <Form onFinish={handleSubmit} layout="vertical" initialValues={formData}>
+      {/* Header с кнопками */}
+      <Space style={{ marginBottom: 16, justifyContent: 'space-between', width: '100%' }}>
+        <Space>
+          <Link to={`/admin/templates/${templateId}`}>
+            <Button icon={<ArrowLeftOutlined />} />
+          </Link>
+          <div>
+            <Typography.Title level={4} style={{ margin: 0 }}>
+              {PAGE_CREATE_TITLE}
+            </Typography.Title>
+            <Typography.Text type="secondary">
+              {PAGE_CREATE_DESCRIPTION(templateId)}
+            </Typography.Text>
+          </div>
+        </Space>
+        <Space>
+          <Link to={`/admin/templates/${templateId}`}>
+            <Button>{PAGE_CREATE_CANCEL_BUTTON}</Button>
+          </Link>
+          <Button 
+            type="primary" 
+            htmlType="submit" 
+            loading={loading}
+            icon={<SaveOutlined />}
+          >
+            {loading ? PAGE_CREATE_SUBMITTING_BUTTON : PAGE_CREATE_SUBMIT_BUTTON}
+          </Button>
+        </Space>
+      </Space>
 
-      {error && (
-        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-md text-sm" role="alert">
-          {error}
-        </div>
-      )}
+      {/* Ошибка */}
+      {error && <Alert message={error} type="error" showIcon style={{ marginBottom: 16 }} />}
 
       {/* Детали страницы */}
       <Card title={PAGE_CREATE_SECTION_DETAILS}>
-        <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-6">
-          <div className="sm:col-span-3">
-             <Input
-                label={PAGE_CREATE_NAME_LABEL}
-                id="name"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                required
-                // TODO: Добавить валидацию на уникальность имени
-              />
-          </div>
-           <div className="sm:col-span-1">
-             <Input
-                label={PAGE_CREATE_WIDTH_LABEL}
-                id="width"
-                name="width"
-                type="number"
-                value={formData.width}
-                onChange={handleChange}
-                required min="1"
-              />
-          </div>
-          <div className="sm:col-span-1">
-            <Input
-                label={PAGE_CREATE_HEIGHT_LABEL}
-                id="height"
-                name="height"
-                type="number"
-                value={formData.height}
-                onChange={handleChange}
-                required min="1"
-              />
-          </div>
-           <div className="sm:col-span-1">
-            <Select
-               label={PAGE_CREATE_UNITS_LABEL}
-               id="units"
-               name="units"
-               value={formData.units}
-               onChange={handleChange}
-               options={PAGE_CREATE_UNITS_OPTIONS}
-               required
-             />
-          </div>
-           <div className="sm:col-span-2">
-            <Input
-               label={PAGE_CREATE_BLEEDS_LABEL}
-               id="bleeds"
-               name="bleeds"
-               type="number"
-               value={formData.bleeds}
-               onChange={handleChange}
-               min="0"
-               hint="Отступы под обрез (в выбранных единицах)"
-             />
-          </div>
-        </div>
+        <Row gutter={16}>
+          <Col span={8}>
+            <Form.Item
+              name="name"
+              label={PAGE_CREATE_NAME_LABEL}
+              rules={[{ required: true, message: "Название страницы обязательно" }]}
+            >
+              <Input />
+            </Form.Item>
+          </Col>
+          <Col span={4}>
+            <Form.Item
+              name="width"
+              label={PAGE_CREATE_WIDTH_LABEL}
+              rules={[{ required: true, message: "Ширина обязательна" }]}
+            >
+              <Input type="number" min={1} />
+            </Form.Item>
+          </Col>
+          <Col span={4}>
+            <Form.Item
+              name="height"
+              label={PAGE_CREATE_HEIGHT_LABEL}
+              rules={[{ required: true, message: "Высота обязательна" }]}
+            >
+              <Input type="number" min={1} />
+            </Form.Item>
+          </Col>
+          <Col span={4}>
+            <Form.Item
+              name="units"
+              label={PAGE_CREATE_UNITS_LABEL}
+              rules={[{ required: true, message: "Выберите единицы измерения" }]}
+            >
+              <Select options={PAGE_CREATE_UNITS_OPTIONS} />
+            </Form.Item>
+          </Col>
+          <Col span={4}>
+            <Form.Item
+              name="bleeds"
+              label={PAGE_CREATE_BLEEDS_LABEL}
+              tooltip="Отступы под обрез (в выбранных единицах)"
+            >
+              <Input type="number" min={0} />
+            </Form.Item>
+          </Col>
+        </Row>
       </Card>
 
-      {/* Редактор HTML */}
-      <Card title={PAGE_CREATE_SECTION_HTML}>
-        <CodeEditor
-          value={formData.html}
-          onChange={handleHtmlChange}
-          language="html"
-          height="400px"
-        />
+      {/* HTML Редактор */}
+      <Card title={PAGE_CREATE_SECTION_HTML} style={{ marginTop: 16 }}>
+        <Form.Item name="html">
+          <CodeEditor 
+            language="html" 
+            height="400px"
+            value={formData.html}
+            onChange={(value) => setFormData(prev => ({ ...prev, html: value }))}
+          />
+        </Form.Item>
       </Card>
 
       {/* Поля шаблона */}
       <Card 
-         title={PAGE_CREATE_SECTION_FIELDS}
-         titleRight={
-             <Button type="button" variant="outline" size="sm" onClick={handleAddField} icon={<PlusCircle size={16}/>}>
-                 {PAGE_CREATE_ADD_FIELD_BUTTON}
-             </Button>
-         }
+        title={PAGE_CREATE_SECTION_FIELDS} 
+        extra={
+          <Button 
+            type="primary" 
+            icon={<PlusOutlined />} 
+            onClick={handleAddField}
+          >
+            {PAGE_CREATE_ADD_FIELD_BUTTON}
+          </Button>
+        }
+        style={{ marginTop: 16 }}
       >
-         {fields.length === 0 ? (
-            <p className="text-center text-gray-500 py-4">{text.HOME_NO_FIELDS_IN_TEMPLATE}</p>
-         ) : (
-            <div className="space-y-4">
-              {fields.map((field, index) => (
-                <div key={index} className="grid grid-cols-1 gap-4 sm:grid-cols-8 items-end border-b border-gray-100 pb-4">
-                  <div className="sm:col-span-3">
-                     <Input
-                       label={PAGE_CREATE_FIELD_NAME_LABEL}
-                       value={field.name}
-                       onChange={(e) => handleFieldChange(index, { ...field, name: e.target.value })}
-                       placeholder={PAGE_CREATE_FIELD_NAME_PLACEHOLDER}
-                       required
-                     />
-                  </div>
-                  <div className="sm:col-span-3">
+        {fields.length === 0 ? (
+          <Typography.Text type="secondary" style={{ display: 'block', textAlign: 'center', padding: '24px 0' }}>
+            {text.HOME_NO_FIELDS_IN_TEMPLATE}
+          </Typography.Text>
+        ) : (
+          <div>
+            {fields.map((field, index) => (
+              <Row key={index} gutter={16} align="middle" style={{ marginBottom: 16 }}>
+                <Col span={8}>
+                  <Form.Item
+                    label={PAGE_CREATE_FIELD_NAME_LABEL}
+                    required
+                  >
                     <Input
-                       label={PAGE_CREATE_FIELD_LABEL_LABEL}
-                       value={field.label}
-                       onChange={(e) => handleFieldChange(index, { ...field, label: e.target.value })}
-                       placeholder={PAGE_CREATE_FIELD_LABEL_PLACEHOLDER}
-                       required
-                     />
-                  </div>
-                  <div className="sm:col-span-1 flex items-center pt-5"> {/* Выравниваем по вертикали */}
-                     <Checkbox
-                       id={`required-${index}`}
-                       checked={field.required}
-                       onChange={(e) => handleFieldChange(index, { ...field, required: e.target.checked })}
-                       label={PAGE_CREATE_FIELD_REQUIRED_LABEL}
-                     />
-                  </div>
-                  <div className="sm:col-span-1 flex justify-end pt-5"> {/* Кнопка справа */} 
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      icon={<Trash2 className="text-red-600" />} 
-                      onClick={() => handleDeleteField(index)}
-                      title={PAGE_CREATE_DELETE_FIELD_BUTTON}
+                      placeholder={PAGE_CREATE_FIELD_NAME_PLACEHOLDER}
+                      value={field.name}
+                      onChange={(e) => handleFieldChange(index, { ...field, name: e.target.value })}
                     />
-                  </div>
-                </div>
-              ))}
-            </div>
-         )}
+                  </Form.Item>
+                </Col>
+                <Col span={8}>
+                  <Form.Item
+                    label={PAGE_CREATE_FIELD_LABEL_LABEL}
+                    required
+                  >
+                    <Input
+                      placeholder={PAGE_CREATE_FIELD_LABEL_PLACEHOLDER}
+                      value={field.label}
+                      onChange={(e) => handleFieldChange(index, { ...field, label: e.target.value })}
+                    />
+                  </Form.Item>
+                </Col>
+                <Col span={4}>
+                  <Form.Item label=" " colon={false}>
+                    <Checkbox
+                      checked={field.required}
+                      onChange={(e) => handleFieldChange(index, { ...field, required: e.target.checked })}
+                    >
+                      {PAGE_CREATE_FIELD_REQUIRED_LABEL}
+                    </Checkbox>
+                  </Form.Item>
+                </Col>
+                <Col span={4}>
+                  <Button
+                    danger
+                    icon={<DeleteOutlined />}
+                    onClick={() => handleDeleteField(index)}
+                    title={PAGE_CREATE_DELETE_FIELD_BUTTON}
+                  />
+                </Col>
+              </Row>
+            ))}
+          </div>
+        )}
       </Card>
-       {/* Нижние кнопки сохранения/отмены */}
-       <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
-            <Link to={`/admin/templates/${templateId}`}>
-                <Button type="button" variant="outline" disabled={loading}>
-                    {PAGE_CREATE_CANCEL_BUTTON}
-                </Button>
-             </Link>
-             <Button type="submit" isLoading={loading} icon={<Save size={16} />}>
-               {loading ? PAGE_CREATE_SUBMITTING_BUTTON : PAGE_CREATE_SUBMIT_BUTTON}
-             </Button>
-         </div>
-    </form>
+    </Form>
   );
 };
 

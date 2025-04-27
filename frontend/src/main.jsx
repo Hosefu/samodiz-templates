@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react'
 import ReactDOM from 'react-dom/client'
 import { RouterProvider } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
+import { ConfigProvider } from 'antd'
 import router from './routes'
 import './index.css'
 import { Toaster } from 'react-hot-toast'
+import theme from './theme/themeConfig'
 
 // Error boundary component
 const ErrorBoundary = ({ children }) => {
@@ -71,44 +73,46 @@ try {
   ReactDOM.createRoot(root).render(
     <React.StrictMode>
       <ErrorBoundary>
-        <AuthProvider>
-          <RouterProvider router={router} />
-          <Toaster 
-            position="bottom-right"
-            toastOptions={{
-              duration: 5000,
-              style: {
-                background: '#333',
-                color: '#fff',
-              },
-              success: {
-                duration: 3000,
-                theme: {
-                  primary: 'green',
-                  secondary: 'black',
-                },
+        <ConfigProvider theme={theme}>
+          <AuthProvider>
+            <RouterProvider router={router} />
+            <Toaster 
+              position="bottom-right"
+              toastOptions={{
+                duration: 5000,
                 style: {
-                  background: '#10B981',
-                  color: 'white',
+                  background: '#333',
+                  color: '#fff',
                 },
-                iconTheme: {
-                  primary: 'white',
-                  secondary: '#10B981',
+                success: {
+                  duration: 3000,
+                  theme: {
+                    primary: 'green',
+                    secondary: 'black',
+                  },
+                  style: {
+                    background: '#10B981',
+                    color: 'white',
+                  },
+                  iconTheme: {
+                    primary: 'white',
+                    secondary: '#10B981',
+                  },
                 },
-              },
-              error: {
-                style: {
-                  background: '#EF4444',
-                  color: 'white',
-                },
-                iconTheme: {
-                  primary: 'white',
-                  secondary: '#EF4444',
-                },
-              }
-            }}
-          />
-        </AuthProvider>
+                error: {
+                  style: {
+                    background: '#EF4444',
+                    color: 'white',
+                  },
+                  iconTheme: {
+                    primary: 'white',
+                    secondary: '#EF4444',
+                  },
+                }
+              }}
+            />
+          </AuthProvider>
+        </ConfigProvider>
       </ErrorBoundary>
     </React.StrictMode>
   );
