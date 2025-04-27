@@ -1,11 +1,9 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { createTemplate } from '../../api/templateService';
 import { useTemplates } from '../../context/TemplateContext';
 import * as text from '../../constants/ux-writing';
-import { 
-  Button, Input, Card, Select, Form, Alert 
-} from '../../components/ui/AntComponents';
+import { Form, Select, Input, Button, Card, Alert, Space } from 'antd';
 import { ArrowLeftOutlined, SaveOutlined } from '@ant-design/icons';
 
 const TemplateCreate = () => {
@@ -100,9 +98,10 @@ const TemplateCreate = () => {
           </Form.Item>
 
           <Form.Item>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+            <Space style={{ display: 'flex', justifyContent: 'flex-end' }}>
               <Button 
                 onClick={() => navigate('/admin/templates')}
+                icon={<ArrowLeftOutlined />}
               >
                 {text.CANCEL_BUTTON}
               </Button>
@@ -114,7 +113,7 @@ const TemplateCreate = () => {
               >
                 {loading ? text.TEMPLATE_CREATE_SUBMITTING_BUTTON : text.TEMPLATE_CREATE_SUBMIT_BUTTON}
               </Button>
-            </div>
+            </Space>
           </Form.Item>
         </Form>
       </Card>

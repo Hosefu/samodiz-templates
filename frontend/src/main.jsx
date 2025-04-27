@@ -6,7 +6,7 @@ import { ConfigProvider } from 'antd'
 import router from './routes'
 import './index.css'
 import { Toaster } from 'react-hot-toast'
-import theme from './theme/themeConfig'
+import themeConfig from './theme/themeConfig'
 
 // Error boundary component
 const ErrorBoundary = ({ children }) => {
@@ -73,7 +73,7 @@ try {
   ReactDOM.createRoot(root).render(
     <React.StrictMode>
       <ErrorBoundary>
-        <ConfigProvider theme={theme}>
+        <ConfigProvider theme={themeConfig}>
           <AuthProvider>
             <RouterProvider router={router} />
             <Toaster 

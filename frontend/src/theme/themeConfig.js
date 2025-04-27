@@ -1,8 +1,11 @@
-const theme = {
+import { theme } from 'antd';
+const { darkAlgorithm } = theme;
+
+const themeConfig = {
   token: {
     colorPrimary: '#1890ff',
   },
-  algorithm: 'dark',
+  algorithm: darkAlgorithm,
 };
 
-export default theme; 
+export default themeConfig; 

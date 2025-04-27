@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Outlet, Link, useLocation } from 'react-router-dom';
+import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import * as text from '../../constants/ux-writing';
 import { Layout, Menu, Typography, Button, Divider, Badge } from 'antd';
@@ -62,6 +62,7 @@ const Diagnostics = () => {
 const PublicLayout = () => {
   const { isAuthenticated, logout, user, hasAdminAccess } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
 
   return (
     <Layout style={{ minHeight: '100vh' }}>

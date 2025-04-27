@@ -1,6 +1,6 @@
 import { Button as AntButton, Input as AntInput, Select as AntSelect, 
   Checkbox as AntCheckbox, Card as AntCard, Modal as AntModal, 
-  Spin, Form, Upload, message, Alert } from 'antd';
+  Spin, Form, Upload, message, Alert, Space } from 'antd';
 import { 
   SaveOutlined, PlusOutlined, DeleteOutlined, 
   UploadOutlined, CopyOutlined, LoadingOutlined 
@@ -8,20 +8,18 @@ import {
 
 // Кнопка с иконкой
 export const Button = ({ children, icon, isLoading, variant = 'primary', ...props }) => {
-  // Преобразовать variant в тип по Ant Design
-  const getType = (variant) => {
-    switch(variant) {
-      case 'outline': return 'default';
-      case 'danger': return 'primary'; // с danger prop
-      case 'secondary': return 'default';
-      case 'ghost': return 'text';
-      default: return 'primary';
-    }
+  // Маппинг для типов кнопок
+  const typeMap = {
+    'primary': 'primary',
+    'outline': 'default',
+    'danger': 'primary',
+    'secondary': 'default',
+    'ghost': 'text'
   };
   
   return (
     <AntButton 
-      type={getType(variant)}
+      type={typeMap[variant] || 'primary'}
       danger={variant === 'danger'}
       loading={isLoading}
       icon={icon} 
@@ -105,4 +103,4 @@ export const Icons = {
 };
 
 // Экспортируем оригинальные компоненты Ant Design
-export { Form, Upload, message, Spin, Alert }; 
+export { Form, Upload, message, Spin, Alert, Space }; 

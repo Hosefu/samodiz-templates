@@ -7,6 +7,7 @@ export const TemplateProvider = ({ children }) => {
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [selectedTemplate, setSelectedTemplate] = useState(null);
 
   const loadTemplates = async () => {
     setLoading(true);
@@ -15,10 +16,15 @@ export const TemplateProvider = ({ children }) => {
       const data = await fetchTemplates();
       setTemplates(data);
     } catch (err) {
-      setError(err.message);
+      console.error('Error loading templates:', err);
+      setError(err.message || 'Failed to load templates');
     } finally {
       setLoading(false);
     }
+  };
+
+  const selectTemplate = (template) => {
+    setSelectedTemplate(template);
   };
 
   useEffect(() => {
@@ -32,7 +38,9 @@ export const TemplateProvider = ({ children }) => {
         loading,
         error,
         refreshTemplates: loadTemplates,
-        setTemplates
+        setTemplates,
+        selectedTemplate,
+        selectTemplate
       }}
     >
       {children}
