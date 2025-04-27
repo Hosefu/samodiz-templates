@@ -1,29 +1,88 @@
-import React from 'react';
-import { Outlet, Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Outlet, Link, useLocation } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
+import * as text from '../../constants/ux-writing';
+
+// Диагностический компонент
+const Diagnostics = () => {
+  const { user, isAuthenticated, authError } = useAuth();
+  const location = useLocation();
+  const [apiStatus, setApiStatus] = useState(text.DIAG_API_CHECKING);
+  
+  useEffect(() => {
+    const checkApi = async () => {
+      try {
+        const response = await fetch('/api/health/');
+        if (response.ok) {
+          setApiStatus(text.DIAG_API_AVAILABLE);
+        } else {
+          setApiStatus(text.DIAG_API_UNAVAILABLE(response.status, response.statusText));
+        }
+      } catch (error) {
+        setApiStatus(text.DIAG_API_ERROR(error.message));
+      }
+    };
+    
+    checkApi();
+  }, []);
+  
+  return (
+    <div className="diagnostics" style={{ 
+      position: 'fixed', 
+      bottom: '10px', 
+      right: '10px',
+      backgroundColor: 'rgba(248, 249, 250, 0.9)',
+      border: '1px solid #ddd',
+      borderRadius: '4px',
+      padding: '8px 12px',
+      zIndex: 9999,
+      maxWidth: '350px',
+      fontSize: '11px',
+      boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+    }}>
+      <h3 style={{margin: '0 0 4px 0', fontSize: '12px', fontWeight: '600'}}>{text.DIAG_TITLE}</h3>
+      <div>{text.DIAG_CURRENT_PATH} <strong>{location.pathname}</strong></div>
+      <div>{text.DIAG_AUTH_STATUS} <strong>{isAuthenticated ? text.DIAG_AUTH_YES : text.DIAG_AUTH_NO}</strong></div>
+      <div>{text.DIAG_API_STATUS} <strong>{apiStatus}</strong></div>
+      {authError && <div style={{color: '#dc2626'}}>{text.DIAG_ERROR_PREFIX} {authError}</div>}
+      {user && <div>{text.DIAG_USER_INFO(user.username, user.role || (user.is_admin ? text.DIAG_USER_ROLE_ADMIN : text.DIAG_USER_ROLE_USER))}</div>}
+    </div>
+  );
+};
+
+// Навигация
+const Navigation = () => {
+  const { isAuthenticated, logout, user, hasAdminAccess } = useAuth();
+  
+  return (
+    <nav className="bg-white text-gray-800 p-4 shadow-md border-b border-gray-200">
+      <div className="container mx-auto flex justify-between items-center">
+        <Link to="/" className="font-bold text-xl text-blue-600">{text.APP_TITLE}</Link>
+        <ul className="flex space-x-6 items-center">
+          <li><Link to="/" className="text-gray-600 hover:text-blue-600 transition-colors">{text.NAV_HOME}</Link></li>
+          {isAuthenticated ? (
+            <>
+              {hasAdminAccess() && (
+                 <li><Link to="/admin/dashboard" className="text-gray-600 hover:text-blue-600 transition-colors">{text.NAV_ADMIN}</Link></li>
+              )}
+              {user && <li className='text-sm text-gray-500'>{text.NAV_GREETING(user.username)}</li>}
+              <li><button onClick={logout} className="text-sm text-red-600 hover:text-red-800 transition-colors">{text.NAV_LOGOUT}</button></li>
+            </>
+          ) : (
+            <li><Link to="/login" className="text-gray-600 hover:text-blue-600 transition-colors">{text.NAV_LOGIN}</Link></li>
+          )}
+        </ul>
+      </div>
+    </nav>
+  );
+};
 
 const PublicLayout = () => {
   return (
-    <div className="min-h-screen bg-gray-100">
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex">
-              <div className="flex-shrink-0 flex items-center">
-                <h1 className="text-xl font-bold">Document Generator</h1>
-              </div>
-            </div>
-            <div className="flex items-center">
-              <Link
-                to="/admin"
-                className="ml-4 px-3 py-2 rounded-md text-sm font-medium text-blue-700 bg-blue-100 hover:bg-blue-200"
-              >
-                Admin Panel
-              </Link>
-            </div>
-          </div>
-        </div>
-      </header>
-      <main>
+    <div className="min-h-screen flex flex-col bg-gray-50">
+      <Diagnostics />
+      <Navigation />
+      <main className="flex-grow">
         <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
           <Outlet />
         </div>

@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { jwtDecode } from 'jwt-decode';
 
@@ -10,10 +9,10 @@ export const AuthProvider = ({ children }) => {
   const [tokens, setTokens] = useState(null);
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState(null);
-  const navigate = useNavigate();
 
   // Инициализация при загрузке приложения
   useEffect(() => {
+    console.log('AuthProvider: Initializing...');
     const storedTokens = JSON.parse(localStorage.getItem('tokens'));
     if (storedTokens) {
       try {
@@ -24,19 +23,19 @@ export const AuthProvider = ({ children }) => {
         if (decodedToken.exp > currentTime) {
           setTokens(storedTokens);
           setUser(storedTokens.user);
-          console.log("Авторизован с сохраненным токеном:", storedTokens.user);
+          console.log("AuthProvider: Authorized with stored token:", storedTokens.user);
         } else {
           // Токен истек, пробуем обновить
-          console.log("Токен истек, пробуем обновить");
+          console.log("AuthProvider: Token expired, attempting refresh");
           refreshToken(storedTokens.refresh);
         }
       } catch (error) {
-        console.error('Error decoding token:', error);
+        console.error('AuthProvider: Error decoding token:', error);
         setAuthError("Ошибка декодирования токена: " + error.message);
         logout();
       }
     } else {
-      console.log("Нет сохраненного токена");
+      console.log("AuthProvider: No stored token found");
     }
     setLoading(false);
   }, []);
@@ -45,17 +44,17 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     if (tokens) {
       axios.defaults.headers.common['Authorization'] = `Bearer ${tokens.access}`;
-      console.log("Установлен заголовок Authorization:", `Bearer ${tokens.access.substring(0, 15)}...`);
+      console.log("AuthProvider: Set Authorization header:", `Bearer ${tokens.access.substring(0, 15)}...`);
     } else {
       delete axios.defaults.headers.common['Authorization'];
-      console.log("Удален заголовок Authorization");
+      console.log("AuthProvider: Removed Authorization header");
     }
   }, [tokens]);
 
   // Обновление токена
   const refreshToken = async (refreshToken) => {
     try {
-      console.log("Запрос на обновление токена");
+      console.log("AuthProvider: Requesting token refresh");
       const response = await axios.post('/api/auth/refresh/', {
         refresh: refreshToken
       }, {
@@ -69,13 +68,13 @@ export const AuthProvider = ({ children }) => {
         access: response.data.access
       };
       
-      console.log("Токен успешно обновлен");
+      console.log("AuthProvider: Token successfully refreshed");
       setTokens(updatedTokens);
       localStorage.setItem('tokens', JSON.stringify(updatedTokens));
       return true;
     } catch (error) {
-      console.error('Error refreshing token:', error);
-      console.error('Error response data:', error.response?.data);
+      console.error('AuthProvider: Error refreshing token:', error);
+      console.error('AuthProvider: Error response data:', error.response?.data);
       setAuthError("Ошибка обновления токена: " + (error.response?.data?.detail || error.response?.data?.error || error.message));
       logout();
       return false;
@@ -85,7 +84,7 @@ export const AuthProvider = ({ children }) => {
   // Авторизация пользователя
   const login = async (username, password) => {
     try {
-      console.log("Попытка входа для пользователя:", username);
+      console.log("AuthProvider: Attempting login for user:", username);
       const response = await axios.post('/api/auth/login/', {
         username,
         password
@@ -95,7 +94,7 @@ export const AuthProvider = ({ children }) => {
         }
       });
       
-      console.log("Успешный ответ авторизации:", response.data);
+      console.log("AuthProvider: Successful login response:", response.data);
       
       const tokenData = {
         access: response.data.access,
@@ -111,8 +110,8 @@ export const AuthProvider = ({ children }) => {
       return true;
     } catch (error) {
       const errorMessage = error.response?.data?.detail || error.response?.data?.error || error.message;
-      console.error('Login error:', error);
-      console.error('Error response:', error.response?.data);
+      console.error('AuthProvider: Login error:', error);
+      console.error('AuthProvider: Error response:', error.response?.data);
       setAuthError("Ошибка входа: " + errorMessage);
       return false;
     }
@@ -120,22 +119,22 @@ export const AuthProvider = ({ children }) => {
 
   // Выход из системы
   const logout = async () => {
-    console.log("Выполняется выход из системы");
+    console.log("AuthProvider: Logging out");
     if (tokens && tokens.refresh) {
       try {
         await axios.post('/api/auth/logout/', {
           refresh: tokens.refresh
         });
-        console.log("Успешный выход из системы");
+        console.log("AuthProvider: Successful logout");
       } catch (error) {
-        console.error('Error during logout:', error);
+        console.error('AuthProvider: Error during logout:', error);
       }
     }
     
     setTokens(null);
     setUser(null);
     localStorage.removeItem('tokens');
-    navigate('/login');
+    // Удаляем навигацию, так как она должна быть в компонентах
   };
 
   // Проверка доступа к администрированию

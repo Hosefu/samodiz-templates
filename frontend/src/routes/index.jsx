@@ -10,21 +10,20 @@ import PublicLayout from '../components/layout/PublicLayout';
 import Home from '../pages/public/Home';
 import LoginPage from '../pages/auth/LoginPage';
 import PrivateRoute from '../components/auth/PrivateRoute';
-import App from '../App';
 
 const router = createBrowserRouter([
   {
     path: "/",
-    element: <App />,
+    element: <PublicLayout />,
     children: [
       {
-        path: "",
+        index: true,
         element: <Home />
       },
       {
         path: "login",
         element: <LoginPage />
-      },
+      }
     ]
   },
   {
@@ -41,9 +40,9 @@ const router = createBrowserRouter([
       { path: "templates/new", element: <TemplateCreate /> },
       { path: "templates/:id", element: <TemplateEdit /> },
       { path: "templates/:templateId/pages/new", element: <PageCreate /> },
-      { path: "templates/:templateId/pages/:pageId", element: <PageEdit /> },
+      { path: "templates/:templateId/pages/:pageId", element: <PageEdit /> }
     ]
-  },
+  }
 ]);
 
 export default router; 

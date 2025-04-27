@@ -14,6 +14,7 @@ const ErrorBoundary = ({ children }) => {
     // Global error handler
     const handleError = (event) => {
       console.error('Global error:', event.error);
+      console.error('Error stack:', event.error?.stack);
       setError(event.error.toString());
       event.preventDefault();
     };
@@ -24,6 +25,7 @@ const ErrorBoundary = ({ children }) => {
     // Add unhandled promise rejection handler
     window.addEventListener('unhandledrejection', (event) => {
       console.error('Unhandled rejection:', event.reason);
+      console.error('Rejection stack:', event.reason?.stack);
       setError(`Promise error: ${event.reason}`);
       event.preventDefault();
     });
@@ -44,7 +46,7 @@ const ErrorBoundary = ({ children }) => {
         borderRadius: '4px' 
       }}>
         <h2>Произошла ошибка:</h2>
-        <pre>{error}</pre>
+        <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{error}</pre>
       </div>
     );
   }
@@ -52,48 +54,66 @@ const ErrorBoundary = ({ children }) => {
   return children;
 };
 
+// Добавляем отладочную информацию
+console.log('Initializing application...');
+console.log('Router configuration:', router);
+
 // Основной рендер приложения с RouterProvider и Toaster
-ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    <ErrorBoundary>
-      <AuthProvider>
-        <RouterProvider router={router} />
-        <Toaster 
-          position="bottom-right"
-          toastOptions={{
-            duration: 5000,
-            style: {
-              background: '#333',
-              color: '#fff',
-            },
-            success: {
-              duration: 3000,
-              theme: {
-                primary: 'green',
-                secondary: 'black',
+try {
+  console.log('Attempting to render application...');
+  const root = document.getElementById('root');
+  console.log('Root element:', root);
+  
+  if (!root) {
+    throw new Error('Root element not found in the DOM');
+  }
+
+  ReactDOM.createRoot(root).render(
+    <React.StrictMode>
+      <ErrorBoundary>
+        <AuthProvider>
+          <RouterProvider router={router} />
+          <Toaster 
+            position="bottom-right"
+            toastOptions={{
+              duration: 5000,
+              style: {
+                background: '#333',
+                color: '#fff',
               },
-               style: {
-                 background: '#10B981',
-                 color: 'white',
-               },
-               iconTheme: {
-                 primary: 'white',
-                 secondary: '#10B981',
-               },
-            },
-            error: {
-               style: {
-                 background: '#EF4444',
-                 color: 'white',
-               },
-               iconTheme: {
-                 primary: 'white',
-                 secondary: '#EF4444',
-               },
-            }
-          }}
-        />
-      </AuthProvider>
-    </ErrorBoundary>
-  </React.StrictMode>
-)
+              success: {
+                duration: 3000,
+                theme: {
+                  primary: 'green',
+                  secondary: 'black',
+                },
+                style: {
+                  background: '#10B981',
+                  color: 'white',
+                },
+                iconTheme: {
+                  primary: 'white',
+                  secondary: '#10B981',
+                },
+              },
+              error: {
+                style: {
+                  background: '#EF4444',
+                  color: 'white',
+                },
+                iconTheme: {
+                  primary: 'white',
+                  secondary: '#EF4444',
+                },
+              }
+            }}
+          />
+        </AuthProvider>
+      </ErrorBoundary>
+    </React.StrictMode>
+  );
+  console.log('Application rendered successfully');
+} catch (error) {
+  console.error('Fatal error during application initialization:', error);
+  console.error('Error stack:', error.stack);
+}

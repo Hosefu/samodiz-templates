@@ -19,12 +19,14 @@ const LoginPage = () => {
 
   // При загрузке проверяем доступность API
   useEffect(() => {
+    console.log('LoginPage: Checking API status...');
     const checkApiStatus = async () => {
       try {
-        await axios.get('/api/health/');
+        const response = await axios.get('/api/health/');
+        console.log('LoginPage: API health check response:', response.data);
         setApiStatus(text.API_AVAILABLE_MSG);
       } catch (error) {
-        console.error('API check error:', error);
+        console.error('LoginPage: API check error:', error);
         setApiStatus(text.DIAG_API_ERROR(error.message));
       }
     };
@@ -34,6 +36,7 @@ const LoginPage = () => {
 
   // Если пользователь уже авторизован, перенаправляем на главную
   if (isAuthenticated) {
+    console.log('LoginPage: User is already authenticated, redirecting to home');
     return <Navigate to="/" replace />;
   }
 
@@ -43,15 +46,18 @@ const LoginPage = () => {
     setLoading(true);
     
     try {
+      console.log('LoginPage: Attempting login...');
       const success = await login(username, password);
       if (success) {
+        console.log('LoginPage: Login successful, redirecting to home');
         navigate('/', { replace: true });
       } else {
+        console.error('LoginPage: Login failed:', authError);
         setError(authError || 'Invalid credentials. Please try again.');
       }
     } catch (err) {
+      console.error('LoginPage: Unexpected error during login:', err);
       setError(`Error: ${err.message}`);
-      console.error('Login error:', err);
     } finally {
       setLoading(false);
     }
@@ -63,6 +69,12 @@ const LoginPage = () => {
         {error && (
           <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4 rounded-md text-sm" role="alert">
             {error}
+          </div>
+        )}
+        
+        {apiStatus && (
+          <div className="bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4 mb-4 rounded-md text-sm" role="status">
+            {apiStatus}
           </div>
         )}
         

@@ -9,18 +9,6 @@ import Card from '../../components/ui/Card';
 import Select from '../../components/ui/Select';
 import { ChevronLeft, Save } from 'lucide-react';
 
-const TPL_CREATE_TITLE = "Создание нового шаблона";
-const TPL_CREATE_DESCRIPTION = "Введите основную информацию для вашего шаблона.";
-const TPL_CREATE_NAME_LABEL = "Название шаблона";
-const TPL_CREATE_NAME_PLACEHOLDER = "Например, Счет-фактура";
-const TPL_CREATE_VERSION_LABEL = "Версия";
-const TPL_CREATE_VERSION_PLACEHOLDER = "1.0";
-const TPL_CREATE_TYPE_LABEL = "Тип выходного файла";
-const TPL_CREATE_ERROR = (msg) => `Не удалось создать шаблон: ${msg}`;
-const TPL_CREATE_SUBMIT_BUTTON = "Создать и перейти к страницам";
-const TPL_CREATE_SUBMITTING_BUTTON = "Создание...";
-const TPL_CREATE_CANCEL_BUTTON = "Отмена";
-
 const TemplateCreate = () => {
   const navigate = useNavigate();
   const { refreshTemplates } = useTemplates();
@@ -31,11 +19,6 @@ const TemplateCreate = () => {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [fields, setFields] = useState([
-    // Убираем начальные поля или используем константы
-    // { name: 'title', label: text.PAGE_CREATE_FIELD_DEFAULT_TITLE, required: true },
-    // { name: 'name', label: text.PAGE_CREATE_FIELD_DEFAULT_NAME, required: true }
-  ]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -54,7 +37,7 @@ const TemplateCreate = () => {
       navigate(`/admin/templates/${newTemplate.id}`);
     } catch (err) {
       console.error('Failed to create template:', err);
-      setError(TPL_CREATE_ERROR(err.message || text.UNKNOWN_ERROR_MSG));
+      setError(text.TEMPLATE_CREATE_ERROR(err.message || text.UNKNOWN_ERROR_MSG));
     } finally {
       setLoading(false);
     }
@@ -63,8 +46,8 @@ const TemplateCreate = () => {
   return (
     <div>
       <div className="mb-6">
-        <h3 className="text-lg font-medium">Create New Template</h3>
-        <p className="text-gray-500">Enter the basic information for your template</p>
+        <h3 className="text-lg font-medium">{text.TEMPLATE_CREATE_TITLE}</h3>
+        <p className="text-gray-500">{text.TEMPLATE_CREATE_DESCRIPTION}</p>
       </div>
 
       {error && (
@@ -85,7 +68,7 @@ const TemplateCreate = () => {
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
               <div>
                 <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-                  Template Name
+                  {text.TEMPLATE_CREATE_NAME_LABEL}
                 </label>
                 <Input
                   type="text"
@@ -95,13 +78,13 @@ const TemplateCreate = () => {
                   onChange={handleChange}
                   required
                   className="mt-1 focus:ring-blue-500 focus:border-blue-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
-                  placeholder="Invoice Template"
-                  error={error && !formData.name ? text.REQUIRED_ERROR_MSG(TPL_CREATE_NAME_LABEL) : null}
+                  placeholder={text.TEMPLATE_CREATE_NAME_PLACEHOLDER}
+                  error={error && !formData.name ? text.REQUIRED_ERROR_MSG(text.TEMPLATE_CREATE_NAME_LABEL) : null}
                 />
               </div>
               <div>
                 <label htmlFor="version" className="block text-sm font-medium text-gray-700">
-                  Version
+                  {text.TEMPLATE_CREATE_VERSION_LABEL}
                 </label>
                 <Input
                   type="text"
@@ -111,13 +94,13 @@ const TemplateCreate = () => {
                   onChange={handleChange}
                   required
                   className="mt-1 focus:ring-blue-500 focus:border-blue-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
-                  placeholder="1.0"
-                  error={error && !formData.version ? text.REQUIRED_ERROR_MSG(TPL_CREATE_VERSION_LABEL) : null}
+                  placeholder={text.TEMPLATE_CREATE_VERSION_PLACEHOLDER}
+                  error={error && !formData.version ? text.REQUIRED_ERROR_MSG(text.TEMPLATE_CREATE_VERSION_LABEL) : null}
                 />
               </div>
               <div>
                 <label htmlFor="type" className="block text-sm font-medium text-gray-700">
-                  Type
+                  {text.TEMPLATE_CREATE_TYPE_LABEL}
                 </label>
                 <Select
                   name="type"
@@ -126,11 +109,13 @@ const TemplateCreate = () => {
                   onChange={handleChange}
                   required
                   className="mt-1 focus:ring-blue-500 focus:border-blue-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
-                  error={error && !formData.type ? text.REQUIRED_ERROR_MSG(TPL_CREATE_TYPE_LABEL) : null}
+                  error={error && !formData.type ? text.REQUIRED_ERROR_MSG(text.TEMPLATE_CREATE_TYPE_LABEL) : null}
                 >
+                  <option value="">{text.TEMPLATE_CREATE_SELECT_TYPE}</option>
                   <option value="pdf">PDF</option>
-                  <option value="png">PNG</option>
-                  <option value="svg">SVG</option>
+                  <option value="docx">DOCX</option>
+                  <option value="xlsx">XLSX</option>
+                  <option value="html">HTML</option>
                 </Select>
               </div>
             </div>
@@ -140,14 +125,14 @@ const TemplateCreate = () => {
                 onClick={() => navigate('/admin/templates')}
                 className="mr-3 inline-flex justify-center py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
               >
-                {TPL_CREATE_CANCEL_BUTTON}
+                {text.CANCEL_BUTTON}
               </Button>
               <Button
                 type="submit"
                 disabled={loading}
                 className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400"
               >
-                {loading ? TPL_CREATE_SUBMITTING_BUTTON : TPL_CREATE_SUBMIT_BUTTON}
+                {loading ? text.TEMPLATE_CREATE_SUBMITTING_BUTTON : text.TEMPLATE_CREATE_SUBMIT_BUTTON}
               </Button>
             </div>
           </form>

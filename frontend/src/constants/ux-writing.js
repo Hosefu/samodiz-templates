@@ -1,6 +1,6 @@
 // frontend/src/constants/ux-writing.js
 
-export const APP_TITLE = "Документ Генератор";
+export const APP_TITLE = "Генератор документов";
 
 // Navigation
 export const NAV_HOME = "Главная";
@@ -22,12 +22,12 @@ export const DIAG_API_UNAVAILABLE = (status, statusText) => `API недосту�
 export const DIAG_API_ERROR = (message) => `Ошибка подключения к API: ${message}`;
 export const DIAG_ERROR_PREFIX = "Ошибка:";
 export const DIAG_USER_INFO = (username, role) => `Пользователь: ${username} (${role})`;
-export const DIAG_USER_ROLE_ADMIN = "admin";
-export const DIAG_USER_ROLE_USER = "user";
+export const DIAG_USER_ROLE_ADMIN = "администратор";
+export const DIAG_USER_ROLE_USER = "пользователь";
 
 // Home Page (Template Selection/Generation)
 export const HOME_SELECT_TEMPLATE_TITLE = "Выберите шаблон документа";
-export const HOME_LOADING_TEMPLATES = "Загрузка шаблонов..."; // Можно использовать компонент Loader
+export const HOME_LOADING_TEMPLATES = "Загрузка шаблонов...";
 export const HOME_NO_TEMPLATES_FOUND = "Шаблоны не найдены.";
 export const HOME_FETCH_TEMPLATES_ERROR = "Не удалось загрузить шаблоны. Попробуйте позже.";
 export const HOME_TEMPLATE_VERSION = "Версия:";
@@ -53,27 +53,27 @@ export const LOGIN_PAGE_TITLE = "Вход в систему";
 export const LOGIN_USERNAME_LABEL = "Имя пользователя:";
 export const LOGIN_PASSWORD_LABEL = "Пароль:";
 export const LOGIN_SUBMIT_BUTTON = "Войти";
-export const LOGIN_ERROR_MESSAGE = "Ошибка входа. Проверьте имя пользователя и пароль."; // Пример
+export const LOGIN_ERROR_MESSAGE = "Ошибка входа. Проверьте имя пользователя и пароль.";
 
 // Admin Layout
-export const ADMIN_SIDEBAR_TITLE = "Admin Panel";
-export const ADMIN_SIDEBAR_DASHBOARD = "Dashboard";
-export const ADMIN_SIDEBAR_TEMPLATES = "Templates";
-export const ADMIN_SIDEBAR_BACK_TO_PUBLIC = "Back to Public Site";
-export const ADMIN_HEADER_DASHBOARD = "Dashboard";
-export const ADMIN_HEADER_TEMPLATES = "Templates";
-export const ADMIN_HEADER_CREATE = "Create";
-export const ADMIN_HEADER_EDIT = "Edit";
+export const ADMIN_SIDEBAR_TITLE = "Панель администратора";
+export const ADMIN_SIDEBAR_DASHBOARD = "Обзор";
+export const ADMIN_SIDEBAR_TEMPLATES = "Шаблоны";
+export const ADMIN_SIDEBAR_BACK_TO_PUBLIC = "Вернуться на сайт";
+export const ADMIN_HEADER_DASHBOARD = "Обзор";
+export const ADMIN_HEADER_TEMPLATES = "Шаблоны";
+export const ADMIN_HEADER_CREATE = "Создать";
+export const ADMIN_HEADER_EDIT = "Редактировать";
 
 // Admin Dashboard
-export const ADMIN_DASHBOARD_TITLE = "Document Generator Dashboard";
-export const ADMIN_DASHBOARD_WELCOME = "Welcome to the admin panel. Here you can manage your templates and generate documents.";
-export const ADMIN_DASHBOARD_TEMPLATES_CARD_TITLE = "Templates";
-export const ADMIN_DASHBOARD_TEMPLATES_CARD_INFO = (count) => `You have ${count} templates in your system.`;
-export const ADMIN_DASHBOARD_MANAGE_TEMPLATES_BUTTON = "Manage Templates";
-export const ADMIN_DASHBOARD_CREATE_TEMPLATE_CARD_TITLE = "Create New Template";
-export const ADMIN_DASHBOARD_CREATE_TEMPLATE_CARD_INFO = "Start by creating a new template for your documents.";
-export const ADMIN_DASHBOARD_CREATE_TEMPLATE_BUTTON = "Create Template";
+export const ADMIN_DASHBOARD_TITLE = "Панель управления генератором документов";
+export const ADMIN_DASHBOARD_WELCOME = "Добро пожаловать в панель администратора. Здесь вы можете управлять шаблонами и генерировать документы.";
+export const ADMIN_DASHBOARD_TEMPLATES_CARD_TITLE = "Шаблоны";
+export const ADMIN_DASHBOARD_TEMPLATES_CARD_INFO = (count) => `У вас ${count} шаблонов в системе.`;
+export const ADMIN_DASHBOARD_MANAGE_TEMPLATES_BUTTON = "Управление шаблонами";
+export const ADMIN_DASHBOARD_CREATE_TEMPLATE_CARD_TITLE = "Создать новый шаблон";
+export const ADMIN_DASHBOARD_CREATE_TEMPLATE_CARD_INFO = "Начните с создания нового шаблона для ваших документов.";
+export const ADMIN_DASHBOARD_CREATE_TEMPLATE_BUTTON = "Создать шаблон";
 
 // Admin Template List
 export const ADMIN_TEMPLATE_LIST_TITLE = "Управление шаблонами";
@@ -92,16 +92,27 @@ export const ADMIN_TEMPLATE_LIST_CONFIRM_DELETE_TITLE = "Подтвердите 
 export const ADMIN_TEMPLATE_LIST_CONFIRM_DELETE_MSG = (name) => `Вы уверены, что хотите удалить шаблон "${name}"? Это действие необратимо.`;
 export const ADMIN_TEMPLATE_LIST_CANCEL_BUTTON = "Отмена";
 
-// (Добавить константы для TemplateCreate, TemplateEdit, PageCreate, PageEdit по мере необходимости)
+// Template Create
+export const TEMPLATE_CREATE_TITLE = "Создание нового шаблона";
+export const TEMPLATE_CREATE_DESCRIPTION = "Введите основную информацию для вашего шаблона.";
+export const TEMPLATE_CREATE_NAME_LABEL = "Название шаблона";
+export const TEMPLATE_CREATE_NAME_PLACEHOLDER = "Например, Счет-фактура";
+export const TEMPLATE_CREATE_VERSION_LABEL = "Версия";
+export const TEMPLATE_CREATE_VERSION_PLACEHOLDER = "1.0";
+export const TEMPLATE_CREATE_TYPE_LABEL = "Тип выходного файла";
+export const TEMPLATE_CREATE_SELECT_TYPE = "Выберите тип файла";
+export const TEMPLATE_CREATE_ERROR = (msg) => `Не удалось создать шаблон: ${msg}`;
+export const TEMPLATE_CREATE_SUBMIT_BUTTON = "Создать и перейти к страницам";
+export const TEMPLATE_CREATE_SUBMITTING_BUTTON = "Создание...";
 
 // Общие
 export const REQUIRED_FIELD_MARKER = "*";
 export const LOADING_TEXT = "Загрузка...";
-export const REQUIRED_ERROR_MSG = (fieldName) => `${fieldName} обязательно для заполнения.`; // Общая ошибка обязательного поля
+export const REQUIRED_ERROR_MSG = (fieldName) => `${fieldName} обязательно для заполнения.`;
 export const UNKNOWN_ERROR_MSG = "Произошла неизвестная ошибка";
-export const API_AVAILABLE_MSG = "API доступен"; // Для LoginPage
-export const BACK_TO_LIST_BUTTON = "Вернуться к списку"; // Для страниц ошибок
-export const TEMPLATE_NAME_DEFAULT = "Безымянный шаблон"; // Для TemplateCard
+export const API_AVAILABLE_MSG = "API доступен";
+export const BACK_TO_LIST_BUTTON = "Вернуться к списку";
+export const TEMPLATE_NAME_DEFAULT = "Безымянный шаблон";
 export const PAGE_NAME_DEFAULT = "Безымянная страница";
 export const ASSET_NAME_DEFAULT = "Безымянный ассет";
 export const COPY_PATH_FAILED_MSG = "Не удалось скопировать путь";
@@ -113,10 +124,10 @@ export const EDIT_BUTTON = "Редактировать";
 export const SAVE_BUTTON = "Сохранить";
 export const CANCEL_BUTTON = "Отмена";
 export const DELETE_BUTTON = "Удалить";
-export const SAVING_BUTTON_SUFFIX = "..."; // Добавляется к тексту кнопки при сохранении
-export const CREATING_BUTTON_SUFFIX = "..."; // Добавляется к тексту кнопки при создании
-export const DELETING_BUTTON_SUFFIX = "..."; // Добавляется к тексту кнопки при удалении
+export const SAVING_BUTTON_SUFFIX = "...";
+export const CREATING_BUTTON_SUFFIX = "...";
+export const DELETING_BUTTON_SUFFIX = "...";
 
-// Конкретные страницы (дополнения)
+// Конкретные страницы
 export const PAGE_CREATE_FIELD_DEFAULT_TITLE = "Заголовок документа";
 export const PAGE_CREATE_FIELD_DEFAULT_NAME = "Имя получателя"; 
