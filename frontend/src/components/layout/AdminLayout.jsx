@@ -1,6 +1,7 @@
 import React from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { TemplateProvider } from '../../context/TemplateContext';
+import { useAuth } from '../../context/AuthContext';
 import * as text from '../../constants/ux-writing';
 import { Layout, Menu, Typography, theme } from 'antd';
 import { 
@@ -14,7 +15,14 @@ const { Header, Sider, Content } = Layout;
 const AdminLayout = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { hasAdminAccess, logout } = useAuth();
   
+  // Проверяем права доступа
+  if (!hasAdminAccess()) {
+    navigate('/');
+    return null;
+  }
+
   const getHeaderTitle = () => {
     const path = location.pathname;
     if (path === '/admin/dashboard') return text.ADMIN_HEADER_DASHBOARD;
@@ -22,6 +30,11 @@ const AdminLayout = () => {
     if (path.startsWith('/admin/templates/') && path.includes('/pages/')) return text.ADMIN_HEADER_EDIT;
     if (path.startsWith('/admin/templates/')) return text.ADMIN_HEADER_TEMPLATES;
     return text.APP_TITLE;
+  };
+
+  const handleLogout = () => {
+    logout();
+    navigate('/');
   };
 
   return (
@@ -61,10 +74,10 @@ const AdminLayout = () => {
                 onClick: () => navigate('/admin/templates')
               },
               {
-                key: 'back',
+                key: 'logout',
                 icon: <LogoutOutlined />,
                 label: text.ADMIN_SIDEBAR_BACK_TO_PUBLIC,
-                onClick: () => navigate('/')
+                onClick: handleLogout
               }
             ]}
           />

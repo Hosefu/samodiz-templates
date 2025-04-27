@@ -260,3 +260,8 @@
 2025-04-27 19:21:52.180 | INFO     | app.main:startup_event:56 - Starting template-service
 2025-04-27 19:21:52.181 | INFO     | app.main:startup_event:57 - Server running at http://0.0.0.0:8083
 2025-04-27 19:21:52.182 | INFO     | app.main:startup_event:58 - Documentation available at http://0.0.0.0:8083/api/docs
+2025-04-27 19:51:26.411 | INFO     | app.main:shutdown_event:63 - Shutting down template-service
+2025-04-27 19:52:40.146 | INFO     | app.utils.logger:setup_logging:31 - Logging initialized with level: INFO
+2025-04-27 19:52:40.150 | INFO     | app.main:startup_event:56 - Starting template-service
+2025-04-27 19:52:40.151 | INFO     | app.main:startup_event:57 - Server running at http://0.0.0.0:8083
+2025-04-27 19:52:40.151 | INFO     | app.main:startup_event:58 - Documentation available at http://0.0.0.0:8083/api/docs

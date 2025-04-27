@@ -1,22 +1,18 @@
 import React from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
 const PrivateRoute = ({ children, requireAdmin = false }) => {
-  const { user, isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, user, hasAdminAccess } = useAuth();
+  const location = useLocation();
 
-  // Отображение загрузки, пока проверяем аутентификацию
-  if (loading) {
-    return <div>Загрузка...</div>;
-  }
-
-  // Проверка аутентификации
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+    // Перенаправляем на страницу входа, сохраняя текущий путь
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // Проверка прав администратора, если требуется
-  if (requireAdmin && !(user.is_admin || user.role === 'admin')) {
+  if (requireAdmin && !hasAdminAccess()) {
+    // Если требуется админ, но пользователь не админ
     return <Navigate to="/" replace />;
   }
 
