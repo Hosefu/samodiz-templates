@@ -1,23 +1,43 @@
 import React, { useState } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { useNavigate } from 'react-router-dom';
-import { Typography, Form, Alert, Space } from 'antd';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { Typography, Form, Alert } from 'antd';
 import { LoginOutlined } from '@ant-design/icons';
-import { loginUser } from '../../redux/slices/authSlice';
 import { Button, Input, Card } from '../../components/ui/UIComponents';
+import * as text from '../../constants/ux-writing';
+import { useAuth } from '../../context/AuthContext';
 
 const LoginPage = () => {
   const [form] = Form.useForm();
-  const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { loading, error } = useSelector(state => state.auth);
+  const location = useLocation();
+  const { login, authError } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  // Определяем, куда перенаправить пользователя после входа
+  const from = location.state?.from?.pathname || '/admin/dashboard';
   
   const handleSubmit = async (values) => {
+    setLoading(true);
+    setError('');
+    
     try {
-      await dispatch(loginUser(values)).unwrap();
-      navigate('/admin/dashboard');
+      console.log('Attempting login with credentials:', values.username);
+      
+      const success = await login(values.username, values.password);
+      
+      if (success) {
+        console.log('Login successful, redirecting to:', from);
+        navigate(from, { replace: true });
+      } else {
+        console.error('Login failed');
+        setError('Ошибка входа. Проверьте имя пользователя и пароль.');
+      }
     } catch (err) {
-      // Error is handled by the authSlice
+      console.error('Login error:', err);
+      setError(err.message || 'Не удалось войти в систему');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -29,14 +49,14 @@ const LoginPage = () => {
             Document Generator
           </Typography.Title>
           <Typography.Text className="text-gray-400">
-            Sign in to access the document generator
+            Войдите в систему для доступа к генератору документов
           </Typography.Text>
         </div>
         
-        {error && (
+        {(error || authError) && (
           <Alert
-            message="Authentication Error"
-            description={error}
+            message="Ошибка аутентификации"
+            description={error || authError}
             type="error"
             showIcon
             className="mb-4"
@@ -51,18 +71,18 @@ const LoginPage = () => {
         >
           <Form.Item
             name="username"
-            label="Username"
-            rules={[{ required: true, message: 'Please input your username!' }]}
+            label="Имя пользователя"
+            rules={[{ required: true, message: 'Пожалуйста, введите имя пользователя!' }]}
           >
-            <Input placeholder="Username" />
+            <Input placeholder="Имя пользователя" />
           </Form.Item>
 
           <Form.Item
             name="password"
-            label="Password"
-            rules={[{ required: true, message: 'Please input your password!' }]}
+            label="Пароль"
+            rules={[{ required: true, message: 'Пожалуйста, введите пароль!' }]}
           >
-            <Input.Password placeholder="Password" />
+            <Input.Password placeholder="Пароль" />
           </Form.Item>
 
           <Form.Item>
@@ -71,9 +91,9 @@ const LoginPage = () => {
               htmlType="submit"
               className="w-full"
               icon={<LoginOutlined />}
-              loading={loading}
+              isLoading={loading}
             >
-              Sign In
+              Войти
             </Button>
           </Form.Item>
         </Form>

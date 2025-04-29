@@ -84,6 +84,37 @@ const StyledInput = styled(AntInput)`
   }
 `;
 
+const StyledPassword = styled(AntInput.Password)`
+  background-color: #262626;
+  border-color: #333333;
+  color: #D1D5DB;
+  
+  &:hover {
+    border-color: #3B82F6;
+  }
+  
+  &:focus, &-focused {
+    border-color: #3B82F6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+  }
+  
+  &::placeholder {
+    color: #6B7280;
+  }
+  
+  .ant-input {
+    background-color: #262626;
+    color: #D1D5DB;
+  }
+  
+  .ant-input-password-icon {
+    color: #6B7280;
+    &:hover {
+      color: #3B82F6;
+    }
+  }
+`;
+
 const StyledSelect = styled(AntSelect)`
   .ant-select-selector {
     background-color: #262626 !important;
@@ -141,6 +172,22 @@ export const Input = ({ label, error, hint, ...props }) => {
     </Form.Item>
   );
 };
+
+// Password Input компонент
+export const PasswordInput = ({ label, error, hint, ...props }) => {
+  return (
+    <Form.Item 
+      label={label} 
+      validateStatus={error ? 'error' : ''}
+      help={error || hint}
+    >
+      <StyledPassword {...props} />
+    </Form.Item>
+  );
+};
+
+// Добавим поддержку Input.Password
+Input.Password = (props) => <StyledPassword {...props} />;
 
 // Select компонент
 export const Select = ({ label, options, error, hint, ...props }) => {
