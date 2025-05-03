@@ -1,8 +1,11 @@
 # Базовые зависимости
-Django==5.0.2
+Django==4.2.10
 djangorestframework==3.14.0
 django-cors-headers==4.3.1
-django-reversion==6.2.0
+django-reversion==5.1.0
+django-reversion-compare==0.17.0
+djangorestframework-simplejwt==5.3.1
+drf-yasg==1.21.7
 psycopg2-binary==2.9.9
 redis==5.0.1
 celery==5.3.6

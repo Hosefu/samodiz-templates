@@ -47,82 +47,6 @@ services:
       - /app/node_modules
       - ./frontend/nginx.conf:/etc/nginx/conf.d/default.conf
 
-  storage-service:
-    build:
-      context: ./storage
-      dockerfile: Dockerfile
-    container_name: storage-service
-    env_file:
-      - .env
-    volumes:
-      - media_data:/app/media
-      - static_data:/app/staticfiles
-      - ./storage/media:/usr/share/nginx/html/media:ro
-    expose:
-      - "${STORAGE_PORT:-8000}"
-    command: >
-      sh -c "
-        mkdir -p /app/media/generated_templates &&
-        chmod 777 /app/media/generated_templates &&
-        python manage.py migrate &&
-        python manage.py collectstatic --noinput &&
-        gunicorn storage.wsgi:application --bind 0.0.0.0:${STORAGE_PORT:-8000}
-      "
-    environment:
-      - API_KEY=${API_KEY:-development-pdf-api-key}
-      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:-your-secret-key}
-      - JWT_SECRET=${JWT_SECRET:-your-jwt-secret-key}
-      - DEBUG=1
-      - STORAGE_PORT=${STORAGE_PORT:-8000}
-      - DB_NAME=${DB_NAME:-samodesdb}
-      - DB_USER=${DB_USER:-postgres}
-      - DB_PASSWORD=${DB_PASSWORD:-postgres}
-      - DB_HOST=${DB_HOST:-db}
-      - DB_PORT=${DB_PORT:-5432}
-    healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:${STORAGE_PORT:-8000}/api/health/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
-    depends_on:
-      db:
-        condition: service_healthy
-
-  render-routing-service:
-    build:
-      context: ./render-routing
-      dockerfile: Dockerfile
-    container_name: render-routing-service
-    env_file:
-      - .env
-    expose:
-      - "${ROUTING_PORT:-8080}"
-    depends_on:
-      storage-service:
-        condition: service_healthy
-      pdf-renderer:
-        condition: service_healthy
-      png-renderer:
-        condition: service_healthy
-      template-service:
-        condition: service_healthy
-    environment:
-      - SERVER_PORT=${ROUTING_PORT:-8080}
-      - RENDERERS_PDF_RENDERER=http://pdf-renderer:${PDF_PORT:-8081}/api/pdf/render
-      - RENDERERS_PNG_RENDERER=http://png-renderer:${PNG_PORT:-8082}/api/png/render
-      - STORAGE_API_BASE_URL=http://storage-service:${STORAGE_PORT:-8000}/api
-      - STORAGE_API_KEY=${API_KEY:-development-pdf-api-key}
-      - JWT_SECRET=${JWT_SECRET:-your-jwt-secret-key}
-      - LOGGER_LEVEL=info
-      - TEMPLATE_SERVICE_URL=http://template-service:8083/api/template/render
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:${ROUTING_PORT:-8080}/api/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
-
   pdf-renderer:
     build:
       context: ./pdf-renderer
@@ -175,31 +99,6 @@ services:
       retries: 3
       start_period: 10s
 
-  template-service:
-    build:
-      context: ./template-service
-      dockerfile: Dockerfile
-    container_name: template-service
-    env_file:
-      - .env
-    volumes:
-      - ./template-service:/app
-    expose:
-      - "8083"
-    environment:
-      - TEMPLATE_SERVICE_HOST=0.0.0.0
-      - TEMPLATE_SERVICE_PORT=8083
-      - TEMPLATE_SERVICE_LOG_LEVEL=INFO
-      - TEMPLATE_SERVICE_DEBUG=False
-      - API_KEY=${API_KEY:-development-pdf-api-key}
-      - JWT_SECRET=${JWT_SECRET:-your-jwt-secret-key}
-    healthcheck:
-      test: ["CMD", "wget", "-O", "-", "http://localhost:8083/api/template/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
-
   nginx:
     build:
       context: .
@@ -209,15 +108,11 @@ services:
     depends_on:
       frontend:
         condition: service_started
-      storage-service:
-        condition: service_healthy
-      render-routing-service:
+      backend:
         condition: service_healthy
       pdf-renderer:
         condition: service_healthy
       png-renderer:
-        condition: service_healthy
-      template-service:
         condition: service_healthy
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
@@ -236,6 +131,8 @@ services:
     volumes:
       - ./backend:/app
       - /app/venv
+      - media_data:/app/media
+      - static_data:/app/staticfiles
     expose:
       - "${BACKEND_PORT:-8000}"
     command: >
