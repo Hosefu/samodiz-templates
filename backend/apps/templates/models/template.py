@@ -4,10 +4,12 @@
 import uuid
 from django.db import models
 from django.conf import settings
+from reversion import register
 from apps.common.models import BaseModel
 from apps.templates.models.unit_format import Unit, Format, FormatSetting
 
 
+@register()
 class Template(BaseModel):
     """
     Шаблон документа.
@@ -43,10 +45,42 @@ class Template(BaseModel):
     
     def __str__(self):
         return self.name
+
+
+@register()
+class Page(BaseModel):
+    """
+    Страница шаблона.
     
-    def get_latest_revision(self):
-        """Возвращает последнюю ревизию шаблона."""
-        return self.revisions.order_by('-number').first()
+    Каждый шаблон может содержать несколько страниц с разными настройками.
+    """
+    template = models.ForeignKey(
+        Template,
+        on_delete=models.CASCADE,
+        related_name="pages",
+        help_text="Родительский шаблон"
+    )
+    index = models.PositiveIntegerField(help_text="Порядковый номер (1…)")
+    html = models.TextField(help_text="HTML-код страницы")
+    width = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        help_text="Ширина страницы"
+    )
+    height = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        help_text="Высота страницы"
+    )
+    
+    class Meta:
+        verbose_name = "Страница"
+        verbose_name_plural = "Страницы"
+        ordering = ['template', 'index']
+        unique_together = ['template', 'index']
+    
+    def __str__(self):
+        return f"{self.template.name} - Страница {self.index}"
 
 
 class TemplateRevision(BaseModel):
@@ -137,41 +171,6 @@ class TemplatePermission(BaseModel):
         if self.grantee:
             return f"{self.template.name} - {self.grantee.username} ({self.role})"
         return f"{self.template.name} - Public ({self.role})"
-
-
-class Page(BaseModel):
-    """
-    Страница шаблона.
-    
-    Каждый шаблон может содержать несколько страниц с разными настройками.
-    """
-    template = models.ForeignKey(
-        Template,
-        on_delete=models.CASCADE,
-        related_name="pages",
-        help_text="Родительский шаблон"
-    )
-    index = models.PositiveIntegerField(help_text="Порядковый номер (1…)")
-    html = models.TextField(help_text="HTML-код страницы")
-    width = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        help_text="Ширина страницы"
-    )
-    height = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        help_text="Высота страницы"
-    )
-    
-    class Meta:
-        verbose_name = "Страница"
-        verbose_name_plural = "Страницы"
-        ordering = ['template', 'index']
-        unique_together = ['template', 'index']
-    
-    def __str__(self):
-        return f"{self.template.name} - Страница {self.index}"
 
 
 class PageSettings(BaseModel):

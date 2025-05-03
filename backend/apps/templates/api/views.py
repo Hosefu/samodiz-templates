@@ -10,6 +10,8 @@ from rest_framework import viewsets, mixins, status, generics
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from reversion.models import Version
+from reversion.views import RevisionMixin
 
 from apps.templates.models.unit_format import Unit, Format, FormatSetting
 from apps.templates.models.template import (
@@ -66,7 +68,7 @@ class FormatViewSet(viewsets.ReadOnlyModelViewSet):
         return Response(serializer.data)
 
 
-class TemplateViewSet(viewsets.ModelViewSet):
+class TemplateViewSet(RevisionMixin, viewsets.ModelViewSet):
     """API для работы с шаблонами."""
     
     permission_classes = [IsAuthenticated, IsTemplateOwnerOrReadOnly]
@@ -124,32 +126,36 @@ class TemplateViewSet(viewsets.ModelViewSet):
             )
     
     def perform_update(self, serializer):
-        """Обновление шаблона с созданием новой ревизии."""
+        """Обновление шаблона с созданием новой версии."""
         with transaction.atomic():
-            # Получаем текущую версию
-            template = self.get_object()
-            latest_revision = template.get_latest_revision()
-            
-            # Сохраняем шаблон
-            updated_template = serializer.save()
-            
-            # Создаем новую ревизию, если есть изменения
-            if latest_revision and 'html' in serializer.initial_data:
-                TemplateRevision.objects.create(
-                    template=updated_template,
-                    number=latest_revision.number + 1,
-                    author=self.request.user,
-                    changelog=f"Обновление от {timezone.now().strftime('%Y-%m-%d %H:%M')}",
-                    html=serializer.initial_data.get('html', latest_revision.html)
-                )
+            serializer.save()
     
     @action(detail=True, methods=['get'], permission_classes=[IsAuthenticated, IsTemplateViewerOrBetter])
-    def revisions(self, request, pk=None):
-        """Получение истории ревизий шаблона."""
+    def versions(self, request, pk=None):
+        """Получение истории версий шаблона."""
         template = self.get_object()
-        revisions = template.revisions.all().order_by('-number')
-        serializer = TemplateRevisionSerializer(revisions, many=True)
-        return Response(serializer.data)
+        versions = Version.objects.get_for_object(template)
+        data = [
+            {
+                'id': v.id,
+                'revision_id': v.revision_id,
+                'date_created': v.revision.date_created,
+                'user': v.revision.user.get_full_name() if v.revision.user else None,
+                'comment': v.revision.comment
+            }
+            for v in versions
+        ]
+        return Response(data)
+    
+    @action(detail=True, methods=['post'], url_path='versions/(?P<version_id>\d+)/revert')
+    def revert_to_version(self, request, pk=None, version_id=None):
+        """Откат шаблона к предыдущей версии."""
+        try:
+            version = Version.objects.get(id=version_id)
+            version.revision.revert()
+            return Response({'status': 'reverted'})
+        except Version.DoesNotExist:
+            return Response({'error': 'Version not found'}, status=404)
     
     @action(detail=True, methods=['get'], permission_classes=[IsAuthenticated, IsTemplateViewerOrBetter])
     def fields(self, request, pk=None):

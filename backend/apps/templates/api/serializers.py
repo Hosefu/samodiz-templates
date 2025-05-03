@@ -4,8 +4,7 @@
 from rest_framework import serializers
 from apps.templates.models.unit_format import Unit, Format, FormatSetting
 from apps.templates.models.template import (
-    Template, TemplateRevision, TemplatePermission, 
-    Page, PageSettings, Field, Asset
+    Template, TemplatePermission, Page, PageSettings, Field, Asset
 )
 from apps.templates.services.templating import template_renderer
 
@@ -123,44 +122,21 @@ class PageSerializer(serializers.ModelSerializer):
         return value
 
 
-class TemplateRevisionSerializer(serializers.ModelSerializer):
-    """Сериализатор для ревизий шаблона."""
-    
-    author_name = serializers.CharField(source='author.get_full_name', read_only=True)
-    
-    class Meta:
-        model = TemplateRevision
-        fields = ['id', 'template', 'number', 'author', 'author_name', 'changelog', 'html', 'created_at']
-        read_only_fields = ['id', 'number', 'author_name', 'created_at']
-
-
-class TemplatePermissionSerializer(serializers.ModelSerializer):
-    """Сериализатор для разрешений на доступ к шаблону."""
-    
-    grantee_name = serializers.CharField(source='grantee.get_full_name', read_only=True)
-    
-    class Meta:
-        model = TemplatePermission
-        fields = ['id', 'template', 'grantee', 'grantee_name', 'role', 'token', 'expires_at']
-        read_only_fields = ['id', 'token']
-
-
 class TemplateListSerializer(serializers.ModelSerializer):
     """Сериализатор для списка шаблонов."""
     
     owner_name = serializers.CharField(source='owner.get_full_name', read_only=True)
     format_name = serializers.CharField(source='format.name', read_only=True)
     unit_name = serializers.CharField(source='unit.name', read_only=True)
-    pages_count = serializers.IntegerField(source='pages.count', read_only=True)
     
     class Meta:
         model = Template
         fields = [
-            'id', 'name', 'owner', 'owner_name', 'is_public', 
+            'id', 'name', 'owner', 'owner_name', 'is_public',
             'format', 'format_name', 'unit', 'unit_name',
-            'description', 'pages_count', 'created_at', 'updated_at'
+            'description', 'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'owner_name', 'format_name', 'unit_name', 'pages_count', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
 
 
 class TemplateDetailSerializer(TemplateListSerializer):
@@ -169,10 +145,9 @@ class TemplateDetailSerializer(TemplateListSerializer):
     pages = PageSerializer(many=True, read_only=True)
     global_fields = serializers.SerializerMethodField()
     global_assets = serializers.SerializerMethodField()
-    latest_revision = serializers.SerializerMethodField()
     
     class Meta(TemplateListSerializer.Meta):
-        fields = TemplateListSerializer.Meta.fields + ['pages', 'global_fields', 'global_assets', 'latest_revision']
+        fields = TemplateListSerializer.Meta.fields + ['pages', 'global_fields', 'global_assets']
     
     def get_global_fields(self, obj):
         """Возвращает глобальные поля шаблона."""
@@ -183,13 +158,6 @@ class TemplateDetailSerializer(TemplateListSerializer):
         """Возвращает глобальные ассеты шаблона."""
         assets = obj.assets.filter(page__isnull=True)
         return AssetSerializer(assets, many=True).data
-    
-    def get_latest_revision(self, obj):
-        """Возвращает последнюю ревизию шаблона."""
-        revision = obj.get_latest_revision()
-        if revision:
-            return TemplateRevisionSerializer(revision).data
-        return None
 
 
 class TemplateCreateSerializer(serializers.ModelSerializer):

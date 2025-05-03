@@ -33,6 +33,7 @@ THIRD_PARTY_APPS = [
     'drf_yasg',
     'django_celery_beat',
     'channels',
+    'reversion',
 ]
 
 PROJECT_APPS = [
