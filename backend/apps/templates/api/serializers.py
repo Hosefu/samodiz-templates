@@ -192,3 +192,14 @@ class TemplateVersionSerializer(serializers.Serializer):
                 'full_name': user.get_full_name()
             }
         return None
+
+
+class TemplatePermissionSerializer(serializers.ModelSerializer):
+    """Сериализатор для разрешений на доступ к шаблонам."""
+    
+    grantee_email = serializers.EmailField(source='grantee.email', read_only=True)
+    
+    class Meta:
+        model = TemplatePermission
+        fields = ['id', 'template', 'grantee', 'grantee_email', 'role', 'token', 'expires_at']
+        read_only_fields = ['id', 'token']

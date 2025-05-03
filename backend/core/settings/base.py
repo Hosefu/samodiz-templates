@@ -2,14 +2,13 @@
 Базовые настройки Django для проекта Самодизайн.
 """
 import os
-from datetime import timedelta
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-changeme-in-production')
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-development-only-key')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -42,8 +41,6 @@ PROJECT_APPS = [
     'apps.users',
     'apps.templates',
     'apps.generation',
-    'apps.assets',
-    'apps.documents',
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + PROJECT_APPS
@@ -79,33 +76,6 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'core.wsgi.application'
 ASGI_APPLICATION = 'core.asgi.application'
-
-# Database
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('POSTGRES_DB', 'samodesign'),
-        'USER': os.environ.get('POSTGRES_USER', 'postgres'),
-        'PASSWORD': os.environ.get('POSTGRES_PASSWORD', 'postgres'),
-        'HOST': os.environ.get('POSTGRES_HOST', 'localhost'),
-        'PORT': os.environ.get('POSTGRES_PORT', '5432'),
-    }
-}
-
-# Logging
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-        },
-    },
-    'root': {
-        'handlers': ['console'],
-        'level': 'INFO',
-    },
-}
 
 # Custom user model
 AUTH_USER_MODEL = 'users.User'
@@ -152,42 +122,21 @@ REST_FRAMEWORK = {
     'DEFAULT_RENDERER_CLASSES': (
         'rest_framework.renderers.JSONRenderer',
     ),
-    'DEFAULT_PARSER_CLASSES': (
-        'rest_framework.parsers.JSONParser',
-        'rest_framework.parsers.FormParser',
-        'rest_framework.parsers.MultiPartParser',
-    ),
-    'EXCEPTION_HANDLER': 'apps.common.exceptions.custom_exception_handler',
 }
 
 # JWT Settings
+from datetime import timedelta
+
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=14),
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
-    'UPDATE_LAST_LOGIN': False,
-    'ALGORITHM': 'HS256',
-    'SIGNING_KEY': SECRET_KEY,
-    'VERIFYING_KEY': None,
-    'AUDIENCE': None,
-    'ISSUER': None,
-    'JWK_URL': None,
-    'LEEWAY': 0,
-    'AUTH_HEADER_TYPES': ('Bearer',),
-    'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
-    'USER_ID_FIELD': 'id',
-    'USER_ID_CLAIM': 'user_id',
-    'USER_AUTHENTICATION_RULE': 'rest_framework_simplejwt.authentication.default_user_authentication_rule',
-    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
-    'TOKEN_TYPE_CLAIM': 'token_type',
-    'TOKEN_USER_CLASS': 'rest_framework_simplejwt.models.TokenUser',
 }
 
 # Redis/Celery settings
 REDIS_HOST = os.environ.get('REDIS_HOST', 'localhost')
 REDIS_PORT = os.environ.get('REDIS_PORT', '6379')
-REDIS_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}/0"
 
 # Настройки Channels
 CHANNEL_LAYERS = {
@@ -207,14 +156,10 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'UTC'
 CELERY_TASK_TRACK_STARTED = True
-CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 минут
+CELERY_TASK_TIME_LIMIT = 30 * 60
 
 # CORS settings
-CORS_ALLOW_ALL_ORIGINS = False
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-]
+CORS_ALLOW_ALL_ORIGINS = True
 
 # Ceph/S3 storage settings
 CEPH_ENDPOINT_URL = os.environ.get('CEPH_ENDPOINT_URL', 'http://localhost:9000')
@@ -223,33 +168,13 @@ CEPH_SECRET_KEY = os.environ.get('CEPH_SECRET_KEY', 'minioadmin')
 CEPH_BUCKET_NAME = os.environ.get('CEPH_BUCKET_NAME', 'samodesign')
 CEPH_REGION_NAME = os.environ.get('CEPH_REGION_NAME', '')
 
-# Asset upload settings
-MAX_UPLOAD_SIZE = 10 * 1024 * 1024  # 10MB - разумное ограничение для ассетов
-
 # Renderer services
 PDF_RENDERER_URL = os.environ.get('PDF_RENDERER_URL', 'http://pdf-renderer/api/render')
 PNG_RENDERER_URL = os.environ.get('PNG_RENDERER_URL', 'http://png-renderer/api/render')
 SVG_RENDERER_URL = os.environ.get('SVG_RENDERER_URL', 'http://svg-renderer/api/render')
 
-# Rate limiting settings
-REST_FRAMEWORK_RATE_LIMIT = {
-    'AUTH_LOGIN': {
-        'rate': '5/min',  # 5 запросов в минуту
-    },
-    'AUTH_REFRESH': {
-        'rate': '10/min',  # 10 запросов в минуту
-    },
-    'PUBLIC_TEMPLATE_GENERATE': {
-        'rate': '20/hour',  # 20 запросов в час для публичных шаблонов
-    },
-}
+# Asset upload settings
+MAX_UPLOAD_SIZE = 10 * 1024 * 1024  # 10MB
 
 # Настройки django-reversion
 REVERSION_ENABLED = True
-REVERSION_COMPARE_IGNORE_NOT_REGISTERED = True
-REVERSION_COMPARE_IGNORE_MISSING_FIELDS = True
-REVERSION_COMPARE_IGNORE_FIELDS = [
-    'created_at',
-    'updated_at',
-    'id',
-]

@@ -210,5 +210,15 @@ class CephClient:
             raise
 
 
-# Синглтон-инстанс для удобного импорта
-ceph_client = CephClient()
+# Условная инициализация в зависимости от окружения
+if os.environ.get('DJANGO_ENV') == 'local':
+    # Используем mock для локальной разработки
+    from .ceph_mock import MockCephClient as CephClient, ceph_client
+else:
+    # Создаем реальный инстанс для продакшена
+    try:
+        ceph_client = CephClient()
+    except Exception as e:
+        logger.error(f"Failed to initialize Ceph client: {e}")
+        # В случае ошибки используем mock
+        from .ceph_mock import MockCephClient, ceph_client

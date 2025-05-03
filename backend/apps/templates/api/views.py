@@ -135,7 +135,7 @@ class TemplateViewSet(RevisionMixin, viewsets.ModelViewSet):
         serializer = TemplateVersionSerializer(versions, many=True)
         return Response(serializer.data)
     
-    @action(detail=True, methods=['post'], url_path='versions/(?P<version_id>\d+)/revert')
+    @action(detail=True, methods=['post'], url_path=r'versions/(?P<version_id>\d+)/revert')
     def revert_to_version(self, request, pk=None, version_id=None):
         """Откат шаблона к предыдущей версии."""
         template = self.get_object()
