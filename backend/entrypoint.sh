@@ -1,9 +1,9 @@
 #!/bin/bash
 set -e
 
-# Ждем готовности базы данных
+# Ждем базу данных
 echo "Waiting for database..."
-while ! python manage.py shell -c "import sys; sys.exit(0)" 2>/dev/null; do
+while ! python -c "import psycopg2; psycopg2.connect(dbname='${DB_NAME}', user='${DB_USER}', password='${DB_PASSWORD}', host='${DB_HOST}', port='${DB_PORT}')" 2>/dev/null; do
   echo "Database not available, waiting..."
   sleep 1
 done
