@@ -12,9 +12,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-changeme-in-production')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 # Application definition
 DJANGO_APPS = [
@@ -34,6 +34,7 @@ THIRD_PARTY_APPS = [
     'django_celery_beat',
     'channels',
     'reversion',
+    'reversion_compare',
 ]
 
 PROJECT_APPS = [
@@ -42,6 +43,7 @@ PROJECT_APPS = [
     'apps.templates',
     'apps.generation',
     'apps.assets',
+    'apps.documents',
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + PROJECT_APPS
@@ -88,6 +90,21 @@ DATABASES = {
         'HOST': os.environ.get('POSTGRES_HOST', 'localhost'),
         'PORT': os.environ.get('POSTGRES_PORT', '5432'),
     }
+}
+
+# Logging
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
 }
 
 # Custom user model
@@ -172,13 +189,25 @@ REDIS_HOST = os.environ.get('REDIS_HOST', 'localhost')
 REDIS_PORT = os.environ.get('REDIS_PORT', '6379')
 REDIS_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}/0"
 
-CELERY_BROKER_URL = REDIS_URL
-CELERY_RESULT_BACKEND = REDIS_URL
-CELERY_ACCEPT_CONTENT = ['application/json']
+# Настройки Channels
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            'hosts': [f'redis://{REDIS_HOST}:{REDIS_PORT}/0'],
+        },
+    },
+}
+
+# Настройки Celery
+CELERY_BROKER_URL = f'redis://{REDIS_HOST}:{REDIS_PORT}/1'
+CELERY_RESULT_BACKEND = f'redis://{REDIS_HOST}:{REDIS_PORT}/2'
+CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
-CELERY_TASK_TIME_LIMIT = 180  # 3 minutes
-CELERY_TASK_ALWAYS_EAGER = False
+CELERY_TIMEZONE = 'UTC'
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 минут
 
 # CORS settings
 CORS_ALLOW_ALL_ORIGINS = False
@@ -186,16 +215,6 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
 ]
-
-# Channels settings
-CHANNEL_LAYERS = {
-    'default': {
-        'BACKEND': 'channels_redis.core.RedisChannelLayer',
-        'CONFIG': {
-            "hosts": [(REDIS_HOST, int(REDIS_PORT))],
-        },
-    },
-}
 
 # Ceph/S3 storage settings
 CEPH_ENDPOINT_URL = os.environ.get('CEPH_ENDPOINT_URL', 'http://localhost:9000')
@@ -224,3 +243,13 @@ REST_FRAMEWORK_RATE_LIMIT = {
         'rate': '20/hour',  # 20 запросов в час для публичных шаблонов
     },
 }
+
+# Настройки django-reversion
+REVERSION_ENABLED = True
+REVERSION_COMPARE_IGNORE_NOT_REGISTERED = True
+REVERSION_COMPARE_IGNORE_MISSING_FIELDS = True
+REVERSION_COMPARE_IGNORE_FIELDS = [
+    'created_at',
+    'updated_at',
+    'id',
+]

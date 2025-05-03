@@ -21,13 +21,14 @@ from apps.templates.models.template import (
 from apps.templates.api.serializers import (
     UnitSerializer, FormatSerializer, FormatSettingSerializer, FormatDetailSerializer,
     TemplateListSerializer, TemplateDetailSerializer, TemplateCreateSerializer,
-    TemplateRevisionSerializer, TemplatePermissionSerializer,
+    TemplateVersionSerializer, TemplatePermissionSerializer,
     PageSerializer, PageSettingsSerializer, FieldSerializer, AssetSerializer
 )
 from apps.templates.api.permissions import (
     IsTemplateOwnerOrReadOnly, IsTemplateContributor, 
     IsTemplateViewerOrBetter, HasFormatAccess
 )
+from apps.templates.services.template_version_service import template_version_service
 from infrastructure.ceph import ceph_client
 
 logger = logging.getLogger(__name__)
@@ -109,15 +110,6 @@ class TemplateViewSet(RevisionMixin, viewsets.ModelViewSet):
             # Сохраняем шаблон
             template = serializer.save(owner=self.request.user)
             
-            # Создаем первую ревизию шаблона
-            TemplateRevision.objects.create(
-                template=template,
-                number=1,
-                author=self.request.user,
-                changelog="Первоначальное создание шаблона",
-                html=""
-            )
-            
             # Создаем разрешение владельца
             TemplatePermission.objects.create(
                 template=template,
@@ -128,34 +120,33 @@ class TemplateViewSet(RevisionMixin, viewsets.ModelViewSet):
     def perform_update(self, serializer):
         """Обновление шаблона с созданием новой версии."""
         with transaction.atomic():
-            serializer.save()
+            template = serializer.save()
+            template_version_service.create_version(
+                template=template,
+                user=self.request.user,
+                comment=f"Update from {timezone.now().strftime('%Y-%m-%d %H:%M')}"
+            )
     
     @action(detail=True, methods=['get'], permission_classes=[IsAuthenticated, IsTemplateViewerOrBetter])
     def versions(self, request, pk=None):
         """Получение истории версий шаблона."""
         template = self.get_object()
-        versions = Version.objects.get_for_object(template)
-        data = [
-            {
-                'id': v.id,
-                'revision_id': v.revision_id,
-                'date_created': v.revision.date_created,
-                'user': v.revision.user.get_full_name() if v.revision.user else None,
-                'comment': v.revision.comment
-            }
-            for v in versions
-        ]
-        return Response(data)
+        versions = template_version_service.get_template_versions(template)
+        serializer = TemplateVersionSerializer(versions, many=True)
+        return Response(serializer.data)
     
     @action(detail=True, methods=['post'], url_path='versions/(?P<version_id>\d+)/revert')
     def revert_to_version(self, request, pk=None, version_id=None):
         """Откат шаблона к предыдущей версии."""
-        try:
-            version = Version.objects.get(id=version_id)
-            version.revision.revert()
+        template = self.get_object()
+        success = template_version_service.revert_to_version(
+            template=template,
+            version_id=int(version_id),
+            user=request.user
+        )
+        if success:
             return Response({'status': 'reverted'})
-        except Version.DoesNotExist:
-            return Response({'error': 'Version not found'}, status=404)
+        return Response({'error': 'Version not found'}, status=404)
     
     @action(detail=True, methods=['get'], permission_classes=[IsAuthenticated, IsTemplateViewerOrBetter])
     def fields(self, request, pk=None):

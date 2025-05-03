@@ -173,3 +173,22 @@ class TemplateCreateSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         validated_data['owner'] = request.user
         return super().create(validated_data)
+
+
+class TemplateVersionSerializer(serializers.Serializer):
+    """Сериализатор для версий шаблона."""
+    id = serializers.IntegerField()
+    revision_id = serializers.IntegerField()
+    date_created = serializers.DateTimeField(source='revision.date_created')
+    user = serializers.SerializerMethodField()
+    comment = serializers.CharField(source='revision.comment')
+    
+    def get_user(self, obj):
+        user = obj.revision.user
+        if user:
+            return {
+                'id': str(user.id),
+                'email': user.email,
+                'full_name': user.get_full_name()
+            }
+        return None

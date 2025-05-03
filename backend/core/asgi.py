@@ -7,9 +7,10 @@ import os
 from django.core.asgi import get_asgi_application
 from channels.routing import ProtocolTypeRouter, URLRouter
 from channels.auth import AuthMiddlewareStack
-from apps.generation.routing import websocket_urlpatterns
+from django.urls import path
+from apps.templates.consumers import TemplateRenderConsumer
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings.base')
 
 # Получаем стандартный Django ASGI application
 django_asgi_app = get_asgi_application()
@@ -21,8 +22,8 @@ application = ProtocolTypeRouter({
     
     # WebSocket с поддержкой аутентификации
     "websocket": AuthMiddlewareStack(
-        URLRouter(
-            websocket_urlpatterns
-        )
+        URLRouter([
+            path('ws/templates/<int:template_id>/render/', TemplateRenderConsumer.as_asgi()),
+        ])
     ),
 })

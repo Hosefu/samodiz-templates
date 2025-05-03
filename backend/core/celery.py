@@ -3,19 +3,20 @@
 """
 import os
 from celery import Celery
+from django.conf import settings
 from celery.schedules import crontab
 
-# Устанавливаем переменную окружения по умолчанию
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
+# Устанавливаем переменную окружения для настроек Django
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings.base')
 
-# Создаем экземпляр Celery
-app = Celery('samodesign')
+# Создаем экземпляр приложения Celery
+app = Celery('samodes')
 
-# Загружаем настройки из Django settings
+# Загружаем конфигурацию из настроек Django
 app.config_from_object('django.conf:settings', namespace='CELERY')
 
-# Автоматически обнаруживаем задачи в приложениях Django
-app.autodiscover_tasks()
+# Автоматически находим и регистрируем задачи в приложениях Django
+app.autodiscover_tasks(lambda: settings.INSTALLED_APPS)
 
 # Определяем периодические задачи
 app.conf.beat_schedule = {

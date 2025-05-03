@@ -37,6 +37,7 @@ class Template(BaseModel):
         help_text="Единица измерения для шаблона"
     )
     description = models.TextField(blank=True, help_text="Описание шаблона")
+    html = models.TextField(blank=True, help_text="HTML-код шаблона")
     
     class Meta:
         verbose_name = "Шаблон"
@@ -45,6 +46,26 @@ class Template(BaseModel):
     
     def __str__(self):
         return self.name
+    
+    def get_latest_revision(self):
+        """
+        Получает последнюю ревизию шаблона с использованием django-reversion.
+        """
+        import reversion
+        versions = reversion.models.Version.objects.get_for_object(self)
+        return versions.first() if versions.exists() else None
+    
+    def get_revision(self, version_number):
+        """
+        Получает конкретную ревизию шаблона по номеру.
+        """
+        import reversion
+        versions = reversion.models.Version.objects.get_for_object(self)
+        try:
+            # версии хранятся в обратном порядке (новые первые)
+            return versions.order_by('revision__date_created')[version_number - 1]
+        except IndexError:
+            return None
 
 
 @register()
