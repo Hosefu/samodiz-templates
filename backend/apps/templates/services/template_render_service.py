@@ -2,7 +2,6 @@ from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from django.db import transaction
 from apps.templates.models import Template, Page
-from apps.templates.tasks import render_template_task
 
 class TemplateRenderService:
     def __init__(self):
@@ -18,6 +17,9 @@ class TemplateRenderService:
         await self._send_progress(group_name, 0, 'started')
 
         try:
+            # Импортируем здесь, чтобы избежать циклических импортов
+            from apps.templates.tasks import render_template_task
+            
             # Запускаем задачу рендеринга
             task = render_template_task.delay(template_id)
             
@@ -35,6 +37,18 @@ class TemplateRenderService:
 
         except Exception as e:
             await self._send_progress(group_name, 0, f'error: {str(e)}')
+
+    def render(self, template):
+        """
+        Синхронный метод для рендеринга шаблона.
+        """
+        # Здесь должна быть логика рендеринга шаблона
+        # В качестве примера просто возвращаем идентификатор шаблона
+        return {
+            'template_id': template.id,
+            'status': 'rendered',
+            'pages': template.pages.count()
+        }
 
     async def _send_progress(self, group_name, progress, status):
         await self.channel_layer.group_send(

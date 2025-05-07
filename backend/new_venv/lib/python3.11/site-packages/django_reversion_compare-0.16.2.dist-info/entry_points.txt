@@ -1,0 +1,2 @@
+[console_scripts]
+reversion_compare_project = reversion_compare_project.__main__:main

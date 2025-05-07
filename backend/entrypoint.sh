@@ -9,30 +9,44 @@ while ! python -c "import psycopg2; psycopg2.connect(dbname='${DB_NAME}', user='
 done
 echo "Database ready!"
 
-# Выполняем миграции
-echo "Applying database migrations..."
-python manage.py migrate
+# Определяем первый аргумент команды
+COMMAND=$1
 
-# Собираем статические файлы
-echo "Collecting static files..."
-python manage.py collectstatic --noinput
+# Выполняем миграции только для основного контейнера, не для celery
+if [[ $COMMAND != *"celery"* ]]; then
+  echo "Applying database migrations..."
+  python manage.py migrate
 
-# Создаем суперпользователя, если его нет
-echo "Creating superuser..."
-python manage.py shell -c "
+  # Собираем статические файлы
+  echo "Collecting static files..."
+  python manage.py collectstatic --noinput
+
+  # Создаем суперпользователя, если его нет
+  echo "Creating superuser..."
+  cat > /tmp/create_superuser.py << EOF
 from django.contrib.auth import get_user_model
 User = get_user_model()
 if not User.objects.filter(is_superuser=True).exists():
-    User.objects.create_superuser('admin', 'admin@example.com', 'admin')
+    User.objects.create_superuser('admin@example.com', 'admin', username='admin')
     print('Superuser created.')
 else:
     print('Superuser already exists.')
-"
+EOF
+  python manage.py shell < /tmp/create_superuser.py
+  rm /tmp/create_superuser.py
 
-# Запускаем начальную настройку, если файл существует
-if [ -f "setup.py" ]; then
-    echo "Running initial setup..."
-    python setup.py
+  # Запускаем начальную настройку, если файл существует
+  if [ -f "setup.py" ]; then
+      echo "Running initial setup..."
+      python setup.py
+  fi
+fi
+
+# Для celery контейнеров просто ждем, пока будут выполнены миграции
+if [[ $COMMAND == *"celery"* ]]; then
+  echo "Waiting for migrations to complete..."
+  # Ждем 10 секунд для выполнения миграций
+  sleep 10
 fi
 
 # Запускаем command

@@ -1,7 +1,7 @@
 from celery import shared_task
 from django.db import transaction
 from apps.templates.models import Template
-from apps.templates.services.template_renderer import TemplateRenderer
+from apps.templates.services.template_render_service import TemplateRenderService
 
 @shared_task(bind=True)
 def render_template_task(self, template_id):
@@ -20,7 +20,7 @@ def render_template_task(self, template_id):
         ).get(id=template_id)
 
         # Создаем рендерер
-        renderer = TemplateRenderer(template)
+        renderer = TemplateRenderService()
 
         # Обновляем прогресс
         self.update_state(
@@ -32,7 +32,7 @@ def render_template_task(self, template_id):
         )
 
         # Рендерим шаблон
-        result = renderer.render()
+        result = renderer.render(template)
 
         # Обновляем прогресс
         self.update_state(

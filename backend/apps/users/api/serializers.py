@@ -149,7 +149,21 @@ class UserDetailSerializer(UserSerializer):
 class GroupSerializer(serializers.ModelSerializer):
     """Сериализатор для групп пользователей."""
     
+    name = serializers.CharField(source='group.name')
+    
     class Meta:
         model = ExtendedGroup
-        fields = ['id', 'name', 'description']
-        read_only_fields = ['id']
+        fields = ['id', 'name', 'description', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
+    
+    def create(self, validated_data):
+        group_data = validated_data.pop('group', {})
+        group = Group.objects.create(name=group_data.get('name', ''))
+        return ExtendedGroup.objects.create(group=group, **validated_data)
+    
+    def update(self, instance, validated_data):
+        group_data = validated_data.pop('group', {})
+        if 'name' in group_data:
+            instance.group.name = group_data['name']
+            instance.group.save()
+        return super().update(instance, validated_data)

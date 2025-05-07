@@ -10,7 +10,7 @@ from channels.auth import AuthMiddlewareStack
 from django.urls import path
 from apps.templates.consumers import TemplateRenderConsumer
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings.base')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
 
 # Получаем стандартный Django ASGI application
 django_asgi_app = get_asgi_application()

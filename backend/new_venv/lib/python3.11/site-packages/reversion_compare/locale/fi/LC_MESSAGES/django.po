@@ -1,0 +1,133 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2021-02-24 07:38-0600\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#, python-format
+msgid "Compare %(name)s"
+msgstr "Vertaa %(name)s"
+
+msgid "Field didn't exist!"
+msgstr "Tietoa ei ole olemassa"
+
+msgid "compare"
+msgstr "vertaa"
+
+msgid "Date/time"
+msgstr "Päivä/aika"
+
+msgid "User"
+msgstr "Käyttäjä"
+
+msgid "Comment"
+msgstr "Kommentti"
+
+msgid "DATETIME_FORMAT"
+msgstr ""
+
+msgid "Home"
+msgstr "Koti"
+
+msgid "History"
+msgstr "Historia"
+
+#, python-format
+msgid ""
+"\n"
+"                Compare <strong>%(date1)s</strong> with <strong>%(date2)s</"
+"strong>:\n"
+"            "
+msgstr ""
+"\n"
+"                Vertaa <strong>%(date1)s</strong> ja <strong>%(date2)s</"
+"strong>:\n"
+"            "
+
+msgid "Go back to history list"
+msgstr "Takaisin historialistaan"
+
+msgid "Revert to this version"
+msgstr ""
+
+msgid "changed to:"
+msgstr "muutettu:"
+
+msgid "time since that date:"
+msgstr "aikaa kulunut"
+
+msgid "add:"
+msgstr "lisää:"
+
+msgid "remove:"
+msgstr "poista:"
+
+msgid "previous"
+msgstr "edellinen"
+
+msgid "next"
+msgstr "seuraava"
+
+msgid "There are no differences."
+msgstr "Ei muutoksia."
+
+msgid "Edit comment:"
+msgstr "Muokkaa kommenttia:"
+
+msgid "(no comment exists)"
+msgstr ""
+
+msgid "Note:"
+msgstr "Huomautus:"
+
+msgid ""
+"\n"
+"        Fields/entries marked with <sup class=\"follow\">*</sup> are not "
+"under reversion control.\n"
+"        It may be that not all marked information are correct.\n"
+"    "
+msgstr ""
+"\n"
+"        Tiedot jotka on merkattu <sup class=\"follow\">*</sup> eivät ole "
+"versionhallinnassa.\n"
+"        Saattaa olla että merkityt tiedot eivät ole oikein.\n"
+"    "
+
+msgid ""
+"\n"
+"    This is the fallback compare, because the normal compare can't be "
+"applied\n"
+"    between the two selected version:\n"
+"    "
+msgstr ""
+
+msgid "Revert to the old version will probably not work!"
+msgstr ""
+
+msgid "More info:"
+msgstr ""
+
+msgid ""
+"Choose a date from the list below to revert to a previous version of this "
+"object."
+msgstr ""
+"Valitse päivä allaolevasta listasta palauttaaksesi aiemman version käyttöön"
+
+msgid ""
+"This object doesn't have a change history. It probably wasn't added via this "
+"admin site."
+msgstr "Tähän ei ole tehty muutoksia."

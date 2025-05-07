@@ -3,7 +3,9 @@
 """
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin, Group
+from django.utils import timezone
 from apps.common.models import BaseModel
+import uuid
 
 
 class UserManager(BaseUserManager):
@@ -77,18 +79,40 @@ class User(AbstractBaseUser, PermissionsMixin, BaseModel):
 
 
 # Расширяем модель Group для поддержки мягкого удаления и UUID
-class ExtendedGroup(Group, BaseModel):
+class ExtendedGroup(models.Model):
     """
     Расширение стандартной модели Group с дополнительными возможностями.
     
-    Добавляет UUID, мягкое удаление и временные метки.
+    Использует связь один-к-одному вместо наследования для избежания конфликтов полей.
     """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    group = models.OneToOneField(
+        Group,
+        on_delete=models.CASCADE,
+        related_name='extended'
+    )
     description = models.TextField(blank=True)
+    
+    # Добавляем поля из BaseModel
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    is_deleted = models.BooleanField(default=False)
+    deleted_at = models.DateTimeField(null=True, blank=True)
     
     class Meta:
         verbose_name = 'Группа'
         verbose_name_plural = 'Группы'
-        ordering = ['name']
+        ordering = ['group__name']
     
     def __str__(self):
-        return self.name
+        return self.group.name
+    
+    def delete(self, using=None, keep_parents=False):
+        """Мягкое удаление объекта."""
+        self.is_deleted = True
+        self.deleted_at = timezone.now()
+        self.save(using=using)
+
+    def hard_delete(self, using=None, keep_parents=False):
+        """Физическое удаление объекта из базы данных."""
+        return super().delete(using=using, keep_parents=keep_parents)
