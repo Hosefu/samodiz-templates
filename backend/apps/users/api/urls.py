@@ -15,6 +15,6 @@ urlpatterns = [
     
     # Регистрация и сброс пароля
     path('register/', RegisterView.as_view(), name='register'),
-    path('password/reset/', PasswordResetRequestView.as_view(), name='password_reset_request'),
-    path('password/reset/confirm/', PasswordResetConfirmView.as_view(), name='password_reset_confirm'),
+    # path('password/reset/', PasswordResetRequestView.as_view(), name='password_reset_request'),
+    # path('password/reset/confirm/', PasswordResetConfirmView.as_view(), name='password_reset_confirm'),
 ]
