@@ -9,11 +9,12 @@ from django.conf import settings
 from django.db.models import Q
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
-from rest_framework import status, viewsets, mixins, generics
+from rest_framework import status, viewsets, mixins, generics, serializers
 from rest_framework.views import APIView
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -26,6 +27,7 @@ from apps.users.api.serializers import (
 from apps.users.api.permissions import IsSelfOrAdmin
 
 logger = logging.getLogger(__name__)
+security_logger = logging.getLogger('security')
 
 
 class CustomTokenObtainPairView(TokenObtainPairView):
@@ -82,11 +84,87 @@ class LogoutView(APIView):
 
 class RegisterView(generics.CreateAPIView):
     """
-    Регистрация нового пользователя.
+    Регистрация нового пользователя с защитой от спама и атак.
+    
+    Включает ограничение на количество запросов и расширенное логирование.
     """
     queryset = User.objects.all()
     permission_classes = [AllowAny]
     serializer_class = RegisterSerializer
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'registration'
+    
+    def create(self, request, *args, **kwargs):
+        """Расширенная обработка создания пользователя с логированием."""
+        # Получаем IP и User-Agent для логирования
+        client_ip = self._get_client_ip(request)
+        user_agent = request.META.get('HTTP_USER_AGENT', 'Unknown')
+        
+        # Логирование попытки регистрации
+        security_logger.info(
+            f"Registration attempt from IP: {client_ip}, User-Agent: {user_agent}, "
+            f"Data: {request.data.keys()}"
+        )
+        
+        # Стандартная обработка запроса
+        serializer = self.get_serializer(data=request.data)
+        
+        try:
+            serializer.is_valid(raise_exception=True)
+            user = self.perform_create(serializer)
+            
+            # Логирование успешной регистрации
+            security_logger.info(
+                f"Successful registration: user_id={user.id}, email={user.email}, "
+                f"auto_username={user.username}, IP={client_ip}"
+            )
+            
+            # Возвращаем успешный ответ
+            headers = self.get_success_headers(serializer.data)
+            return Response(
+                {
+                    "detail": "Регистрация успешно завершена. Теперь вы можете авторизоваться.",
+                    "email": user.email
+                },
+                status=status.HTTP_201_CREATED,
+                headers=headers
+            )
+        
+        except serializers.ValidationError as e:
+            # Логирование неудачной регистрации с детализацией ошибок
+            security_logger.warning(
+                f"Failed registration: IP={client_ip}, Errors: {e.detail}, "
+                f"Data: {request.data.keys()}"
+            )
+            
+            # Возвращаем подробную ошибку
+            return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
+        
+        except Exception as e:
+            # Логирование непредвиденных ошибок
+            security_logger.error(
+                f"Unexpected error during registration: IP={client_ip}, "
+                f"Error: {str(e)}"
+            )
+            
+            # Возвращаем общую ошибку
+            return Response(
+                {"detail": "Произошла ошибка при регистрации. Пожалуйста, попробуйте позже."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    def perform_create(self, serializer):
+        """Создание пользователя с возвратом экземпляра."""
+        return serializer.save()
+    
+    def _get_client_ip(self, request):
+        """Получение IP-адреса клиента с учетом прокси."""
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(',')[0]
+        else:
+            ip = request.META.get('REMOTE_ADDR')
+        return ip
 
 
 class PasswordResetRequestView(APIView):

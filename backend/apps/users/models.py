@@ -17,6 +17,16 @@ class UserManager(BaseUserManager):
             raise ValueError('Email is required')
         
         email = self.normalize_email(email)
+        
+        # Автоматически генерируем username из email, если он не указан
+        if 'username' not in extra_fields or not extra_fields['username']:
+            # Берем часть email до @ и добавляем случайный суффикс для уникальности
+            # Ограничиваем длину в 150 символов (ограничение модели)
+            username_base = email.split('@')[0][:130]
+            random_suffix = uuid.uuid4().hex[:8]
+            username = f"{username_base}_{random_suffix}"
+            extra_fields['username'] = username
+            
         user = self.model(email=email, **extra_fields)
         user.set_password(password)
         user.save(using=self._db)
@@ -52,12 +62,16 @@ class User(AbstractBaseUser, PermissionsMixin, BaseModel):
     # Прочие поля
     last_login_ip = models.GenericIPAddressField(null=True, blank=True)
     
+    # Поля для сброса пароля
+    password_reset_token = models.CharField(max_length=100, null=True, blank=True)
+    password_reset_token_created_at = models.DateTimeField(null=True, blank=True)
+    
     # Менеджер объектов
     objects = UserManager()
     
     # Поля для входа и отображения
     USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = ['username']
+    REQUIRED_FIELDS = []  # username генерируется автоматически
     
     class Meta:
         verbose_name = 'Пользователь'
@@ -114,5 +128,5 @@ class ExtendedGroup(models.Model):
         self.save(using=using)
 
     def hard_delete(self, using=None, keep_parents=False):
-        """Физическое удаление объекта из базы данных."""
+        """Физическое удаление объекта."""
         return super().delete(using=using, keep_parents=keep_parents)

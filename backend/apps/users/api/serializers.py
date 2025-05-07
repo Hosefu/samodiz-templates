@@ -6,6 +6,7 @@ from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from apps.users.models import User, ExtendedGroup
+from apps.users.validators import EmailValidator, contains_spam_words, has_unprintable_characters, contains_emoji
 
 User = get_user_model()
 
@@ -42,7 +43,6 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         data['user'] = {
             'id': str(self.user.id),
             'email': self.user.email,
-            'username': self.user.username,
             'first_name': self.user.first_name,
             'last_name': self.user.last_name,
             'is_staff': self.user.is_staff,
@@ -53,7 +53,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 
 class RegisterSerializer(serializers.ModelSerializer):
-    """Сериализатор для регистрации пользователей."""
+    """Сериализатор для регистрации пользователей (только email и пароль)."""
     
     password = serializers.CharField(
         write_only=True,
@@ -61,36 +61,55 @@ class RegisterSerializer(serializers.ModelSerializer):
         style={'input_type': 'password'},
         validators=[validate_password]
     )
-    password2 = serializers.CharField(
-        write_only=True,
-        required=True,
-        style={'input_type': 'password'}
-    )
     
     class Meta:
         model = User
-        fields = ['email', 'username', 'password', 'password2', 'first_name', 'last_name']
+        fields = ['email', 'password', 'first_name', 'last_name']
+        extra_kwargs = {
+            'first_name': {'required': False},
+            'last_name': {'required': False},
+        }
     
-    def validate(self, attrs):
-        """Проверка совпадения паролей."""
-        if attrs['password'] != attrs['password2']:
-            raise serializers.ValidationError({"password": "Пароли не совпадают."})
-        return attrs
+    def validate_email(self, value):
+        """Расширенная валидация email-адреса."""
+        # Проверяем, что email уникален
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError(
+                "Пользователь с таким email уже существует. Пожалуйста, используйте другой email или восстановите пароль."
+            )
+        
+        # Дополнительная валидация email
+        email_validator = EmailValidator()
+        errors = email_validator.validate(value)
+        
+        if errors:
+            raise serializers.ValidationError(errors)
+        
+        return value
+    
+    def validate_password(self, value):
+        """Валидация пароля с автоматической проверкой соответствия email."""
+        # Базовая валидация будет выполнена Django validators
+        email = self.initial_data.get('email', '')
+        email_name = email.split('@')[0] if '@' in email else ''
+        
+        # Проверка сходства пароля с email
+        if email_name and len(email_name) > 3 and email_name.lower() in value.lower():
+            raise serializers.ValidationError(
+                "Пароль не должен содержать часть email-адреса."
+            )
+        
+        return value
     
     def create(self, validated_data):
         """Создание нового пользователя."""
-        # Удаляем подтверждение пароля из данных
-        validated_data.pop('password2', None)
-        
-        # Извлекаем пароль
-        password = validated_data.pop('password')
-        
-        # Создаем пользователя
-        user = User.objects.create(**validated_data)
-        
-        # Устанавливаем пароль
-        user.set_password(password)
-        user.save()
+        # Создаем пользователя (username будет сгенерирован автоматически)
+        user = User.objects.create_user(
+            email=validated_data['email'],
+            password=validated_data['password'],
+            first_name=validated_data.get('first_name', ''),
+            last_name=validated_data.get('last_name', '')
+        )
         
         return user
 

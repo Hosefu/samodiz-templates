@@ -46,6 +46,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    # Добавляем наш middleware для логирования безопасности
+    'apps.users.middleware.SecurityLoggingMiddleware',
 ]
 
 ROOT_URLCONF = 'core.urls'
@@ -70,6 +72,26 @@ WSGI_APPLICATION = 'core.wsgi.application'
 ASGI_APPLICATION = 'core.asgi.application'
 
 AUTH_USER_MODEL = 'users.User'
+
+# Валидаторы паролей
+AUTH_PASSWORD_VALIDATORS = [
+    {
+        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+    },
+    {
+        'NAME': 'apps.users.validators.StrongPasswordValidator',
+        'OPTIONS': {
+            'min_length': 8,
+            'require_uppercase': True,
+            'require_lowercase': True,
+            'require_numbers': True,
+            'require_special': True,
+        }
+    },
+    {
+        'NAME': 'apps.users.validators.EmailUsernamePasswordValidator',
+    },
+]
 
 # База данных
 DATABASES = {
@@ -106,6 +128,16 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 25,
+    # Добавляем ограничение запросов
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '100/day',
+        'user': '1000/day',
+        'registration': '5/hour',  # ограничение для регистрации
+    }
 }
 
 # JWT Settings
@@ -160,7 +192,7 @@ FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
 # Email settings
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'admin@samodesign.ru')
 
-# Logging
+# Расширенные настройки логирования
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -169,11 +201,20 @@ LOGGING = {
             'format': '{levelname} {asctime} {module} {message}',
             'style': '{',
         },
+        'security': {
+            'format': '[SECURITY] {asctime} {message}',
+            'style': '{',
+        },
     },
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler',
             'formatter': 'verbose',
+        },
+        'security_file': {
+            'class': 'logging.FileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs/security.log'),
+            'formatter': 'security',
         },
     },
     'loggers': {
@@ -185,5 +226,13 @@ LOGGING = {
             'handlers': ['console'],
             'level': 'DEBUG' if DEBUG else 'INFO',
         },
+        'security': {
+            'handlers': ['console', 'security_file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
     },
-} 
+}
+
+# Создаем директорию для логов, если её нет
+os.makedirs(os.path.join(BASE_DIR, 'logs'), exist_ok=True) 
