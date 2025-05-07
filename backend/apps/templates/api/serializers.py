@@ -4,7 +4,7 @@
 from rest_framework import serializers
 from apps.templates.models.unit_format import Unit, Format, FormatSetting
 from apps.templates.models.template import (
-    Template, TemplatePermission, Page, PageSettings, Field, Asset
+    Template, TemplatePermission, Page, PageSettings, Field, Asset, TemplateRevision
 )
 from apps.templates.services.templating import template_renderer
 
@@ -203,3 +203,18 @@ class TemplatePermissionSerializer(serializers.ModelSerializer):
         model = TemplatePermission
         fields = ['id', 'template', 'grantee', 'grantee_email', 'role', 'token', 'expires_at']
         read_only_fields = ['id', 'token']
+
+
+class TemplateRevisionSerializer(serializers.ModelSerializer):
+    """Сериализатор для ревизий шаблонов."""
+    
+    author_name = serializers.CharField(source='author.get_full_name', read_only=True)
+    template_name = serializers.CharField(source='template.name', read_only=True)
+    
+    class Meta:
+        model = TemplateRevision
+        fields = [
+            'id', 'template', 'template_name', 'number', 'author', 'author_name',
+            'changelog', 'html', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']

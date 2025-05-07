@@ -29,7 +29,7 @@ api_v1_urls = [
     path('units/', include('apps.templates.api.unit_urls')),
     path('formats/', include('apps.templates.api.format_urls')),
     path('templates/', include('apps.templates.api.template_urls')),
-    path('tasks/', include('apps.generation.api.task_urls')),
+    path('tasks/', include('apps.generation.api.tasks_urls')),
     path('documents/', include('apps.generation.api.document_urls')),
     
     # Служебные эндпоинты

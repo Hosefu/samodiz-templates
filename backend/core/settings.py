@@ -50,7 +50,28 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'core.urls'
 
-# База данных - всегда PostgreSQL
+TEMPLATES = [
+    {
+        'BACKEND': 'django.template.backends.django.DjangoTemplates',
+        'DIRS': [],
+        'APP_DIRS': True,
+        'OPTIONS': {
+            'context_processors': [
+                'django.template.context_processors.debug',
+                'django.template.context_processors.request',
+                'django.contrib.auth.context_processors.auth',
+                'django.contrib.messages.context_processors.messages',
+            ],
+        },
+    },
+]
+
+WSGI_APPLICATION = 'core.wsgi.application'
+ASGI_APPLICATION = 'core.asgi.application'
+
+AUTH_USER_MODEL = 'users.User'
+
+# База данных
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
@@ -85,10 +106,6 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 25,
-    'DEFAULT_RENDERER_CLASSES': (
-        'rest_framework.renderers.JSONRenderer',
-        'rest_framework.renderers.BrowsableAPIRenderer',
-    ),
 }
 
 # JWT Settings
@@ -130,22 +147,18 @@ USE_I18N = True
 USE_TZ = True
 
 # Renderer services
-PDF_RENDERER_URL = os.environ.get('PDF_RENDERER_URL', 'http://pdf-renderer/api/render')
-PNG_RENDERER_URL = os.environ.get('PNG_RENDERER_URL', 'http://png-renderer/api/render')
+PDF_RENDERER_URL = os.environ.get('PDF_RENDERER_URL', 'http://pdf-renderer:8081/api/pdf/render')
+PNG_RENDERER_URL = os.environ.get('PNG_RENDERER_URL', 'http://png-renderer:8082/api/png/render')
+SVG_RENDERER_URL = os.environ.get('SVG_RENDERER_URL', 'http://svg-renderer:8083/api/svg/render')
 
 # Asset upload settings
 MAX_UPLOAD_SIZE = 10 * 1024 * 1024  # 10MB
 
-# Настройки django-reversion
-REVERSION_ENABLED = True
+# Frontend URL для сброса пароля
+FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
 
-# Debug Toolbar
-INTERNAL_IPS = ['127.0.0.1']
-
-# Dynamically include debug_toolbar only in DEBUG mode
-if DEBUG:
-    INSTALLED_APPS.append('debug_toolbar')
-    MIDDLEWARE.insert(1, 'debug_toolbar.middleware.DebugToolbarMiddleware')
+# Email settings
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'admin@samodesign.ru')
 
 # Logging
 LOGGING = {
@@ -159,7 +172,6 @@ LOGGING = {
     },
     'handlers': {
         'console': {
-            'level': 'DEBUG' if DEBUG else 'INFO',
             'class': 'logging.StreamHandler',
             'formatter': 'verbose',
         },
@@ -168,12 +180,10 @@ LOGGING = {
         'django': {
             'handlers': ['console'],
             'level': 'INFO',
-            'propagate': True,
         },
         'apps': {
             'handlers': ['console'],
             'level': 'DEBUG' if DEBUG else 'INFO',
-            'propagate': True,
         },
     },
 } 

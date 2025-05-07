@@ -81,7 +81,7 @@ services:
     expose:
       - "${PNG_PORT}"
     healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:${PNG_PORT}/health"]
+      test: ["CMD", "curl", "--fail", "http://localhost:${PNG_PORT}/api/png/health"]
       interval: 5s
       timeout: 5s
       retries: 5

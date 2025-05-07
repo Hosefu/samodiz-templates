@@ -13,7 +13,7 @@ from celery.exceptions import MaxRetriesExceededError, SoftTimeLimitExceeded
 
 from apps.generation.models import RenderTask, Document
 from infrastructure.ceph import ceph_client
-from infrastructure.renderers.renderer_client import RendererClient
+from infrastructure.renderers.render_client import RendererClient
 
 logger = logging.getLogger(__name__)
 

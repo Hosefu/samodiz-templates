@@ -49,11 +49,12 @@ class Template(BaseModel):
     
     def get_latest_revision(self):
         """
-        Получает последнюю ревизию шаблона с использованием django-reversion.
+        Получает последнюю ревизию шаблона.
         """
-        import reversion
-        versions = reversion.models.Version.objects.get_for_object(self)
-        return versions.first() if versions.exists() else None
+        try:
+            return self.revisions.order_by('-number').first()
+        except TemplateRevision.DoesNotExist:
+            return None
     
     def get_revision(self, version_number):
         """
