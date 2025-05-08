@@ -34,3 +34,6 @@
 [SECURITY] 2025-05-08 21:09:47,028 Registration attempt from IP: 192.168.65.1, User-Agent: PostmanRuntime/7.43.4, Data: dict_keys(['email', 'password'])
 [SECURITY] 2025-05-08 21:09:47,269 Successful registration: user_id=bdbb5429-41c8-49b5-83d2-d66699cb5c81, email=test1@test.ru, auto_username=test1_6f68469e, IP=192.168.65.1
 [SECURITY] 2025-05-08 21:09:51,100 Successful login: {"path": "/api/v1/auth/login/", "method": "POST", "status_code": 200, "client_ip": "192.168.65.1", "user_agent": "PostmanRuntime/7.43.4", "user": "Anonymous", "timestamp": "2025-05-08T21:09:51.100878", "execution_time": "0.2109s"}
+[SECURITY] 2025-05-08 22:34:56,039 Registration attempt from IP: 192.168.65.1, User-Agent: PostmanRuntime/7.43.4, Data: dict_keys(['email', 'password'])
+[SECURITY] 2025-05-08 22:34:56,188 Successful registration: user_id=818af5de-93ba-4c8f-8577-91c3fcbfaa7c, email=test1@test.ru, auto_username=test1_22cd825d, IP=192.168.65.1
+[SECURITY] 2025-05-08 22:34:58,780 Successful login: {"path": "/api/v1/auth/login/", "method": "POST", "status_code": 200, "client_ip": "192.168.65.1", "user_agent": "PostmanRuntime/7.43.4", "user": "Anonymous", "timestamp": "2025-05-08T22:34:58.780285", "execution_time": "0.1729s"}

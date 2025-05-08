@@ -36,9 +36,9 @@ EOF
   rm /tmp/create_superuser.py
 
   # Запускаем начальную настройку, если файл существует
-  if [ -f "setup.py" ]; then
+  if [ -f "setup/setup.py" ]; then
       echo "Running initial setup..."
-      python setup.py
+      cd /app && python -m setup.setup
   fi
 fi
 
