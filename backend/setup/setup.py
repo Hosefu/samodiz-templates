@@ -9,8 +9,7 @@ import sys
 import django
 import logging
 from django.db import transaction
-from django.core.files.storage import default_storage
-from django.core.files.base import ContentFile
+from io import BytesIO
 
 # Добавляем родительскую директорию в sys.path, если скрипт запускается напрямую
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -29,6 +28,7 @@ except Exception as e:
 from apps.templates.models.unit_format import Unit, Format, FormatSetting
 from apps.templates.models.template import Template, Page, Asset, Field
 from django.contrib.auth import get_user_model
+from infrastructure.ceph import ceph_client
 
 logger = logging.getLogger(__name__)
 
@@ -258,56 +258,51 @@ def setup_template():
         height=50
     )
     
-    # Добавляем ассеты из существующей директории
-    
-    # Создаем директорию для ассетов
-    asset_dir = f"assets/templates/{template.id}"
-    try:
-        os.makedirs(f"storage/{asset_dir}", exist_ok=True)
-    except Exception as e:
-        logger.error(f"Error creating asset directory: {e}")
-    
-    # Копируем шрифт из директории assets
+    # Копируем шрифт из директории assets и загружаем его через Ceph
     src_font_path = os.path.join(ASSETS_DIR, 'InterDisplay-Regular.ttf')
     if os.path.exists(src_font_path):
         try:
+            # Читаем файл шрифта
+            with open(src_font_path, 'rb') as f:
+                font_data = f.read()
+            
             # Получаем размер файла
-            font_size = os.path.getsize(src_font_path)
+            font_size = len(font_data)
             
-            # Создаем путь для сохранения в хранилище
-            font_path = f"{asset_dir}/InterDisplay-Regular.ttf"
+            # Загружаем файл через Ceph клиент
+            folder = f"templates/{template.id}/assets"
+            key, url = ceph_client.upload_file(
+                file_obj=BytesIO(font_data),
+                folder=folder,
+                filename="InterDisplay-Regular.ttf",
+                content_type="font/ttf"
+            )
             
-            # Копируем файл в хранилище
-            import shutil
-            storage_path = os.path.join(BASE_DIR, "storage", font_path)
-            os.makedirs(os.path.dirname(storage_path), exist_ok=True)
-            shutil.copy(src_font_path, storage_path)
-            
-            # Проверяем, что файл доступен
-            if os.path.exists(storage_path):
-                logger.info(f"Font file successfully copied to storage: {storage_path}")
-                
-                # Устанавливаем права доступа для файла (чтение для всех)
-                try:
-                    os.chmod(storage_path, 0o644)
-                    logger.info(f"Set permissions 644 for file: {storage_path}")
-                except Exception as e:
-                    logger.error(f"Error setting file permissions: {e}")
-            else:
-                logger.error(f"Font file was not copied to storage: {storage_path}")
+            logger.info(f"Uploaded font to Ceph: {url}")
             
             # Создаем запись о шрифте в базе данных - делаем локальным для страницы
             Asset.objects.create(
                 template=template,
                 page=page,  # Привязываем к странице, делая локальным
                 name="InterDisplay-Regular.ttf",
-                file=font_path,
+                file=key,  # Используем ключ или URL из результата загрузки
                 size_bytes=font_size,
                 mime_type="font/ttf"
             )
             logger.info(f"Added font asset: InterDisplay-Regular.ttf")
+            
+            # Проверяем доступность файла
+            try:
+                font_content = ceph_client.download_file(key)
+                if font_content and len(font_content) == font_size:
+                    logger.info(f"Font file successfully verified in storage: {key}")
+                else:
+                    logger.error(f"Font file size mismatch in storage: expected {font_size}, got {len(font_content) if font_content else 0}")
+            except Exception as e:
+                logger.error(f"Error verifying font file: {e}")
+            
         except Exception as e:
-            logger.error(f"Error copying font file: {e}")
+            logger.error(f"Error uploading font file: {e}")
     else:
         logger.warning(f"Font file not found at {src_font_path}")
     
