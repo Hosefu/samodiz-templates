@@ -129,8 +129,6 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 25,
-    # Добавляем обработчик исключений
-    'EXCEPTION_HANDLER': 'rest_framework.views.exception_handler',
     # Добавляем ограничение запросов
     'DEFAULT_THROTTLE_CLASSES': [
         'rest_framework.throttling.AnonRateThrottle',

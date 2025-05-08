@@ -61,11 +61,11 @@ class FormatViewSet(viewsets.ReadOnlyModelViewSet):
         return FormatSerializer
     
     @action(detail=True, methods=['get'])
-    def settings(self, request, pk=None):
+    def get_format_settings(self, request, pk=None):
         """Получение настроек формата."""
         format_obj = self.get_object()
-        settings = format_obj.expected_settings.all()
-        serializer = FormatSettingSerializer(settings, many=True)
+        settings_data = format_obj.expected_settings.all()
+        serializer = FormatSettingSerializer(settings_data, many=True)
         return Response(serializer.data)
 
 
