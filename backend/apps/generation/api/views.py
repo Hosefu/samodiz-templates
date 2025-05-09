@@ -48,40 +48,33 @@ class GenerateDocumentView(views.APIView):
         
         try:
             with transaction.atomic():
-                # Получаем последнюю ревизию шаблона или создаем новую
+                # Получаем текущую версию шаблона
+                versions = Version.objects.get_for_object(template)
+                current_version = versions.first()  # Последняя версия
+                
+                # Если версии нет, создаем
+                if not current_version:
+                    with revisions.create_revision():
+                        template.save()
+                        revisions.set_user(request.user)
+                        revisions.set_comment("Auto-created during document generation")
+                        current_version = Version.objects.get_for_object(template).first()
+                
+                # Временная обратная совместимость: используем старую модель TemplateRevision
+                # Этот код будет удален после полной миграции на django-reversion
                 revision = template.get_latest_revision()
                 if not revision:
-                    # Проверим, есть ли версии в reversion
-                    version_queryset = Version.objects.get_for_object(template)
-                    if version_queryset.exists():
-                        # Если есть версии в reversion, создаем соответствующую TemplateRevision
-                        # для обратной совместимости
-                        revision = TemplateRevision.objects.create(
-                            template=template,
-                            number=1,
-                            author=request.user,
-                            changelog="Created from reversion history",
-                            html=template.html
-                        )
-                    else:
-                        # Если нет ни в одной системе, создаем и там и там
-                        with revisions.create_revision():
-                            revisions.set_user(request.user)
-                            revisions.set_comment("Auto-created during document generation")
-                            # Сохраняем шаблон для создания версии
-                            template.save()
-                            
-                        revision = TemplateRevision.objects.create(
-                            template=template,
-                            number=1,
-                            author=request.user,
-                            changelog="Auto-created during document generation",
-                            html=template.html
-                        )
+                    revision = TemplateRevision.objects.create(
+                        template=template,
+                        number=1,
+                        author=request.user,
+                        changelog=f"Created from reversion (version_id: {current_version.id})",
+                        html=template.html
+                    )
                 
                 # Создаем задачу рендеринга
                 task = RenderTask.objects.create(
-                    template_revision=revision,
+                    template_revision=revision,  # Для обратной совместимости
                     user=request.user,
                     request_ip=self._get_client_ip(request),
                     data_input=serializer.validated_data,
@@ -92,9 +85,10 @@ class GenerateDocumentView(views.APIView):
                 # Подготавливаем данные для рендеринга
                 data = serializer.validated_data.get('data', {})
                 
-                # Применяем шаблонизатор к HTML
+                # Применяем шаблонизатор к HTML, используя версию из reversion
                 try:
-                    rendered_html = template_renderer.render_template(revision.html, data)
+                    template_html = current_version.field_dict.get('html', template.html)
+                    rendered_html = template_renderer.render_template(template_html, data)
                 except Exception as e:
                     logger.error(f"Template rendering error: {e}")
                     task.status = 'failed'

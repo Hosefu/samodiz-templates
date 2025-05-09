@@ -175,10 +175,27 @@ class TemplateCreateSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 
-class TemplateVersionSerializer(serializers.Serializer):
-    """Сериализатор для версий шаблона."""
+class VersionSerializer(serializers.Serializer):
+    """Сериализатор для версий шаблона из django-reversion."""
+    
     id = serializers.IntegerField()
-    revision_id = serializers.IntegerField()
+    date_created = serializers.DateTimeField()
+    user = serializers.SerializerMethodField()
+    comment = serializers.CharField()
+    
+    def get_user(self, obj):
+        """Получает информацию о пользователе."""
+        user_data = obj.get('user', {})
+        return {
+            'id': user_data.get('id'),
+            'email': user_data.get('email'),
+            'full_name': user_data.get('full_name')
+        }
+
+
+class TemplateVersionSerializer(serializers.Serializer):
+    """Сериализатор для версий шаблона из django-reversion."""
+    id = serializers.IntegerField()
     date_created = serializers.DateTimeField(source='revision.date_created')
     user = serializers.SerializerMethodField()
     comment = serializers.CharField(source='revision.comment')

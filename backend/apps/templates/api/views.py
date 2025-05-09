@@ -23,7 +23,8 @@ from apps.templates.api.serializers import (
     UnitSerializer, FormatSerializer, FormatSettingSerializer, FormatDetailSerializer,
     TemplateListSerializer, TemplateDetailSerializer, TemplateCreateSerializer,
     TemplateVersionSerializer, TemplatePermissionSerializer,
-    PageSerializer, PageSettingsSerializer, FieldSerializer, AssetSerializer
+    PageSerializer, PageSettingsSerializer, FieldSerializer, AssetSerializer,
+    VersionSerializer
 )
 from apps.templates.api.permissions import (
     IsTemplateOwnerOrReadOnly, IsTemplateContributor, 
@@ -120,15 +121,6 @@ class TemplateViewSet(RevisionMixin, viewsets.ModelViewSet):
                     grantee=self.request.user,
                     role='owner'
                 )
-                
-                # Для обратной совместимости создаем и старую ревизию
-                TemplateRevision.objects.create(
-                    template=template,
-                    number=1,
-                    author=self.request.user,
-                    changelog="Initial version",
-                    html=template.html
-                )
     
     def perform_update(self, serializer):
         """Обновление шаблона с созданием новой версии."""
@@ -137,30 +129,23 @@ class TemplateViewSet(RevisionMixin, viewsets.ModelViewSet):
                 template = serializer.save()
                 revisions.set_user(self.request.user)
                 revisions.set_comment(f"Update from {timezone.now().strftime('%Y-%m-%d %H:%M')}")
-                
-                # Для обратной совместимости создаем и старую ревизию
-                last_revision = template.revisions.order_by('-number').first()
-                new_number = 1 if not last_revision else last_revision.number + 1
-                
-                TemplateRevision.objects.create(
-                    template=template,
-                    number=new_number,
-                    author=self.request.user,
-                    changelog=f"Update from {timezone.now().strftime('%Y-%m-%d %H:%M')}",
-                    html=template.html
-                )
     
     @action(detail=True, methods=['get'], permission_classes=[IsAuthenticated, IsTemplateViewerOrBetter])
     def versions(self, request, pk=None):
         """Получение истории версий шаблона."""
         template = self.get_object()
         versions = template_version_service.get_template_versions(template)
-        serializer = TemplateVersionSerializer(versions, many=True)
+        
+        versions_data = []
+        for version in versions:
+            versions_data.append(template_version_service.get_version_data(version))
+        
+        serializer = VersionSerializer(versions_data, many=True)
         return Response(serializer.data)
     
     @action(detail=True, methods=['post'], url_path=r'versions/(?P<version_id>\d+)/revert')
     def revert_to_version(self, request, pk=None, version_id=None):
-        """Откат шаблона к предыдущей версии."""
+        """Откат шаблона к указанной версии."""
         template = self.get_object()
         success = template_version_service.revert_to_version(
             template=template,
