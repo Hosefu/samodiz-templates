@@ -4,6 +4,7 @@
 from rest_framework import serializers
 from apps.generation.models import RenderTask, Document
 from apps.templates.api.serializers import TemplateRevisionSerializer
+from apps.generation.api.validators import TemplateDataValidator
 
 
 class GenerateDocumentSerializer(serializers.Serializer):
@@ -13,6 +14,43 @@ class GenerateDocumentSerializer(serializers.Serializer):
     Принимает пользовательские данные для подстановки в шаблон.
     """
     data = serializers.DictField(required=True, help_text="Данные для подстановки в шаблон")
+    
+    def validate(self, attrs):
+        """Валидирует данные на соответствие шаблону."""
+        template = self.context.get('template')
+        data = attrs.get('data', {})
+        
+        if template:
+            is_valid, errors = TemplateDataValidator.validate_template_data(template, data)
+            if not is_valid:
+                raise serializers.ValidationError({
+                    'detail': 'Ошибки в данных для шаблона',
+                    'errors': errors,
+                    'expected_fields': self._get_template_fields(template)
+                })
+        
+        return attrs
+    
+    def _get_template_fields(self, template):
+        """Возвращает информацию о полях шаблона."""
+        fields_info = []
+        
+        for field in template.fields.all():
+            field_info = {
+                'key': field.key,
+                'label': field.label,
+                'required': field.is_required,
+            }
+            
+            if field.default_value:
+                field_info['default_value'] = field.default_value
+                
+            if field.is_choices:
+                field_info['choices'] = field.choices
+                
+            fields_info.append(field_info)
+            
+        return fields_info
 
 
 class DocumentSerializer(serializers.ModelSerializer):

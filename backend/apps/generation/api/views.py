@@ -10,6 +10,9 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import ValidationError
 from django_filters import rest_framework as filters
+from rest_framework.decorators import action
+from reversion import revisions
+from reversion.models import Version
 
 from apps.templates.models.template import Template, TemplateRevision
 from apps.templates.api.permissions import IsTemplateViewerOrBetter
@@ -40,18 +43,41 @@ class GenerateDocumentView(views.APIView):
         template = get_object_or_404(Template, id=template_id)
         
         # Проверяем данные запроса
-        serializer = GenerateDocumentSerializer(data=request.data)
+        serializer = GenerateDocumentSerializer(data=request.data, context={'template': template})
         serializer.is_valid(raise_exception=True)
         
         try:
             with transaction.atomic():
-                # Получаем последнюю ревизию шаблона
+                # Получаем последнюю ревизию шаблона или создаем новую
                 revision = template.get_latest_revision()
                 if not revision:
-                    return Response(
-                        {"detail": "У шаблона нет ревизий."},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
+                    # Проверим, есть ли версии в reversion
+                    version_queryset = Version.objects.get_for_object(template)
+                    if version_queryset.exists():
+                        # Если есть версии в reversion, создаем соответствующую TemplateRevision
+                        # для обратной совместимости
+                        revision = TemplateRevision.objects.create(
+                            template=template,
+                            number=1,
+                            author=request.user,
+                            changelog="Created from reversion history",
+                            html=template.html
+                        )
+                    else:
+                        # Если нет ни в одной системе, создаем и там и там
+                        with revisions.create_revision():
+                            revisions.set_user(request.user)
+                            revisions.set_comment("Auto-created during document generation")
+                            # Сохраняем шаблон для создания версии
+                            template.save()
+                            
+                        revision = TemplateRevision.objects.create(
+                            template=template,
+                            number=1,
+                            author=request.user,
+                            changelog="Auto-created during document generation",
+                            html=template.html
+                        )
                 
                 # Создаем задачу рендеринга
                 task = RenderTask.objects.create(
@@ -143,6 +169,35 @@ class GenerateDocumentView(views.APIView):
         else:
             ip = request.META.get('REMOTE_ADDR')
         return ip
+    
+    @action(detail=True, methods=['get'], url_path='fields')
+    def get_template_fields(self, request, template_id=None):
+        """Возвращает список полей шаблона для генерации документа."""
+        template = get_object_or_404(Template, id=template_id)
+        self.check_object_permissions(request, template)
+        
+        fields = template.fields.all().order_by('page', 'key')
+        
+        # Формируем список полей с метаданными
+        field_data = []
+        for field in fields:
+            field_info = {
+                'key': field.key,
+                'label': field.label,
+                'required': field.is_required,
+                'page': field.page.index if field.page else None,
+                'is_global': field.page is None,
+            }
+            
+            if field.default_value:
+                field_info['default_value'] = field.default_value
+                
+            if field.is_choices:
+                field_info['choices'] = field.choices
+                
+            field_data.append(field_info)
+        
+        return Response(field_data)
 
 
 class RenderTaskViewSet(viewsets.ReadOnlyModelViewSet):

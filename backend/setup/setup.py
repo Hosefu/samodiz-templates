@@ -26,7 +26,7 @@ except Exception as e:
 
 # Импорты моделей (после настройки Django)
 from apps.templates.models.unit_format import Unit, Format, FormatSetting
-from apps.templates.models.template import Template, Page, Asset, Field
+from apps.templates.models.template import Template, Page, Asset, Field, TemplateRevision
 from django.contrib.auth import get_user_model
 from infrastructure.ceph import ceph_client
 
@@ -246,6 +246,15 @@ def setup_template():
         format=pdf_format,
         unit=mm_unit,
         description="Создать визитку для сотрудника RWB",
+        html=html_template
+    )
+    
+    # После создания шаблона
+    TemplateRevision.objects.create(
+        template=template,
+        number=1,
+        author=admin,
+        changelog="Initial revision",
         html=html_template
     )
     

@@ -9,7 +9,7 @@ from apps.common.models import BaseModel
 from apps.templates.models.unit_format import Unit, Format, FormatSetting
 
 
-@register()
+@register(follow=['pages', 'fields', 'assets'])
 class Template(BaseModel):
     """
     Шаблон документа.
@@ -228,6 +228,7 @@ class PageSettings(BaseModel):
         return f"{self.page} - {self.format_setting.name}: {self.value}"
 
 
+@register()
 class Field(BaseModel):
     """
     Поле шаблона для ввода данных.
@@ -291,6 +292,7 @@ class Field(BaseModel):
         return f"{self.template.name} - Глобальное - {self.key}"
 
 
+@register()
 class Asset(BaseModel):
     """
     Ассет шаблона (шрифт, изображение).

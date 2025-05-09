@@ -12,6 +12,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from reversion.models import Version
 from reversion.views import RevisionMixin
+from reversion import revisions
 
 from apps.templates.models.unit_format import Unit, Format, FormatSetting
 from apps.templates.models.template import (
@@ -105,27 +106,49 @@ class TemplateViewSet(RevisionMixin, viewsets.ModelViewSet):
         return TemplateListSerializer
     
     def perform_create(self, serializer):
-        """Создание нового шаблона."""
+        """Создание нового шаблона с версией."""
         with transaction.atomic():
-            # Сохраняем шаблон
-            template = serializer.save(owner=self.request.user)
-            
-            # Создаем разрешение владельца
-            TemplatePermission.objects.create(
-                template=template,
-                grantee=self.request.user,
-                role='owner'
-            )
+            with revisions.create_revision():
+                # Сохраняем шаблон
+                template = serializer.save(owner=self.request.user)
+                revisions.set_user(self.request.user)
+                revisions.set_comment("Initial version")
+                
+                # Создаем разрешение владельца
+                TemplatePermission.objects.create(
+                    template=template,
+                    grantee=self.request.user,
+                    role='owner'
+                )
+                
+                # Для обратной совместимости создаем и старую ревизию
+                TemplateRevision.objects.create(
+                    template=template,
+                    number=1,
+                    author=self.request.user,
+                    changelog="Initial version",
+                    html=template.html
+                )
     
     def perform_update(self, serializer):
         """Обновление шаблона с созданием новой версии."""
         with transaction.atomic():
-            template = serializer.save()
-            template_version_service.create_version(
-                template=template,
-                user=self.request.user,
-                comment=f"Update from {timezone.now().strftime('%Y-%m-%d %H:%M')}"
-            )
+            with revisions.create_revision():
+                template = serializer.save()
+                revisions.set_user(self.request.user)
+                revisions.set_comment(f"Update from {timezone.now().strftime('%Y-%m-%d %H:%M')}")
+                
+                # Для обратной совместимости создаем и старую ревизию
+                last_revision = template.revisions.order_by('-number').first()
+                new_number = 1 if not last_revision else last_revision.number + 1
+                
+                TemplateRevision.objects.create(
+                    template=template,
+                    number=new_number,
+                    author=self.request.user,
+                    changelog=f"Update from {timezone.now().strftime('%Y-%m-%d %H:%M')}",
+                    html=template.html
+                )
     
     @action(detail=True, methods=['get'], permission_classes=[IsAuthenticated, IsTemplateViewerOrBetter])
     def versions(self, request, pk=None):
@@ -171,6 +194,78 @@ class TemplateViewSet(RevisionMixin, viewsets.ModelViewSet):
         
         serializer = TemplatePermissionSerializer(permissions, many=True)
         return Response(serializer.data)
+
+    @action(detail=True, methods=['post'], url_path='create-revision')
+    def create_revision(self, request, pk=None):
+        """Создает новую ревизию шаблона."""
+        template = self.get_object()
+        
+        with transaction.atomic():
+            # Определяем номер новой ревизии
+            last_revision = template.revisions.order_by('-number').first()
+            new_number = 1 if not last_revision else last_revision.number + 1
+            
+            # Создаем новую ревизию
+            revision = TemplateRevision.objects.create(
+                template=template,
+                number=new_number,
+                author=request.user,
+                changelog=request.data.get('changelog', f"Revision {new_number}"),
+                html=template.html
+            )
+            
+            serializer = TemplateRevisionSerializer(revision)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['get'])
+    def reversion_history(self, request, pk=None):
+        """Получение истории версий шаблона из reversion."""
+        template = self.get_object()
+        versions = Version.objects.get_for_object(template)
+        
+        versions_data = []
+        for index, version in enumerate(versions):
+            versions_data.append({
+                'id': index,
+                'date_created': version.revision.date_created,
+                'user': {
+                    'id': str(version.revision.user.id) if version.revision.user else None,
+                    'email': version.revision.user.email if version.revision.user else None,
+                },
+                'comment': version.revision.comment,
+            })
+        
+        return Response(versions_data)
+
+    @action(detail=True, methods=['post'], url_path=r'reversion/(?P<version_id>\d+)/revert')
+    def revert_to_reversion(self, request, pk=None, version_id=None):
+        """Откат шаблона к версии из reversion."""
+        template = self.get_object()
+        versions = Version.objects.get_for_object(template)
+        
+        try:
+            version = versions[int(version_id)]
+            with transaction.atomic():
+                with revisions.create_revision():
+                    version.revision.revert()
+                    revisions.set_user(request.user)
+                    revisions.set_comment(f"Reverted to revision from {version.revision.date_created}")
+                    
+                    # Обновляем и старую систему ревизий
+                    last_revision = template.revisions.order_by('-number').first()
+                    new_number = 1 if not last_revision else last_revision.number + 1
+                    
+                    TemplateRevision.objects.create(
+                        template=template.refresh_from_db(),  # Обновляем объект после revert
+                        number=new_number,
+                        author=request.user,
+                        changelog=f"Reverted to revision from {version.revision.date_created}",
+                        html=template.html
+                    )
+                    
+                return Response({'status': 'reverted'})
+        except (IndexError, ValueError):
+            return Response({'error': 'Version not found'}, status=404)
 
 
 class PageViewSet(viewsets.ModelViewSet):
