@@ -46,27 +46,6 @@ class Template(BaseModel):
     
     def __str__(self):
         return self.name
-    
-    def get_latest_revision(self):
-        """
-        Получает последнюю ревизию шаблона.
-        """
-        try:
-            return self.revisions.order_by('-number').first()
-        except TemplateRevision.DoesNotExist:
-            return None
-    
-    def get_revision(self, version_number):
-        """
-        Получает конкретную ревизию шаблона по номеру.
-        """
-        import reversion
-        versions = reversion.models.Version.objects.get_for_object(self)
-        try:
-            # версии хранятся в обратном порядке (новые первые)
-            return versions.order_by('revision__date_created')[version_number - 1]
-        except IndexError:
-            return None
 
 
 @register()
@@ -103,39 +82,6 @@ class Page(BaseModel):
     
     def __str__(self):
         return f"{self.template.name} - Страница {self.index}"
-
-
-class TemplateRevision(BaseModel):
-    """
-    Ревизия шаблона.
-    
-    Хранит исторические изменения шаблона, включая HTML и настройки.
-    """
-    template = models.ForeignKey(
-        Template,
-        on_delete=models.CASCADE,
-        related_name="revisions",
-        help_text="Родительский шаблон"
-    )
-    number = models.PositiveIntegerField(help_text="Номер ревизии (1, 2, …)")
-    author = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        related_name="template_revisions",
-        help_text="Кто внёс изменения"
-    )
-    changelog = models.TextField(blank=True, help_text="Описание изменений")
-    html = models.TextField(help_text="Замороженный HTML этой версии")
-    
-    class Meta:
-        verbose_name = "Ревизия шаблона"
-        verbose_name_plural = "Ревизии шаблонов"
-        ordering = ['-number']
-        unique_together = ['template', 'number']
-    
-    def __str__(self):
-        return f"{self.template.name} - v{self.number}"
 
 
 class TemplatePermission(BaseModel):

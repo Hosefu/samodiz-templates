@@ -4,7 +4,7 @@
 from django.db import models
 from django.conf import settings
 from apps.common.models import BaseModel
-from apps.templates.models.template import TemplateRevision
+from apps.templates.models.template import Template
 
 
 class RenderTask(BaseModel):
@@ -20,11 +20,16 @@ class RenderTask(BaseModel):
         ('failed', 'Ошибка'),
     )
     
-    template_revision = models.ForeignKey(
-        TemplateRevision,
+    template = models.ForeignKey(
+        Template,
         on_delete=models.CASCADE,
         related_name="render_tasks",
-        help_text="На основе какой версии"
+        help_text="Шаблон, на основе которого рендерится документ"
+    )
+    version_id = models.PositiveIntegerField(
+        null=True, 
+        blank=True,
+        help_text="ID версии шаблона в системе версионирования"
     )
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -78,6 +83,16 @@ class RenderTask(BaseModel):
     
     def __str__(self):
         return f"Задача {self.id} - {self.get_status_display()}"
+    
+    def get_template_version(self):
+        """Получает версию шаблона из django-reversion."""
+        if self.version_id:
+            try:
+                from reversion.models import Version
+                return Version.objects.get(id=self.version_id)
+            except Version.DoesNotExist:
+                return None
+        return None
 
 
 class Document(BaseModel):

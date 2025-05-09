@@ -14,7 +14,7 @@ from rest_framework.decorators import action
 from reversion import revisions
 from reversion.models import Version
 
-from apps.templates.models.template import Template, TemplateRevision
+from apps.templates.models.template import Template
 from apps.templates.api.permissions import IsTemplateViewerOrBetter
 from apps.templates.services.templating import template_renderer
 from apps.generation.models import RenderTask, Document
@@ -30,12 +30,20 @@ logger = logging.getLogger(__name__)
 
 class GenerateDocumentView(views.APIView):
     """
-    API для генерации документа из шаблона.
+    API для генерации документов на основе шаблонов.
     
-    Запускает асинхронную задачу рендеринга и возвращает ID задачи.
+    Принимает данные для подстановки в шаблон и запускает асинхронную задачу рендеринга.
     """
-    
     permission_classes = [IsAuthenticated, IsTemplateViewerOrBetter]
+    
+    def _get_client_ip(self, request):
+        """Получает IP-адрес клиента."""
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(',')[0]
+        else:
+            ip = request.META.get('REMOTE_ADDR')
+        return ip
     
     def post(self, request, template_id):
         """Запускает генерацию документа на основе шаблона."""
@@ -60,21 +68,10 @@ class GenerateDocumentView(views.APIView):
                         revisions.set_comment("Auto-created during document generation")
                         current_version = Version.objects.get_for_object(template).first()
                 
-                # Временная обратная совместимость: используем старую модель TemplateRevision
-                # Этот код будет удален после полной миграции на django-reversion
-                revision = template.get_latest_revision()
-                if not revision:
-                    revision = TemplateRevision.objects.create(
-                        template=template,
-                        number=1,
-                        author=request.user,
-                        changelog=f"Created from reversion (version_id: {current_version.id})",
-                        html=template.html
-                    )
-                
                 # Создаем задачу рендеринга
                 task = RenderTask.objects.create(
-                    template_revision=revision,  # Для обратной совместимости
+                    template=template,
+                    version_id=current_version.id,
                     user=request.user,
                     request_ip=self._get_client_ip(request),
                     data_input=serializer.validated_data,
@@ -107,14 +104,14 @@ class GenerateDocumentView(views.APIView):
                 options = {
                     # Базовые опции
                     'format': format_name,
-                    'width': float(task.template_revision.template.pages.first().width),
-                    'height': float(task.template_revision.template.pages.first().height),
-                    'unit': task.template_revision.template.unit.key,
+                    'width': float(template.pages.first().width),
+                    'height': float(template.pages.first().height),
+                    'unit': template.unit.key,
                 }
                 
                 # Добавляем специфичные настройки формата
                 format_settings = {}
-                for page in task.template_revision.template.pages.all():
+                for page in template.pages.all():
                     for setting in page.settings.all():
                         format_settings[setting.format_setting.key] = setting.value
                 
@@ -147,22 +144,13 @@ class GenerateDocumentView(views.APIView):
                     "status": task.status,
                     "message": "Задача рендеринга запущена"
                 }, status=status.HTTP_202_ACCEPTED)
-        
+                
         except Exception as e:
-            logger.error(f"Error starting render task: {e}")
+            logger.error(f"Error generating document: {e}")
             return Response(
-                {"detail": f"Ошибка запуска задачи: {str(e)}"},
+                {"detail": f"Ошибка генерации документа: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-    
-    def _get_client_ip(self, request):
-        """Получает IP-адрес клиента."""
-        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-        if x_forwarded_for:
-            ip = x_forwarded_for.split(',')[0]
-        else:
-            ip = request.META.get('REMOTE_ADDR')
-        return ip
     
     @action(detail=True, methods=['get'], url_path='fields')
     def get_template_fields(self, request, template_id=None):
@@ -224,12 +212,14 @@ class RenderTaskViewSet(viewsets.ReadOnlyModelViewSet):
 class DocumentFilter(filters.FilterSet):
     """Фильтры для документов."""
     
+    template = filters.CharFilter(field_name='task__template__name', lookup_expr='icontains')
+    format = filters.CharFilter(field_name='task__template__format__name', lookup_expr='icontains')
     created_after = filters.DateTimeFilter(field_name='created_at', lookup_expr='gte')
     created_before = filters.DateTimeFilter(field_name='created_at', lookup_expr='lte')
     
     class Meta:
         model = Document
-        fields = ['task__template_revision__template', 'created_after', 'created_before']
+        fields = ['template', 'format', 'created_after', 'created_before']
 
 
 class DocumentViewSet(viewsets.ReadOnlyModelViewSet):

@@ -10,6 +10,7 @@ from django.conf import settings
 from django.utils import timezone
 from celery import shared_task, Task
 from celery.exceptions import MaxRetriesExceededError, SoftTimeLimitExceeded
+from reversion.models import Version
 
 from apps.generation.models import RenderTask, Document
 from infrastructure.ceph import ceph_client
@@ -121,7 +122,7 @@ def render_pdf(self, task_id, html, options):
         self._update_progress(task_id, 70)
         
         # Загружаем результат в Ceph
-        template_name = render_task.template_revision.template.name
+        template_name = render_task.template.name
         file_name = f"{template_name.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d%H%M%S')}.pdf"
         key, url = ceph_client.upload_file(
             file_obj=pdf_bytes,
@@ -213,7 +214,7 @@ def render_png(self, task_id, html, options):
         self._update_progress(task_id, 70)
         
         # Загружаем результат в Ceph
-        template_name = render_task.template_revision.template.name
+        template_name = render_task.template.name
         file_name = f"{template_name.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d%H%M%S')}.png"
         key, url = ceph_client.upload_file(
             file_obj=png_bytes,
@@ -305,7 +306,7 @@ def render_svg(self, task_id, html, options):
         self._update_progress(task_id, 70)
         
         # Загружаем результат в Ceph
-        template_name = render_task.template_revision.template.name
+        template_name = render_task.template.name
         file_name = f"{template_name.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d%H%M%S')}.svg"
         key, url = ceph_client.upload_file(
             file_obj=svg_bytes,

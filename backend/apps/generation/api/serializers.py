@@ -3,7 +3,6 @@
 """
 from rest_framework import serializers
 from apps.generation.models import RenderTask, Document
-from apps.templates.api.serializers import TemplateRevisionSerializer
 from apps.generation.api.validators import TemplateDataValidator
 
 
@@ -32,32 +31,24 @@ class GenerateDocumentSerializer(serializers.Serializer):
         return attrs
     
     def _get_template_fields(self, template):
-        """Возвращает информацию о полях шаблона."""
-        fields_info = []
-        
-        for field in template.fields.all():
-            field_info = {
-                'key': field.key,
-                'label': field.label,
-                'required': field.is_required,
-            }
-            
-            if field.default_value:
-                field_info['default_value'] = field.default_value
-                
-            if field.is_choices:
-                field_info['choices'] = field.choices
-                
-            fields_info.append(field_info)
-            
-        return fields_info
+        """Получает список полей шаблона для валидации."""
+        fields = []
+        for page in template.pages.all():
+            for field in page.fields.all():
+                fields.append({
+                    'name': field.name,
+                    'type': field.type,
+                    'required': field.required,
+                    'description': field.description
+                })
+        return fields
 
 
 class DocumentSerializer(serializers.ModelSerializer):
     """Сериализатор для сгенерированных документов."""
     
-    template_name = serializers.CharField(source='task.template_revision.template.name', read_only=True)
-    format = serializers.CharField(source='task.template_revision.template.format.name', read_only=True)
+    template_name = serializers.CharField(source='task.template.name', read_only=True)
+    format = serializers.CharField(source='task.template.format.name', read_only=True)
     
     class Meta:
         model = Document
@@ -71,24 +62,22 @@ class DocumentSerializer(serializers.ModelSerializer):
 class DocumentDetailSerializer(DocumentSerializer):
     """Расширенный сериализатор для детального представления документа."""
     
-    task_id = serializers.UUIDField(source='task.id', read_only=True)
-    created_by = serializers.CharField(source='task.user.get_full_name', read_only=True)
+    task_data = serializers.JSONField(source='task.data_input', read_only=True)
     
     class Meta(DocumentSerializer.Meta):
-        fields = DocumentSerializer.Meta.fields + ['task_id', 'created_by']
-        read_only_fields = fields
+        fields = DocumentSerializer.Meta.fields + ['task_data']
 
 
 class RenderTaskSerializer(serializers.ModelSerializer):
     """Сериализатор для задач рендеринга."""
     
-    template_name = serializers.CharField(source='template_revision.template.name', read_only=True)
-    format = serializers.CharField(source='template_revision.template.format.name', read_only=True)
+    template_name = serializers.CharField(source='template.name', read_only=True)
+    format = serializers.CharField(source='template.format.name', read_only=True)
     
     class Meta:
         model = RenderTask
         fields = [
-            'id', 'template_revision', 'template_name', 'format',
+            'id', 'template', 'template_name', 'format',
             'status', 'progress', 'error', 'started_at', 'finished_at'
         ]
         read_only_fields = fields

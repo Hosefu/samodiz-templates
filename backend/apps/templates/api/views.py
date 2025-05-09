@@ -16,7 +16,7 @@ from reversion import revisions
 
 from apps.templates.models.unit_format import Unit, Format, FormatSetting
 from apps.templates.models.template import (
-    Template, TemplateRevision, TemplatePermission, 
+    Template, TemplatePermission, 
     Page, PageSettings, Field, Asset
 )
 from apps.templates.api.serializers import (
@@ -134,27 +134,71 @@ class TemplateViewSet(RevisionMixin, viewsets.ModelViewSet):
     def versions(self, request, pk=None):
         """Получение истории версий шаблона."""
         template = self.get_object()
-        versions = template_version_service.get_template_versions(template)
+        versions = Version.objects.get_for_object(template).order_by('-revision__date_created')
         
         versions_data = []
-        for version in versions:
-            versions_data.append(template_version_service.get_version_data(version))
+        for i, version in enumerate(versions):
+            versions_data.append({
+                'id': version.id,
+                'version_number': i + 1,  # Порядковый номер версии
+                'date_created': version.revision.date_created,
+                'user': {
+                    'id': str(version.revision.user.id) if version.revision.user else None,
+                    'email': version.revision.user.email if version.revision.user else None,
+                    'full_name': version.revision.user.get_full_name() if version.revision.user else None,
+                },
+                'comment': version.revision.comment,
+            })
         
-        serializer = VersionSerializer(versions_data, many=True)
-        return Response(serializer.data)
+        return Response(versions_data)
+    
+    @action(detail=True, methods=['get'], url_path=r'versions/(?P<version_id>\d+)')
+    def get_version(self, request, pk=None, version_id=None):
+        """Получение конкретной версии шаблона."""
+        template = self.get_object()
+        
+        try:
+            version = Version.objects.get_for_object(template).get(id=version_id)
+            template_data = version.field_dict
+            
+            # Добавляем метаданные
+            template_data['version_id'] = version.id
+            template_data['date_created'] = version.revision.date_created
+            template_data['user'] = {
+                'id': str(version.revision.user.id) if version.revision.user else None,
+                'email': version.revision.user.email if version.revision.user else None,
+                'full_name': version.revision.user.get_full_name() if version.revision.user else None,
+            }
+            template_data['comment'] = version.revision.comment
+            
+            return Response(template_data)
+        except Version.DoesNotExist:
+            return Response({'error': 'Version not found'}, status=404)
     
     @action(detail=True, methods=['post'], url_path=r'versions/(?P<version_id>\d+)/revert')
     def revert_to_version(self, request, pk=None, version_id=None):
         """Откат шаблона к указанной версии."""
         template = self.get_object()
-        success = template_version_service.revert_to_version(
-            template=template,
-            version_id=int(version_id),
-            user=request.user
-        )
-        if success:
-            return Response({'status': 'reverted'})
-        return Response({'error': 'Version not found'}, status=404)
+        
+        try:
+            version = Version.objects.get_for_object(template).get(id=version_id)
+            
+            with transaction.atomic():
+                with revisions.create_revision():
+                    version.revision.revert()
+                    
+                    # Обновляем объект после отката
+                    template.refresh_from_db()
+                    
+                    revisions.set_user(request.user)
+                    revisions.set_comment(f"Reverted to version from {version.revision.date_created}")
+                    
+                    # Необходимо явно сохранить, чтобы создать новую версию
+                    template.save()
+                    
+                    return Response({'status': 'reverted'})
+        except Version.DoesNotExist:
+            return Response({'error': 'Version not found'}, status=404)
     
     @action(detail=True, methods=['get'], permission_classes=[IsAuthenticated, IsTemplateViewerOrBetter])
     def fields(self, request, pk=None):
@@ -179,78 +223,6 @@ class TemplateViewSet(RevisionMixin, viewsets.ModelViewSet):
         
         serializer = TemplatePermissionSerializer(permissions, many=True)
         return Response(serializer.data)
-
-    @action(detail=True, methods=['post'], url_path='create-revision')
-    def create_revision(self, request, pk=None):
-        """Создает новую ревизию шаблона."""
-        template = self.get_object()
-        
-        with transaction.atomic():
-            # Определяем номер новой ревизии
-            last_revision = template.revisions.order_by('-number').first()
-            new_number = 1 if not last_revision else last_revision.number + 1
-            
-            # Создаем новую ревизию
-            revision = TemplateRevision.objects.create(
-                template=template,
-                number=new_number,
-                author=request.user,
-                changelog=request.data.get('changelog', f"Revision {new_number}"),
-                html=template.html
-            )
-            
-            serializer = TemplateRevisionSerializer(revision)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-    @action(detail=True, methods=['get'])
-    def reversion_history(self, request, pk=None):
-        """Получение истории версий шаблона из reversion."""
-        template = self.get_object()
-        versions = Version.objects.get_for_object(template)
-        
-        versions_data = []
-        for index, version in enumerate(versions):
-            versions_data.append({
-                'id': index,
-                'date_created': version.revision.date_created,
-                'user': {
-                    'id': str(version.revision.user.id) if version.revision.user else None,
-                    'email': version.revision.user.email if version.revision.user else None,
-                },
-                'comment': version.revision.comment,
-            })
-        
-        return Response(versions_data)
-
-    @action(detail=True, methods=['post'], url_path=r'reversion/(?P<version_id>\d+)/revert')
-    def revert_to_reversion(self, request, pk=None, version_id=None):
-        """Откат шаблона к версии из reversion."""
-        template = self.get_object()
-        versions = Version.objects.get_for_object(template)
-        
-        try:
-            version = versions[int(version_id)]
-            with transaction.atomic():
-                with revisions.create_revision():
-                    version.revision.revert()
-                    revisions.set_user(request.user)
-                    revisions.set_comment(f"Reverted to revision from {version.revision.date_created}")
-                    
-                    # Обновляем и старую систему ревизий
-                    last_revision = template.revisions.order_by('-number').first()
-                    new_number = 1 if not last_revision else last_revision.number + 1
-                    
-                    TemplateRevision.objects.create(
-                        template=template.refresh_from_db(),  # Обновляем объект после revert
-                        number=new_number,
-                        author=request.user,
-                        changelog=f"Reverted to revision from {version.revision.date_created}",
-                        html=template.html
-                    )
-                    
-                return Response({'status': 'reverted'})
-        except (IndexError, ValueError):
-            return Response({'error': 'Version not found'}, status=404)
 
 
 class PageViewSet(viewsets.ModelViewSet):
