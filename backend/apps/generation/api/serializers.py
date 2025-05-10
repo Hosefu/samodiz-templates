@@ -1,7 +1,10 @@
 """
-Сериализаторы для API генерации документов.
+Сериализаторы для приложения генерации документов.
 """
 from rest_framework import serializers
+from django.utils import timezone
+
+# Правильные импорты
 from apps.generation.models import RenderTask, GeneratedDocument
 from apps.templates.models import Template, Page, Format, FormatSetting, Unit, PageSettings
 from apps.generation.api.validators import TemplateDataValidator
@@ -66,17 +69,26 @@ class GenerateDocumentSerializer(serializers.Serializer):
 
 
 class DocumentSerializer(serializers.ModelSerializer):
-    """Базовый сериализатор для документов."""
-    template_name = serializers.CharField(source='task.template.name', read_only=True)
-    format = serializers.CharField(source='task.template.format.name', read_only=True)
+    """Сериализатор для сгенерированных документов."""
     
     class Meta:
         model = GeneratedDocument
         fields = [
-            'id', 'task', 'file', 'file_name', 'size_bytes', 
-            'content_type', 'template_name', 'format', 'created_at'
+            'id',
+            'task',
+            'file',
+            'content_type',
+            'created_at',
+            'updated_at'
         ]
-        read_only_fields = fields
+        read_only_fields = [
+            'id',
+            'task',
+            'file',
+            'content_type',
+            'created_at',
+            'updated_at'
+        ]
 
 
 class DocumentDetailSerializer(DocumentSerializer):
@@ -88,17 +100,36 @@ class DocumentDetailSerializer(DocumentSerializer):
 
 
 class RenderTaskSerializer(serializers.ModelSerializer):
-    """Базовый сериализатор для задач рендеринга."""
-    template_name = serializers.CharField(source='template.name', read_only=True)
-    format = serializers.CharField(source='template.format.name', read_only=True)
+    """Сериализатор для задач рендеринга."""
     
     class Meta:
         model = RenderTask
         fields = [
-            'id', 'template', 'template_name', 'format',
-            'status', 'progress', 'error', 'started_at', 'finished_at'
+            'id',
+            'template',
+            'version_id',
+            'user',
+            'request_ip',
+            'data_input',
+            'status',
+            'progress',
+            'error',
+            'worker_id',
+            'created_at',
+            'updated_at',
+            'finished_at'
         ]
-        read_only_fields = fields
+        read_only_fields = [
+            'id',
+            'version_id',
+            'status',
+            'progress',
+            'error',
+            'worker_id',
+            'created_at',
+            'updated_at',
+            'finished_at'
+        ]
 
 
 class RenderTaskDetailSerializer(RenderTaskSerializer):
@@ -159,3 +190,24 @@ class TemplateSerializer(serializers.ModelSerializer):
             'pages', 'created_at', 'updated_at'
         ]
         read_only_fields = ['created_at', 'updated_at']
+
+class TemplateDataSerializer(serializers.Serializer):
+    """Сериализатор для данных шаблона."""
+    
+    data = serializers.JSONField(validators=[TemplateDataValidator()])
+    
+    def validate_data(self, value):
+        """
+        Дополнительная валидация данных шаблона.
+        
+        Args:
+            value: Данные для валидации
+            
+        Returns:
+            dict: Валидированные данные
+            
+        Raises:
+            serializers.ValidationError: При ошибке валидации
+        """
+        # Здесь можно добавить дополнительную валидацию
+        return value
