@@ -123,13 +123,44 @@ class TemplateRenderer:
         
         return sorted(list(fields))
     
-    def render_template(self, html: str, data: Dict[str, Any]) -> str:
+    def process_assets(self, html: str, template_id) -> str:
+        """
+        Заменяет теги {{asset:имя_файла}} на URL соответствующих ассетов.
+        
+        Args:
+            html: HTML с тегами ассетов
+            template_id: ID шаблона
+            
+        Returns:
+            str: HTML с замененными ссылками на ассеты
+        """
+        import re
+        from apps.templates.models.template import Asset, Template
+        
+        asset_pattern = r'\{\{asset:([^}]+)\}\}'
+        
+        def replace_asset(match):
+            asset_name = match.group(1).strip()
+            try:
+                template = Template.objects.get(id=template_id)
+                asset = Asset.objects.filter(template=template, name=asset_name).first()
+                if asset:
+                    return asset.file
+                return f"assets/{asset_name}"  # Фоллбек если ассет не найден
+            except Exception as e:
+                logger.error(f"Error replacing asset {asset_name}: {e}")
+                return f"assets/{asset_name}"
+        
+        return re.sub(asset_pattern, replace_asset, html)
+    
+    def render_template(self, html: str, data: Dict[str, Any], template_id=None) -> str:
         """
         Рендерит HTML-шаблон с подстановкой данных.
         
         Args:
             html: HTML-код с Jinja выражениями
             data: Словарь с данными для подстановки
+            template_id: ID шаблона для обработки ассетов
             
         Returns:
             str: Отрендеренный HTML
@@ -143,6 +174,10 @@ class TemplateRenderer:
             
             # Рендерим с переданными данными
             rendered_html = template.render(**data)
+            
+            # Обрабатываем ассеты, если указан ID шаблона
+            if template_id:
+                rendered_html = self.process_assets(rendered_html, template_id)
             
             return rendered_html
             

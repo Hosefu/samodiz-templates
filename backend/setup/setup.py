@@ -10,6 +10,7 @@ import django
 import logging
 from django.db import transaction
 from io import BytesIO
+from reversion import revisions
 
 # Добавляем родительскую директорию в sys.path, если скрипт запускается напрямую
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -26,7 +27,7 @@ except Exception as e:
 
 # Импорты моделей (после настройки Django)
 from apps.templates.models.unit_format import Unit, Format, FormatSetting
-from apps.templates.models.template import Template, Page, Asset, Field, TemplateRevision
+from apps.templates.models.template import Template, Page, Asset, Field
 from django.contrib.auth import get_user_model
 from infrastructure.ceph import ceph_client
 
@@ -238,37 +239,49 @@ def setup_template():
         logger.error(f"Error reading HTML template: {e}")
         return
     
-    # Создаем шаблон
-    template = Template.objects.create(
-        name="Визитка RWB",
-        owner=admin,
-        is_public=True,
-        format=pdf_format,
-        unit=mm_unit,
-        description="Создать визитку для сотрудника RWB",
-        html=html_template
-    )
-    
-    # После создания шаблона
-    TemplateRevision.objects.create(
-        template=template,
-        number=1,
-        author=admin,
-        changelog="Initial revision",
-        html=html_template
-    )
-    
-    # Создаем страницу визитки (стандартный размер 90х50 мм)
-    page = Page.objects.create(
-        template=template,
-        index=1,
-        html=html_template,
-        width=90,
-        height=50
-    )
-    
+    # Создаем шаблон с использованием django-reversion
+    with transaction.atomic():
+        with revisions.create_revision():
+            template = Template.objects.create(
+                name="Визитка RWB",
+                owner=admin,
+                is_public=True,
+                format=pdf_format,
+                unit=mm_unit,
+                description="Создать визитку для сотрудника RWB",
+                html=html_template
+            )
+            revisions.set_user(admin)
+            revisions.set_comment("Initial revision")
+            
+            # Создаем страницу визитки (стандартный размер 90х50 мм)
+            page = Page.objects.create(
+                template=template,
+                index=1,
+                html=html_template,
+                width=90,
+                height=50
+            )
+            
     # Копируем шрифт из директории assets и загружаем его через Ceph
     src_font_path = os.path.join(ASSETS_DIR, 'InterDisplay-Regular.ttf')
+    if not os.path.exists(ASSETS_DIR):
+        logger.warning(f"Assets directory {ASSETS_DIR} not found, creating it")
+        os.makedirs(ASSETS_DIR, exist_ok=True)
+        
+    if not os.path.exists(src_font_path):
+        logger.warning(f"Font file not found at {src_font_path}, downloading default font")
+        # Здесь можно добавить код для скачивания шрифта или использования встроенного
+        import urllib.request
+        font_url = "https://fonts.googleapis.com/css2?family=Inter:wght@400&display=swap"
+        try:
+            urllib.request.urlretrieve(font_url, src_font_path)
+        except Exception as e:
+            logger.error(f"Error downloading font: {e}")
+            # Создать пустой файл шрифта или пропустить
+            with open(src_font_path, 'wb') as f:
+                f.write(b'')
+    
     if os.path.exists(src_font_path):
         try:
             # Читаем файл шрифта
@@ -294,7 +307,7 @@ def setup_template():
                 template=template,
                 page=page,  # Привязываем к странице, делая локальным
                 name="InterDisplay-Regular.ttf",
-                file=key,  # Используем ключ или URL из результата загрузки
+                file=url,  # Сохраняем URL вместо key
                 size_bytes=font_size,
                 mime_type="font/ttf"
             )

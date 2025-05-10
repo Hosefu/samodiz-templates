@@ -33,14 +33,21 @@ class GenerateDocumentSerializer(serializers.Serializer):
     def _get_template_fields(self, template):
         """Получает список полей шаблона для валидации."""
         fields = []
-        for page in template.pages.all():
-            for field in page.fields.all():
-                fields.append({
-                    'name': field.name,
-                    'type': field.type,
-                    'required': field.required,
-                    'description': field.description
-                })
+        for field in template.fields.all():
+            fields.append({
+                'key': field.key,
+                'label': field.label,
+                'required': field.is_required,
+                'page': field.page.index if field.page else None,
+                'is_global': field.page is None,
+            })
+            
+            if field.default_value:
+                fields[-1]['default_value'] = field.default_value
+                
+            if field.is_choices:
+                fields[-1]['choices'] = field.choices
+                
         return fields
 
 

@@ -85,7 +85,7 @@ class GenerateDocumentView(views.APIView):
                 # Применяем шаблонизатор к HTML, используя версию из reversion
                 try:
                     template_html = current_version.field_dict.get('html', template.html)
-                    rendered_html = template_renderer.render_template(template_html, data)
+                    rendered_html = template_renderer.render_template(template_html, data, template_id=template.id)
                 except Exception as e:
                     logger.error(f"Template rendering error: {e}")
                     task.status = 'failed'
