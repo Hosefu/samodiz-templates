@@ -61,8 +61,8 @@ public class PdfController : ControllerBase
                 return BadRequest(new { error = "Only PDF format is supported" });
             }
             
-            // Render PDF
-            byte[] pdfData = await _pdfRenderService.RenderPdfAsync(request);
+            // Render PDF - теперь синхронно
+            byte[] pdfData = await Task.Run(() => _pdfRenderService.RenderPdf(request));
             
             _logger.LogInformation($"PDF successfully generated, size: {pdfData.Length} bytes");
             
