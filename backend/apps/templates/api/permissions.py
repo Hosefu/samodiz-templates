@@ -8,50 +8,37 @@ from apps.templates.models.template import Template, TemplatePermission
 class IsTemplateOwnerOrReadOnly(permissions.BasePermission):
     """
     Разрешение для шаблонов: только владелец может редактировать.
-    
-    Позволяет GET, HEAD и OPTIONS всем аутентифицированным пользователям,
-    но требует владения шаблоном для остальных методов.
+    Анонимные пользователи могут видеть публичные шаблоны.
     """
     
     def has_permission(self, request, view):
         """Проверка базовых разрешений."""
-        # Разрешаем GET, HEAD, OPTIONS для всех пользователей (включая анонимных)
+        # Разрешаем GET для всех (включая анонимных)
         if request.method in permissions.SAFE_METHODS:
             return True
         
         # Для остальных методов требуется аутентификация
-        if not request.user or not request.user.is_authenticated:
-            return False
-        
-        # Для создания нового шаблона требуется аутентификация
-        if view.action == 'create':
-            return True
-        
-        return True
+        return request.user and request.user.is_authenticated
     
     def has_object_permission(self, request, view, obj):
         """Проверка разрешений для конкретного объекта."""
-        # Разрешаем GET, HEAD, OPTIONS для публичных шаблонов
-        if request.method in permissions.SAFE_METHODS:
-            if obj.is_public:
-                return True
-            
-            # Для непубличных шаблонов проверяем аутентификацию
-            if not request.user or not request.user.is_authenticated:
-                return False
-            
-            if obj.owner == request.user:
-                return True
-            
-            # Проверяем наличие разрешения на шаблон
-            return TemplatePermission.objects.filter(
-                template=obj,
-                grantee=request.user
-            ).exists()
+        # Публичные шаблоны доступны всем для чтения
+        if request.method in permissions.SAFE_METHODS and obj.is_public:
+            return True
         
-        # Для остальных методов требуется аутентификация
+        # Для неаутентифицированных пользователей проверка закончена
         if not request.user or not request.user.is_authenticated:
             return False
+        
+        # Для аутентифицированных пользователей
+        if request.method in permissions.SAFE_METHODS:
+            # Владелец, админ или пользователь с разрешением
+            return (obj.owner == request.user or 
+                   request.user.is_staff or
+                   TemplatePermission.objects.filter(
+                       template=obj,
+                       grantee=request.user
+                   ).exists())
         
         # Изменять и удалять может только владелец или администратор
         return obj.owner == request.user or request.user.is_staff

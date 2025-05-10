@@ -74,28 +74,30 @@ class FormatViewSet(viewsets.ReadOnlyModelViewSet):
 class TemplateViewSet(RevisionMixin, viewsets.ModelViewSet):
     """API для работы с шаблонами."""
     
-    permission_classes = [IsAuthenticated, IsTemplateOwnerOrReadOnly]
+    permission_classes = [IsTemplateOwnerOrReadOnly]
     
     def get_queryset(self):
-        """
-        Фильтрация шаблонов на основе прав доступа.
-        """
-        # Анонимные пользователи видят только публичные шаблоны
-        if not self.request.user or not self.request.user.is_authenticated:
-            return Template.objects.filter(is_public=True)
-        
+        """Фильтрация шаблонов на основе прав доступа."""
         user = self.request.user
         
-        # Администраторы видят все шаблоны
-        if user.is_staff:
-            return Template.objects.all()
+        # Базовый queryset - все шаблоны
+        queryset = Template.objects.all()
         
-        # Обычные пользователи видят свои + доступные им шаблоны + публичные
-        return Template.objects.filter(
-            Q(owner=user) |  # Свои
-            Q(is_public=True) |  # Публичные
-            Q(permissions__grantee=user)  # Предоставлен доступ
-        ).distinct()
+        # Для аутентифицированных пользователей
+        if user and user.is_authenticated:
+            # Администраторы видят все
+            if user.is_staff:
+                return queryset
+            
+            # Обычные пользователи: свои + публичные + с предоставленным доступом
+            return queryset.filter(
+                Q(owner=user) |  # Свои
+                Q(is_public=True) |  # Публичные
+                Q(permissions__grantee=user)  # С предоставленным доступом
+            ).distinct()
+        
+        # Для неаутентифицированных - только публичные
+        return queryset.filter(is_public=True)
     
     def get_serializer_class(self):
         """Выбор сериализатора в зависимости от действия."""

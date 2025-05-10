@@ -67,6 +67,11 @@ template_nested_routes = [
     
     # Генерация документа
     path('<uuid:template_id>/generate/', GenerateDocumentView.as_view(), name='template-generate'),
+    
+    # Получение полей для генерации
+    path('<uuid:template_id>/fields-for-generation/', 
+         GenerateDocumentView.as_view(http_method_names=['get']),
+         name='template-generation-fields'),
 ]
 
 urlpatterns = template_nested_routes + router.urls

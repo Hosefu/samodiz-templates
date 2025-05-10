@@ -176,61 +176,89 @@ class PageSettings(BaseModel):
 
 @register()
 class Field(BaseModel):
-    """
-    Поле шаблона для ввода данных.
+    """Поле шаблона для ввода данных."""
+    template = models.ForeignKey(Template, on_delete=models.CASCADE, related_name="fields")
+    page = models.ForeignKey(Page, on_delete=models.CASCADE, null=True, blank=True, related_name="fields")
+    key = models.CharField(max_length=100, help_text="Технический ключ")
+    label = models.CharField(max_length=255, help_text="Отображаемое название")
     
-    Может быть глобальным (для всего шаблона) или локальным (для страницы).
-    """
-    template = models.ForeignKey(
-        Template,
-        on_delete=models.CASCADE,
-        related_name="fields",
-        help_text="Шаблон"
+    # Система типов вместо is_choices
+    FIELD_TYPES = (
+        ('text', 'Текст'),
+        ('number', 'Число'),
+        ('email', 'Email'),
+        ('phone', 'Телефон'),
+        ('date', 'Дата'),
+        ('choice', 'Выбор из списка'),
+        ('multi_choice', 'Множественный выбор'),
+        ('file', 'Файл'),
+        ('url', 'URL'),
+        ('textarea', 'Многострочный текст'),
     )
-    page = models.ForeignKey(
-        Page,
-        on_delete=models.CASCADE,
-        null=True,
+    
+    type = models.CharField(
+        max_length=20,
+        choices=FIELD_TYPES,
+        default='text',
+        help_text="Тип поля"
+    )
+    
+    # Позиционирование
+    order = models.PositiveIntegerField(
+        default=0,
+        help_text="Порядок отображения поля"
+    )
+    
+    # Мета-информация о поле
+    is_required = models.BooleanField(default=False)
+    default_value = models.TextField(blank=True, null=True)
+    placeholder = models.CharField(max_length=255, blank=True)
+    help_text = models.TextField(blank=True)
+    
+    # Атрибуты поля в JSON формате (для гибкости)
+    attributes = models.JSONField(
+        default=dict,
         blank=True,
-        related_name="fields",
-        help_text="NULL → глобальное поле"
-    )
-    key = models.CharField(
-        max_length=100, 
-        help_text="Тех. имя для вставки"
-    )
-    label = models.CharField(
-        max_length=255, 
-        help_text="Подпись в UI"
-    )
-    is_required = models.BooleanField(
-        default=False, 
-        help_text="Обязательное? (DEF=False)"
-    )
-    default_value = models.CharField(
-        max_length=255, 
-        blank=True, 
-        null=True, 
-        help_text="Значение по умолчанию"
-    )
-    is_choices = models.BooleanField(
-        default=False, 
-        help_text="Является списком выбора?"
-    )
-    choices = models.JSONField(
-        null=True, 
-        blank=True, 
-        help_text="Перечень вариантов в формате [{\"value\": \"...\", \"label\": \"...\"}]"
+        help_text="Дополнительные атрибуты: choices, min/max, pattern, etc."
     )
     
     class Meta:
-        verbose_name = "Поле шаблона"
-        verbose_name_plural = "Поля шаблонов"
-        ordering = ['template', 'key']
-        # Ключ должен быть уникальным в рамках шаблона или страницы
-        unique_together = [
-            ['template', 'page', 'key']
-        ]
+        ordering = ['page', 'order', 'created_at']
+        unique_together = [['template', 'page', 'key'], ['template', 'page', 'order']]
+    
+    def save(self, *args, **kwargs):
+        """Автоматическое управление порядком."""
+        if self.order == 0:  # Если порядок не задан
+            # Находим максимальный порядок для данного контекста
+            if self.page:
+                max_order = Field.objects.filter(
+                    template=self.template,
+                    page=self.page
+                ).aggregate(models.Max('order'))['order__max'] or 0
+            else:
+                max_order = Field.objects.filter(
+                    template=self.template,
+                    page__isnull=True
+                ).aggregate(models.Max('order'))['order__max'] or 0
+            
+            self.order = max_order + 1
+        
+        super().save(*args, **kwargs)
+    
+    @property
+    def choices(self):
+        """Получение списка выбора (совместимость)."""
+        if self.type in ['choice', 'multi_choice']:
+            return self.attributes.get('choices', [])
+        return None
+    
+    @choices.setter
+    def choices(self, value):
+        """Установка списка выбора."""
+        if self.type in ['choice', 'multi_choice']:
+            self.attributes['choices'] = value
+        else:
+            raise ValueError(f"Field type {self.type} doesn't support choices")
     
     def __str__(self):
         if self.page:
@@ -273,3 +301,15 @@ class Asset(BaseModel):
         if self.page:
             return f"{self.template.name} - Страница {self.page.index} - {self.name}"
         return f"{self.template.name} - Глобальный - {self.name}"
+
+
+class FieldVersion(BaseModel):
+    """Версии структуры полей шаблона."""
+    template = models.ForeignKey(Template, on_delete=models.CASCADE, related_name="field_versions")
+    version_number = models.PositiveIntegerField()
+    fields_snapshot = models.JSONField(help_text="Снимок структуры полей")
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
+    
+    class Meta:
+        unique_together = ['template', 'version_number']
+        ordering = ['-version_number']
