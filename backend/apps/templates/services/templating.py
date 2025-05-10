@@ -8,6 +8,7 @@ import re
 from typing import Dict, Any, Optional, List
 from jinja2 import Environment, DictLoader, Template, sandbox, exceptions
 from jinja2.sandbox import SandboxedEnvironment
+from .asset_helper import asset_helper
 
 logger = logging.getLogger(__name__)
 
@@ -123,47 +124,54 @@ class TemplateRenderer:
         
         return sorted(list(fields))
     
-    def process_assets(self, html: str, template_id) -> str:
+    def process_assets(self, html: str, template_id, page_id=None) -> str:
         """
         Заменяет теги {{asset:имя_файла}} на URL соответствующих ассетов.
+        
+        Приоритет поиска ассетов:
+        1. Если указан page_id - сначала ищем среди ассетов страницы
+        2. Затем ищем среди глобальных ассетов шаблона
+        3. Если не найден - оставляем placeholder
         
         Args:
             html: HTML с тегами ассетов
             template_id: ID шаблона
+            page_id: (optional) ID страницы для поиска локальных ассетов
             
         Returns:
             str: HTML с замененными ссылками на ассеты
         """
-        import re
-        from apps.templates.models.template import Asset, Template
+        if not template_id:
+            logger.warning("process_assets called without template_id")
+            return html
         
+        # Регулярное выражение для поиска {{asset:filename}}
         asset_pattern = r'\{\{asset:([^}]+)\}\}'
         
         def replace_asset(match):
             asset_name = match.group(1).strip()
-            try:
-                template = Template.objects.get(id=template_id)
-                asset = Asset.objects.filter(template=template, name=asset_name).first()
-                if asset:
-                    return asset.file
-                return f"assets/{asset_name}"  # Фоллбек если ассет не найден
-            except Exception as e:
-                logger.error(f"Error replacing asset {asset_name}: {e}")
-                return f"assets/{asset_name}"
+            url = asset_helper.get_asset_url(template_id, asset_name, page_id)
+            if url:
+                logger.debug(f"Replacing {{{{asset:{asset_name}}}}} with {url}")
+            return url
         
-        return re.sub(asset_pattern, replace_asset, html)
+        # Применяем замену
+        result = re.sub(asset_pattern, replace_asset, html)
+        
+        return result
     
-    def render_template(self, html: str, data: Dict[str, Any], template_id=None) -> str:
+    def render_template(self, html: str, data: Dict[str, Any], template_id=None, page_id=None) -> str:
         """
-        Рендерит HTML-шаблон с подстановкой данных.
+        Рендерит HTML-шаблон с подстановкой данных и обработкой ассетов.
         
         Args:
             html: HTML-код с Jinja выражениями
             data: Словарь с данными для подстановки
             template_id: ID шаблона для обработки ассетов
+            page_id: (optional) ID страницы для поиска локальных ассетов
             
         Returns:
-            str: Отрендеренный HTML
+            str: Отрендеренный HTML с обработанными ассетами
             
         Raises:
             TemplateProcessingError: В случае ошибки рендеринга
@@ -177,7 +185,7 @@ class TemplateRenderer:
             
             # Обрабатываем ассеты, если указан ID шаблона
             if template_id:
-                rendered_html = self.process_assets(rendered_html, template_id)
+                rendered_html = self.process_assets(rendered_html, template_id, page_id)
             
             return rendered_html
             

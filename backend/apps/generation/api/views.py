@@ -84,8 +84,28 @@ class GenerateDocumentView(views.APIView):
                 
                 # Применяем шаблонизатор к HTML, используя версию из reversion
                 try:
+                    # Получаем HTML шаблона из текущей версии
                     template_html = current_version.field_dict.get('html', template.html)
-                    rendered_html = template_renderer.render_template(template_html, data, template_id=template.id)
+                    
+                    # Рендерим шаблон по страницам
+                    pages_html = []
+                    for page in template.pages.all().order_by('index'):
+                        # Получаем HTML страницы
+                        page_html = page.html if page.html else template_html
+                        
+                        # Рендерим страницу с учетом локальных ассетов
+                        rendered_page_html = template_renderer.render_template(
+                            page_html, 
+                            data, 
+                            template_id=template.id,
+                            page_id=page.id  # Передаем ID страницы для поиска локальных ассетов
+                        )
+                        
+                        pages_html.append(rendered_page_html)
+                    
+                    # Объединяем все страницы
+                    rendered_html = ''.join(pages_html)
+                    
                 except Exception as e:
                     logger.error(f"Template rendering error: {e}")
                     task.status = 'failed'
