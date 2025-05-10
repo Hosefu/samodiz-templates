@@ -10,13 +10,6 @@ import django
 import logging
 from django.db import transaction
 from io import BytesIO
-from reversion import revisions
-from django.contrib.auth import get_user_model
-from apps.templates.models import (
-    Format, FormatSetting, Unit, Template,
-    Page, PageSettings, Field, FieldChoice
-)
-from infrastructure.ceph import ceph_client
 
 # Добавляем родительскую директорию в sys.path, если скрипт запускается напрямую
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -31,10 +24,12 @@ except Exception as e:
     print(f"Ошибка при настройке Django: {e}")
     sys.exit(1)
 
-# Импорты моделей (после настройки Django)
+# Только после django.setup() импортируем модели
+from reversion import revisions
+from django.contrib.auth import get_user_model
 from apps.templates.models.unit_format import Unit, Format, FormatSetting
 from apps.templates.models.template import Template, Page, Asset, Field, PageSettings
-from django.contrib.auth import get_user_model
+from apps.templates.models import FieldChoice
 from infrastructure.ceph import ceph_client
 
 logger = logging.getLogger(__name__)
@@ -81,12 +76,9 @@ def setup_formats():
     
     # Настройки для PDF
     pdf_settings = [
-        ('dpi', 'DPI', '300', True),
-        ('quality', 'Качество', '100', True),
-        ('margin_top', 'Верхний отступ', '20', True),
-        ('margin_bottom', 'Нижний отступ', '20', True),
-        ('margin_left', 'Левый отступ', '20', True),
-        ('margin_right', 'Правый отступ', '20', True),
+        ('dpi', 'DPI', '300', False),
+        ('cmyk_support', 'Поддержка CMYK', 'true', False),
+        ('bleeds', 'Припуски под обрез', '0', False),
     ]
     
     for key, name, default, required in pdf_settings:
