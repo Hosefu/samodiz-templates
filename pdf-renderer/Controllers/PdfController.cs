@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Mvc;
 using PdfRenderer.Models;
 using PdfRenderer.Services;
 using Microsoft.Extensions.Logging;
+using System.Threading.Tasks;
+using System;
 
 namespace PdfRenderer.Controllers;
 
