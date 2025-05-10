@@ -45,18 +45,17 @@ HTML_PATH = os.path.join(TEMPLATE_DIR, 'input.html')
 def setup_units():
     """Создает базовые единицы измерения."""
     units = [
-        ('mm', 'Миллиметры', 'Метрическая система'),
-        ('cm', 'Сантиметры', 'Метрическая система'),
-        ('in', 'Дюймы', 'Имперская система'),
-        ('px', 'Пиксели', 'Экранные единицы'),
+        ('mm', 'Миллиметры'),
+        ('cm', 'Сантиметры'),
+        ('in', 'Дюймы'),
+        ('px', 'Пиксели'),
     ]
     
-    for key, name, description in units:
+    for key, name in units:
         Unit.objects.get_or_create(
             key=key,
             defaults={
-                'name': name,
-                'description': description
+                'name': name
             }
         )
     
