@@ -27,7 +27,7 @@ except Exception as e:
 
 # Импорты моделей (после настройки Django)
 from apps.templates.models.unit_format import Unit, Format, FormatSetting
-from apps.templates.models.template import Template, Page, Asset, Field
+from apps.templates.models.template import Template, Page, Asset, Field, PageSettings
 from django.contrib.auth import get_user_model
 from infrastructure.ceph import ceph_client
 
@@ -205,7 +205,7 @@ def setup_formats():
     logger.info("Created formats and settings")
 
 def setup_template():
-    """Создаёт базовый PDF шаблон."""
+    """Создаёт базовый PDF шаблон с полями и настройками."""
     # Получаем админа (первого суперпользователя) или создаем его, если его нет
     admin = User.objects.filter(is_superuser=True).first()
     if not admin:
@@ -262,7 +262,7 @@ def setup_template():
         )
         
         # Создаем первую страницу
-        Page.objects.create(
+        page = Page.objects.create(
             template=template,
             index=0,
             html=html_template,
@@ -270,7 +270,61 @@ def setup_template():
             height=65
         )
         
-        logger.info("Created RWB business card template")
+        # Создаем настройки форматов для страницы
+        for setting in pdf_format.expected_settings.all():
+            PageSettings.objects.create(
+                page=page,
+                format_setting=setting,
+                value=setting.default_value or '',
+            )
+        
+        # Создаем поля шаблона
+        fields_to_create = [
+            {'key': 'last_name', 'label': 'Фамилия', 'order': 1, 'is_required': True},
+            {'key': 'first_name', 'label': 'Имя', 'order': 2, 'is_required': True},
+            {'key': 'patronymic', 'label': 'Отчество', 'order': 3, 'is_required': True},
+            {'key': 'position', 'label': 'Должность', 'order': 4, 'is_required': True},
+            {'key': 'address', 'label': 'Адрес', 'order': 5, 'is_required': True},
+            {'key': 'phone', 'label': 'Телефон', 'order': 6, 'is_required': True},
+            {'key': 'email', 'label': 'Email', 'order': 7, 'is_required': True},
+        ]
+        
+        for field_data in fields_to_create:
+            Field.objects.create(
+                template=template,
+                page=None,  # Глобальные поля
+                **field_data
+            )
+        
+        # ОБЯЗАТЕЛЬНО: Загружаем шрифт как ассет
+        font_path = os.path.join(ASSETS_DIR, 'InterDisplay-Regular.ttf')
+        if os.path.exists(font_path):
+            with open(font_path, 'rb') as font_file:
+                # Создаем BytesIO объект для ceph_client
+                font_bytes = BytesIO(font_file.read())
+                
+                # Загружаем шрифт в Ceph
+                font_key, font_url = ceph_client.upload_file(
+                    file_obj=font_bytes,
+                    folder=f"templates/{template.id}/assets",
+                    filename="InterDisplay-Regular.ttf",
+                    content_type="font/ttf"
+                )
+                
+                # Создаем запись ассета
+                Asset.objects.create(
+                    template=template,
+                    page=None,  # Глобальный ассет
+                    name="InterDisplay-Regular.ttf",
+                    file=font_url,
+                    size_bytes=os.path.getsize(font_path),
+                    mime_type="font/ttf"
+                )
+            logger.info("Uploaded font asset: InterDisplay-Regular.ttf")
+        else:
+            logger.warning(f"Font file not found: {font_path}")
+        
+        logger.info("Created RWB business card template with fields and assets")
         
     except Exception as e:
         logger.error(f"Error creating template: {e}")
