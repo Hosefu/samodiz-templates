@@ -1,30 +1,17 @@
-using System;
-using System.IO;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using PdfRenderer.Services;
-using PdfRenderer.Models;
-using FluentValidation;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Добавляем контроллеры
+// Add controllers
 builder.Services.AddControllers();
 
-// Настраиваем сервисы
-builder.Services.AddTransient<IPdfRenderService, PdfRenderService>();
-builder.Services.AddTransient<ValidationService>();
-builder.Services.AddTransient<IPreviewService, PreviewService>();
+// Register services
+builder.Services.AddTransient<PdfRenderService>();
 
-// Регистрируем валидатор
-builder.Services.AddTransient<IValidator<PdfRequest>, PdfRequestValidator>();
-
-// Добавляем конфигурацию в контейнер служб
-builder.Services.AddSingleton(builder.Configuration);
-
-// Настраиваем CORS
+// Configure CORS
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
@@ -35,18 +22,8 @@ builder.Services.AddCors(options =>
     });
 });
 
-// Настраиваем логирование
-builder.Logging.ClearProviders();
-builder.Logging.AddConsole();
-builder.Logging.AddDebug();
-
 var app = builder.Build();
 
-// Создаем каталог для wwwroot, если он не существует
-var wwwroot = Path.Combine(app.Environment.ContentRootPath, "wwwroot");
-Directory.CreateDirectory(wwwroot);
-
-// Настраиваем конвейер HTTP-запросов
 if (app.Environment.IsDevelopment())
 {
     app.UseDeveloperExceptionPage();
@@ -54,7 +31,6 @@ if (app.Environment.IsDevelopment())
 
 app.UseRouting();
 app.UseCors();
-app.UseAuthorization();
 app.MapControllers();
 
 app.Run();

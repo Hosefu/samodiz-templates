@@ -81,20 +81,20 @@ services:
     networks:
       - samodes-network
 
-  png-renderer:
-    build:
-      context: ./png-renderer
-      dockerfile: Dockerfile
-    container_name: png-renderer
-    expose:
-      - "${PNG_PORT}"
-    healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:${PNG_PORT}/api/png/health"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    networks:
-      - samodes-network
+#  png-renderer:
+#    build:
+#      context: ./png-renderer
+#      dockerfile: Dockerfile
+#    container_name: png-renderer
+#    expose:
+#      - "${PNG_PORT}"
+#    healthcheck:
+#      test: ["CMD", "curl", "--fail", "http://localhost:${PNG_PORT}/api/png/health"]
+#      interval: 5s
+#      timeout: 5s
+#      retries: 5
+#    networks:
+#      - samodes-network
 
   nginx:
     image: nginx:alpine
@@ -108,26 +108,26 @@ services:
     depends_on:
       - backend
       - pdf-renderer
-      - png-renderer
+#      - png-renderer
     networks:
       - samodes-network
 
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: frontend
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    ports:
-      - "${FRONTEND_PORT}:${FRONTEND_PORT}"
-    environment:
-      - VITE_API_URL=http://localhost:${BACKEND_PORT}
-    depends_on:
-      - backend
-    networks:
-      - samodes-network
+#  frontend:
+#    build:
+#      context: ./frontend
+#      dockerfile: Dockerfile
+#    container_name: frontend
+#    volumes:
+#      - ./frontend:/app
+#      - /app/node_modules
+#    ports:
+#      - "${FRONTEND_PORT}:${FRONTEND_PORT}"
+#    environment:
+#      - VITE_API_URL=http://localhost:${BACKEND_PORT}
+#    depends_on:
+#      - backend
+#    networks:
+#      - samodes-network
 
   celery:
     build:

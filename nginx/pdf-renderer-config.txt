@@ -1,0 +1,11 @@
+location /api/render {
+    rewrite ^/api/render(/.*)$ /api/render$1 break;
+    proxy_pass http://pdf_renderer_api;
+    proxy_set_header X-API-KEY $http_x_api_key;
+    client_max_body_size 50M;
+    proxy_read_timeout 180s;
+}
+
+location /health {
+    proxy_pass http://pdf_renderer_api/health;
+} 

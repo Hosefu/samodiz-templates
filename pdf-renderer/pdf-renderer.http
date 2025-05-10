@@ -1,22 +1,24 @@
 @pdf_renderer_HostAddress = http://localhost:8081
 
-### Проверка работоспособности сервиса
-GET {{pdf_renderer_HostAddress}}/api/pdf/health
+### Health check
+GET {{pdf_renderer_HostAddress}}/health
 Accept: application/json
 
-### Генерация PDF из HTML
-POST {{pdf_renderer_HostAddress}}/api/pdf/render
+### Render PDF
+POST {{pdf_renderer_HostAddress}}/api/render
 Content-Type: application/json
+Accept: application/pdf
 
 {
-  "html": "<html><body><h1>Тестовый документ</h1><p>Содержимое документа</p></body></html>",
-  "width": 210,
-  "height": 297,
-  "units": "mm",
-  "bleeds": 3,
-  "generatePreview": false,
-  "settings": {
-    "compression": "true"
+  "html": "<html><body><h1>Test Document</h1><p>Content</p></body></html>",
+  "options": {
+    "format": "pdf",
+    "width": 95,
+    "height": 65,
+    "unit": "mm",
+    "dpi": 300,
+    "cmyk_support": true,
+    "bleeds": 3
   }
 }
 
