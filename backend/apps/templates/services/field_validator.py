@@ -5,40 +5,51 @@ from typing import Any, Dict, Optional
 import re
 from datetime import datetime
 from urllib.parse import urlparse
+from apps.templates.models.template import Field
 
 
 class FieldValidator:
     """Валидация полей на основе их типов."""
     
     @staticmethod
-    def validate_field(field_type: str, value: Any, attributes: Dict = None) -> tuple[bool, Optional[str]]:
+    def validate_field(field: Field, value: Any) -> tuple[bool, Optional[str]]:
         """
         Валидирует значение поля.
         
         Returns:
             tuple: (is_valid, error_message)
         """
-        attributes = attributes or {}
-        
-        if field_type == 'email':
-            return FieldValidator._validate_email(value)
-        elif field_type == 'phone':
-            return FieldValidator._validate_phone(value, attributes.get('pattern'))
-        elif field_type == 'number':
-            return FieldValidator._validate_number(value, attributes)
-        elif field_type == 'date':
-            return FieldValidator._validate_date(value, attributes.get('format', '%Y-%m-%d'))
-        elif field_type == 'choice':
-            return FieldValidator._validate_choice(value, attributes.get('choices', []))
-        elif field_type == 'multi_choice':
-            return FieldValidator._validate_multi_choice(value, attributes.get('choices', []))
-        elif field_type == 'url':
-            return FieldValidator._validate_url(value)
-        elif field_type in ['text', 'textarea']:
-            return FieldValidator._validate_text(value, attributes)
-        else:
-            # Для неизвестных типов - базовая проверка
+        if field.type == 'choices':
+            return FieldValidator._validate_choice(field, value)
+        else:  # string
+            return FieldValidator._validate_string(field, value)
+    
+    @staticmethod
+    def _validate_choice(field: Field, value: str) -> tuple[bool, Optional[str]]:
+        """Валидация выбора из списка."""
+        if not value:
             return True, None
+        
+        valid_values = list(field.choices.values_list('value', flat=True))
+        
+        if value not in valid_values:
+            valid_labels = [f"{choice.label} ({choice.value})" for choice in field.choices.all()]
+            return False, f"Значение должно быть одним из: {', '.join(valid_labels)}"
+        
+        return True, None
+    
+    @staticmethod
+    def _validate_string(field: Field, value: str) -> tuple[bool, Optional[str]]:
+        """Валидация строкового поля."""
+        if not value:
+            return True, None
+        
+        # Базовая валидация - можно расширить при необходимости
+        if field.placeholder:
+            # Здесь можно добавить дополнительную валидацию по шаблону placeholder
+            pass
+        
+        return True, None
     
     @staticmethod
     def _validate_email(value: str) -> tuple[bool, Optional[str]]:
@@ -99,19 +110,6 @@ class FieldValidator:
             return True, None
         except ValueError:
             return False, f"Дата должна быть в формате {date_format}"
-    
-    @staticmethod
-    def _validate_choice(value: str, choices: list) -> tuple[bool, Optional[str]]:
-        """Валидация выбора из списка."""
-        if not value:
-            return True, None
-        
-        valid_values = [choice.get('value') if isinstance(choice, dict) else choice for choice in choices]
-        
-        if value not in valid_values:
-            return False, f"Значение должно быть одним из: {', '.join(map(str, valid_values))}"
-        
-        return True, None
     
     @staticmethod
     def _validate_multi_choice(value: list, choices: list) -> tuple[bool, Optional[str]]:

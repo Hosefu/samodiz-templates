@@ -177,37 +177,24 @@ class PageSettings(BaseModel):
 @register()
 class Field(BaseModel):
     """Поле шаблона для ввода данных."""
+    FIELD_TYPES = (
+        ('string', 'Строка'),
+        ('choices', 'Выбор из списка'),
+    )
+    
     template = models.ForeignKey(Template, on_delete=models.CASCADE, related_name="fields")
     page = models.ForeignKey(Page, on_delete=models.CASCADE, null=True, blank=True, related_name="fields")
     key = models.CharField(max_length=100, help_text="Технический ключ")
     label = models.CharField(max_length=255, help_text="Отображаемое название")
-    
-    # Система типов вместо is_choices
-    FIELD_TYPES = (
-        ('text', 'Текст'),
-        ('number', 'Число'),
-        ('email', 'Email'),
-        ('phone', 'Телефон'),
-        ('date', 'Дата'),
-        ('choice', 'Выбор из списка'),
-        ('multi_choice', 'Множественный выбор'),
-        ('file', 'Файл'),
-        ('url', 'URL'),
-        ('textarea', 'Многострочный текст'),
-    )
-    
     type = models.CharField(
         max_length=20,
         choices=FIELD_TYPES,
-        default='text',
+        default='string',
         help_text="Тип поля"
     )
     
     # Позиционирование
-    order = models.PositiveIntegerField(
-        default=0,
-        help_text="Порядок отображения поля"
-    )
+    order = models.PositiveIntegerField(default=0, help_text="Порядок отображения поля")
     
     # Мета-информация о поле
     is_required = models.BooleanField(default=False)
@@ -215,55 +202,30 @@ class Field(BaseModel):
     placeholder = models.CharField(max_length=255, blank=True)
     help_text = models.TextField(blank=True)
     
-    # Атрибуты поля в JSON формате (для гибкости)
-    attributes = models.JSONField(
-        default=dict,
-        blank=True,
-        help_text="Дополнительные атрибуты: choices, min/max, pattern, etc."
-    )
-    
     class Meta:
         ordering = ['page', 'order', 'created_at']
         unique_together = [['template', 'page', 'key'], ['template', 'page', 'order']]
-    
-    def save(self, *args, **kwargs):
-        """Автоматическое управление порядком."""
-        if self.order == 0:  # Если порядок не задан
-            # Находим максимальный порядок для данного контекста
-            if self.page:
-                max_order = Field.objects.filter(
-                    template=self.template,
-                    page=self.page
-                ).aggregate(models.Max('order'))['order__max'] or 0
-            else:
-                max_order = Field.objects.filter(
-                    template=self.template,
-                    page__isnull=True
-                ).aggregate(models.Max('order'))['order__max'] or 0
-            
-            self.order = max_order + 1
-        
-        super().save(*args, **kwargs)
-    
-    @property
-    def choices(self):
-        """Получение списка выбора (совместимость)."""
-        if self.type in ['choice', 'multi_choice']:
-            return self.attributes.get('choices', [])
-        return None
-    
-    @choices.setter
-    def choices(self, value):
-        """Установка списка выбора."""
-        if self.type in ['choice', 'multi_choice']:
-            self.attributes['choices'] = value
-        else:
-            raise ValueError(f"Field type {self.type} doesn't support choices")
     
     def __str__(self):
         if self.page:
             return f"{self.template.name} - Страница {self.page.index} - {self.key}"
         return f"{self.template.name} - Глобальное - {self.key}"
+
+
+@register()
+class FieldChoice(BaseModel):
+    """Варианты выбора для полей типа choices."""
+    field = models.ForeignKey(Field, on_delete=models.CASCADE, related_name="choices")
+    label = models.CharField(max_length=255, help_text="Отображаемое название")
+    value = models.CharField(max_length=255, help_text="Значение для шаблона")
+    order = models.PositiveIntegerField(default=0, help_text="Порядок отображения")
+    
+    class Meta:
+        ordering = ['field', 'order', 'created_at']
+        unique_together = [['field', 'value'], ['field', 'order']]
+    
+    def __str__(self):
+        return f"{self.field.key} - {self.label}"
 
 
 @register()

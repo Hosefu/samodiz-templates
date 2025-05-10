@@ -17,14 +17,14 @@ from reversion import revisions
 from apps.templates.models.unit_format import Unit, Format, FormatSetting
 from apps.templates.models.template import (
     Template, TemplatePermission, 
-    Page, PageSettings, Field, Asset
+    Page, PageSettings, Field, Asset, FieldChoice
 )
 from apps.templates.api.serializers import (
     UnitSerializer, FormatSerializer, FormatSettingSerializer, FormatDetailSerializer,
     TemplateListSerializer, TemplateDetailSerializer, TemplateCreateSerializer,
     TemplateVersionSerializer, TemplatePermissionSerializer,
     PageSerializer, PageSettingsSerializer, FieldSerializer, AssetSerializer,
-    VersionSerializer
+    VersionSerializer, FieldChoiceSerializer
 )
 from apps.templates.api.permissions import (
     IsTemplateOwnerOrReadOnly, IsTemplateContributor, 
@@ -77,27 +77,23 @@ class TemplateViewSet(RevisionMixin, viewsets.ModelViewSet):
     permission_classes = [IsTemplateOwnerOrReadOnly]
     
     def get_queryset(self):
-        """Фильтрация шаблонов на основе прав доступа."""
+        """Получение списка шаблонов с учетом прав доступа."""
         user = self.request.user
         
-        # Базовый queryset - все шаблоны
-        queryset = Template.objects.all()
+        if not user.is_authenticated:
+            # Анонимные пользователи видят только публичные шаблоны
+            return Template.objects.filter(is_public=True)
         
-        # Для аутентифицированных пользователей
-        if user and user.is_authenticated:
-            # Администраторы видят все
-            if user.is_staff:
-                return queryset
-            
-            # Обычные пользователи: свои + публичные + с предоставленным доступом
-            return queryset.filter(
-                Q(owner=user) |  # Свои
-                Q(is_public=True) |  # Публичные
-                Q(permissions__grantee=user)  # С предоставленным доступом
-            ).distinct()
+        if user.is_staff:
+            # Администраторы видят все шаблоны
+            return Template.objects.all()
         
-        # Для неаутентифицированных - только публичные
-        return queryset.filter(is_public=True)
+        # Обычные пользователи видят свои шаблоны и те, к которым имеют доступ
+        return Template.objects.filter(
+            Q(owner=user) |  # Владелец
+            Q(is_public=True) |  # Публичные шаблоны
+            Q(permissions__grantee=user)  # Шаблоны с доступом
+        ).distinct()
     
     def get_serializer_class(self):
         """Выбор сериализатора в зависимости от действия."""
@@ -224,6 +220,13 @@ class TemplateViewSet(RevisionMixin, viewsets.ModelViewSet):
         
         serializer = TemplatePermissionSerializer(permissions, many=True)
         return Response(serializer.data)
+
+    @action(detail=True, methods=['get'])
+    def fields_for_generation(self, request, pk=None):
+        """Получение полей для генерации документа."""
+        template = self.get_object()
+        fields = template.fields.all().order_by('page', 'order')
+        return Response(FieldSerializer(fields, many=True).data)
 
 
 class PageViewSet(viewsets.ModelViewSet):
@@ -418,3 +421,35 @@ class TemplatePermissionViewSet(viewsets.ModelViewSet):
             )
         
         return super().destroy(request, *args, **kwargs)
+
+
+class FieldChoiceViewSet(viewsets.ModelViewSet):
+    """API для работы с вариантами выбора поля."""
+    
+    serializer_class = FieldChoiceSerializer
+    permission_classes = [IsAuthenticated, IsTemplateOwnerOrReadOnly]
+    
+    def get_queryset(self):
+        """Получение вариантов выбора определенного поля."""
+        field_id = self.kwargs.get('field_id')
+        return FieldChoice.objects.filter(field_id=field_id).order_by('order')
+    
+    def perform_create(self, serializer):
+        """Создание нового варианта выбора."""
+        field_id = self.kwargs.get('field_id')
+        field = get_object_or_404(Field, id=field_id)
+        
+        # Проверяем, что поле имеет тип choices
+        if field.type != 'choices':
+            return Response(
+                {"detail": "Варианты выбора можно добавлять только для полей типа choices."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Определяем порядок нового варианта
+        if 'order' not in serializer.validated_data:
+            last_choice = field.choices.order_by('-order').first()
+            order = 1 if not last_choice else last_choice.order + 1
+            serializer.save(field=field, order=order)
+        else:
+            serializer.save(field=field)
