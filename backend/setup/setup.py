@@ -222,152 +222,61 @@ def setup_template():
     
     # Проверяем, существует ли уже шаблон
     if Template.objects.filter(name="Визитка RWB").exists():
-        logger.info("RWB business card template already exists, skipping")
-        return
+        # Обновляем существующий шаблон для использования нового синтаксиса
+        template = Template.objects.get(name="Визитка RWB")
+        
+        # Читаем обновленный HTML
+        try:
+            with open(HTML_PATH, 'r', encoding='utf-8') as f:
+                html_template = f.read()
+            
+            template.html = html_template
+            template.save()
+            
+            # Обновляем HTML первой страницы
+            first_page = template.pages.first()
+            if first_page:
+                first_page.html = html_template
+                first_page.save()
+            
+            logger.info("Updated RWB business card template with new asset syntax")
+            return
+            
+        except Exception as e:
+            logger.error(f"Error updating template: {e}")
+            return
     
-    # HTML для шаблона
+    # Создаем новый шаблон
     try:
         with open(HTML_PATH, 'r', encoding='utf-8') as f:
             html_template = f.read()
+            
+        template = Template.objects.create(
+            name="Визитка RWB",
+            description="Бизнес-визитка в стиле RWB",
+            html=html_template,
+            format=pdf_format,
+            width=95,
+            height=65,
+            unit=mm_unit,
+            created_by=admin,
+            updated_by=admin,
+            is_public=True
+        )
+        
+        # Создаем первую страницу
+        template.pages.create(
+            index=0,
+            html=html_template,
+            created_by=admin,
+            updated_by=admin
+        )
+        
+        logger.info("Created RWB business card template")
         
     except Exception as e:
-        logger.error(f"Error reading HTML template: {e}")
+        logger.error(f"Error creating template: {e}")
         return
-    
-    # Создаем шаблон с использованием django-reversion
-    with transaction.atomic():
-        with revisions.create_revision():
-            template = Template.objects.create(
-                name="Визитка RWB",
-                owner=admin,
-                is_public=True,
-                format=pdf_format,
-                unit=mm_unit,
-                description="Шаблон визитки для RWB",
-                html=html_template
-            )
-            
-            # Создаем страницу
-            page = Page.objects.create(
-                template=template,
-                index=1,
-                html=html_template,
-                width=90,
-                height=50
-            )
-            
-            # Создаем поля, привязанные к странице (локальные)
-            fields = [
-                {
-                    'key': 'first_name',
-                    'label': 'Имя',
-                    'is_required': True
-                },
-                {
-                    'key': 'last_name',
-                    'label': 'Фамилия',
-                    'is_required': True
-                },
-                {
-                    'key': 'patronymic',
-                    'label': 'Отчество',
-                    'is_required': True
-                },
-                {
-                    'key': 'position',
-                    'label': 'Должность',
-                    'is_required': True
-                },
-                {
-                    'key': 'phone',
-                    'label': 'Телефон',
-                    'is_required': True
-                },
-                {
-                    'key': 'email',
-                    'label': 'Email',
-                    'is_required': True
-                }
-            ]
-            
-            # Создаем поля с уникальными значениями order
-            for i, field_data in enumerate(fields, start=1):  # Начинаем с 1
-                Field.objects.create(
-                    template=template,
-                    page=page,  # Привязка к странице делает поле локальным
-                    key=field_data['key'],
-                    label=field_data['label'],
-                    is_required=field_data['is_required'],
-                    order=i  # Добавляем уникальный order
-                )
-                logger.info(f"Created field: {field_data['key']}")
-            
-    # Копируем шрифт из директории assets и загружаем его через Ceph
-    src_font_path = os.path.join(ASSETS_DIR, 'InterDisplay-Regular.ttf')
-    if not os.path.exists(ASSETS_DIR):
-        logger.warning(f"Assets directory {ASSETS_DIR} not found, creating it")
-        os.makedirs(ASSETS_DIR, exist_ok=True)
-        
-    if not os.path.exists(src_font_path):
-        logger.warning(f"Font file not found at {src_font_path}, downloading default font")
-        # Здесь можно добавить код для скачивания шрифта или использования встроенного
-        import urllib.request
-        font_url = "https://fonts.googleapis.com/css2?family=Inter:wght@400&display=swap"
-        try:
-            urllib.request.urlretrieve(font_url, src_font_path)
-        except Exception as e:
-            logger.error(f"Error downloading font: {e}")
-            # Создать пустой файл шрифта или пропустить
-            with open(src_font_path, 'wb') as f:
-                f.write(b'')
-    
-    if os.path.exists(src_font_path):
-        try:
-            # Читаем файл шрифта
-            with open(src_font_path, 'rb') as f:
-                font_data = f.read()
-            
-            # Получаем размер файла
-            font_size = len(font_data)
-            
-            # Загружаем файл через Ceph клиент
-            folder = f"templates/{template.id}/assets"
-            key, url = ceph_client.upload_file(
-                file_obj=BytesIO(font_data),
-                folder=folder,
-                filename="InterDisplay-Regular.ttf",
-                content_type="font/ttf"
-            )
-            
-            logger.info(f"Uploaded font to Ceph: {url}")
-            
-            # Создаем запись о шрифте в базе данных - делаем локальным для страницы
-            Asset.objects.create(
-                template=template,
-                page=page,  # Привязываем к странице, делая локальным
-                name="InterDisplay-Regular.ttf",
-                file=url,  # Сохраняем URL вместо key
-                size_bytes=font_size,
-                mime_type="font/ttf"
-            )
-            logger.info(f"Added font asset: InterDisplay-Regular.ttf")
-            
-            # Проверяем доступность файла
-            try:
-                font_content = ceph_client.download_file(key)
-                if font_content and len(font_content) == font_size:
-                    logger.info(f"Font file successfully verified in storage: {key}")
-                else:
-                    logger.error(f"Font file size mismatch in storage: expected {font_size}, got {len(font_content) if font_content else 0}")
-            except Exception as e:
-                logger.error(f"Error verifying font file: {e}")
-            
-        except Exception as e:
-            logger.error(f"Error uploading font file: {e}")
-    else:
-        logger.warning(f"Font file not found at {src_font_path}")
-    
-    logger.info(f"Created RWB business card template with ID {template.id}")
 
 @transaction.atomic
 def main():

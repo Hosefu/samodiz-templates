@@ -60,6 +60,22 @@ class TemplateRenderer:
             # Ограничиваем список поддерживаемых тегов
             extensions=[],
         )
+        
+        # Добавляем функцию для работы с ассетами
+        self.environment.globals['asset'] = self._asset_function
+        
+        # Храним контекст для доступа к template_id и page_id
+        self._template_id = None
+        self._page_id = None
+    
+    def _asset_function(self, asset_name):
+        """Функция для получения URL ассета внутри шаблона."""
+        if not self._template_id:
+            logger.warning("asset() called without template_id")
+            return ""
+        
+        url = asset_helper.get_asset_url(self._template_id, asset_name, self._page_id)
+        return url
     
     def validate_template(self, html: str) -> List[Dict[str, Any]]:
         """
@@ -112,7 +128,8 @@ class TemplateRenderer:
         for match in re.finditer(var_pattern, html):
             field_name = match.group(1).strip()
             # Исключаем составные пути (только верхний уровень)
-            if '.' not in field_name:
+            # И исключаем вызовы функций (например, asset())
+            if '.' not in field_name and '(' not in field_name:
                 fields.add(field_name)
         
         # Также ищем переменные в условиях {% if field %}
@@ -124,45 +141,9 @@ class TemplateRenderer:
         
         return sorted(list(fields))
     
-    def process_assets(self, html: str, template_id, page_id=None) -> str:
-        """
-        Заменяет теги {{asset:имя_файла}} на URL соответствующих ассетов.
-        
-        Приоритет поиска ассетов:
-        1. Если указан page_id - сначала ищем среди ассетов страницы
-        2. Затем ищем среди глобальных ассетов шаблона
-        3. Если не найден - оставляем placeholder
-        
-        Args:
-            html: HTML с тегами ассетов
-            template_id: ID шаблона
-            page_id: (optional) ID страницы для поиска локальных ассетов
-            
-        Returns:
-            str: HTML с замененными ссылками на ассеты
-        """
-        if not template_id:
-            logger.warning("process_assets called without template_id")
-            return html
-        
-        # Регулярное выражение для поиска {{asset:filename}}
-        asset_pattern = r'\{\{asset:([^}]+)\}\}'
-        
-        def replace_asset(match):
-            asset_name = match.group(1).strip()
-            url = asset_helper.get_asset_url(template_id, asset_name, page_id)
-            if url:
-                logger.debug(f"Replacing {{{{asset:{asset_name}}}}} with {url}")
-            return url
-        
-        # Применяем замену
-        result = re.sub(asset_pattern, replace_asset, html)
-        
-        return result
-    
     def render_template(self, html: str, data: Dict[str, Any], template_id=None, page_id=None) -> str:
         """
-        Рендерит HTML-шаблон с подстановкой данных и обработкой ассетов.
+        Рендерит HTML-шаблон с подстановкой данных.
         
         Args:
             html: HTML-код с Jinja выражениями
@@ -171,21 +152,21 @@ class TemplateRenderer:
             page_id: (optional) ID страницы для поиска локальных ассетов
             
         Returns:
-            str: Отрендеренный HTML с обработанными ассетами
+            str: Отрендеренный HTML
             
         Raises:
             TemplateProcessingError: В случае ошибки рендеринга
         """
         try:
+            # Устанавливаем контекст для функции asset
+            self._template_id = template_id
+            self._page_id = page_id
+            
             # Создаем шаблон из строки
             template = self.environment.from_string(html)
             
             # Рендерим с переданными данными
             rendered_html = template.render(**data)
-            
-            # Обрабатываем ассеты, если указан ID шаблона
-            if template_id:
-                rendered_html = self.process_assets(rendered_html, template_id, page_id)
             
             return rendered_html
             
@@ -195,11 +176,16 @@ class TemplateRenderer:
             
         except exceptions.UndefinedError as e:
             logger.error(f"Undefined variable error: {e}")
-            raise TemplateProcessingError(f"Ошибка неопределенной переменной: {str(e)}")
+            # Позволяем неопределенным переменным быть пустыми
+            return ""
             
         except Exception as e:
             logger.error(f"Template rendering error: {e}")
             raise TemplateProcessingError(f"Ошибка рендеринга шаблона: {str(e)}")
+        finally:
+            # Очищаем контекст
+            self._template_id = None
+            self._page_id = None
 
 
 # Синглтон-инстанс для удобного импорта
