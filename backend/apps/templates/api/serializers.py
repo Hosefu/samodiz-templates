@@ -60,10 +60,27 @@ class FieldSerializer(serializers.ModelSerializer):
     class Meta:
         model = Field
         fields = [
-            'id', 'page', 'name', 'type', 'required',
-            'description', 'default_value', 'choices'
+            'id', 'page', 'key', 'label', 'is_required', 
+            'default_value', 'is_choices', 'choices'
         ]
         read_only_fields = ['id']
+
+    def to_representation(self, instance):
+        """Настраиваем представление поля."""
+        data = super().to_representation(instance)
+        
+        # Переименовываем is_required в required для API
+        data['required'] = data.pop('is_required', False)
+        
+        # Добавляем page_number для удобства
+        if instance.page:
+            data['page_number'] = instance.page.index
+            data['is_global'] = False
+        else:
+            data['is_global'] = True
+            data['page_number'] = None
+        
+        return data
 
 
 class AssetSerializer(serializers.ModelSerializer):
@@ -81,14 +98,40 @@ class PageSerializer(serializers.ModelSerializer):
     settings = PageSettingsSerializer(many=True, read_only=True)
     fields = FieldSerializer(many=True, read_only=True)
     assets = AssetSerializer(many=True, read_only=True)
+    html = serializers.SerializerMethodField()
     
     class Meta:
         model = Page
         fields = [
             'id', 'template', 'index', 'width', 'height',
-            'settings', 'fields', 'assets'
+            'settings', 'fields', 'assets', 'html'
         ]
         read_only_fields = ['id']
+    
+    def get_html(self, obj):
+        """Возвращает HTML только для владельца или редактора."""
+        request = self.context.get('request')
+        
+        if not request or not request.user:
+            return None
+        
+        # Владелец или администратор всегда получает HTML
+        if obj.template.owner == request.user or (request.user.is_authenticated and request.user.is_staff):
+            return obj.html
+        
+        # Проверяем права редактора
+        if request.user.is_authenticated:
+            permission = TemplatePermission.objects.filter(
+                template=obj.template,
+                grantee=request.user,
+                role__in=['editor', 'owner']
+            ).exists()
+            
+            if permission:
+                return obj.html
+        
+        # Всем остальным HTML не показываем
+        return None
 
 
 class TemplatePermissionSerializer(serializers.ModelSerializer):
@@ -125,9 +168,35 @@ class TemplateDetailSerializer(TemplateListSerializer):
     
     pages = PageSerializer(many=True, read_only=True)
     permissions = TemplatePermissionSerializer(many=True, read_only=True)
+    html = serializers.SerializerMethodField()
     
     class Meta(TemplateListSerializer.Meta):
         fields = TemplateListSerializer.Meta.fields + ['html', 'pages', 'permissions']
+    
+    def get_html(self, obj):
+        """Возвращает HTML только для владельца или редактора."""
+        request = self.context.get('request')
+        
+        if not request or not request.user:
+            return None
+        
+        # Владелец или администратор всегда получает HTML
+        if obj.owner == request.user or (request.user.is_authenticated and request.user.is_staff):
+            return obj.html
+        
+        # Проверяем права редактора
+        if request.user.is_authenticated:
+            permission = TemplatePermission.objects.filter(
+                template=obj,
+                grantee=request.user,
+                role__in=['editor', 'owner']
+            ).exists()
+            
+            if permission:
+                return obj.html
+        
+        # Всем остальным HTML не показываем
+        return None
 
 
 class TemplateCreateSerializer(serializers.ModelSerializer):

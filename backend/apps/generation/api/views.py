@@ -154,32 +154,44 @@ class GenerateDocumentView(views.APIView):
     
     @action(detail=True, methods=['get'], url_path='fields')
     def get_template_fields(self, request, template_id=None):
-        """Возвращает список полей шаблона для генерации документа."""
+        """Возвращает структурированный список полей шаблона."""
         template = get_object_or_404(Template, id=template_id)
         self.check_object_permissions(request, template)
         
-        fields = template.fields.all().order_by('page', 'key')
+        # Собираем все поля
+        fields = template.fields.all().order_by('page__index', 'key')
         
-        # Формируем список полей с метаданными
-        field_data = []
+        # Структурируем данные
+        result = {
+            'global_fields': [],
+            'page_fields': {}
+        }
+        
         for field in fields:
             field_info = {
                 'key': field.key,
                 'label': field.label,
                 'required': field.is_required,
-                'page': field.page.index if field.page else None,
-                'is_global': field.page is None,
             }
             
             if field.default_value:
                 field_info['default_value'] = field.default_value
                 
-            if field.is_choices:
+            if field.is_choices and field.choices:
+                field_info['is_choices'] = True
                 field_info['choices'] = field.choices
                 
-            field_data.append(field_info)
+            if field.page is None:
+                # Глобальное поле
+                result['global_fields'].append(field_info)
+            else:
+                # Поле страницы
+                page_key = str(field.page.index)
+                if page_key not in result['page_fields']:
+                    result['page_fields'][page_key] = []
+                result['page_fields'][page_key].append(field_info)
         
-        return Response(field_data)
+        return Response(result)
 
 
 class RenderTaskViewSet(viewsets.ReadOnlyModelViewSet):

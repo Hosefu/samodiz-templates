@@ -15,15 +15,15 @@ class IsTemplateOwnerOrReadOnly(permissions.BasePermission):
     
     def has_permission(self, request, view):
         """Проверка базовых разрешений."""
-        # Только аутентифицированные пользователи
-        if not request.user or not request.user.is_authenticated:
-            return False
-        
-        # Разрешаем GET, HEAD, OPTIONS всем аутентифицированным
+        # Разрешаем GET, HEAD, OPTIONS для всех пользователей (включая анонимных)
         if request.method in permissions.SAFE_METHODS:
             return True
         
-        # Для создания нового шаблона не требуется дополнительных проверок
+        # Для остальных методов требуется аутентификация
+        if not request.user or not request.user.is_authenticated:
+            return False
+        
+        # Для создания нового шаблона требуется аутентификация
         if view.action == 'create':
             return True
         
@@ -31,11 +31,14 @@ class IsTemplateOwnerOrReadOnly(permissions.BasePermission):
     
     def has_object_permission(self, request, view, obj):
         """Проверка разрешений для конкретного объекта."""
-        # Разрешаем GET, HEAD, OPTIONS всем аутентифицированным
+        # Разрешаем GET, HEAD, OPTIONS для публичных шаблонов
         if request.method in permissions.SAFE_METHODS:
-            # Проверяем, имеет ли пользователь доступ к шаблону
             if obj.is_public:
                 return True
+            
+            # Для непубличных шаблонов проверяем аутентификацию
+            if not request.user or not request.user.is_authenticated:
+                return False
             
             if obj.owner == request.user:
                 return True
@@ -45,6 +48,10 @@ class IsTemplateOwnerOrReadOnly(permissions.BasePermission):
                 template=obj,
                 grantee=request.user
             ).exists()
+        
+        # Для остальных методов требуется аутентификация
+        if not request.user or not request.user.is_authenticated:
+            return False
         
         # Изменять и удалять может только владелец или администратор
         return obj.owner == request.user or request.user.is_staff
@@ -106,10 +113,6 @@ class IsTemplateViewerOrBetter(permissions.BasePermission):
     
     def has_permission(self, request, view):
         """Проверка базовых разрешений."""
-        # Только аутентифицированные пользователи
-        if not request.user or not request.user.is_authenticated:
-            return False
-        
         # Получаем ID шаблона из URL
         template_id = view.kwargs.get('pk') or view.kwargs.get('template_id')
         if not template_id:
@@ -118,12 +121,16 @@ class IsTemplateViewerOrBetter(permissions.BasePermission):
         try:
             template = Template.objects.get(id=template_id)
             
-            # Владелец и администраторы имеют полный доступ
-            if template.owner == request.user or request.user.is_staff:
-                return True
-            
             # Публичные шаблоны доступны всем
             if template.is_public:
+                return True
+            
+            # Для непубличных шаблонов требуется аутентификация
+            if not request.user or not request.user.is_authenticated:
+                return False
+            
+            # Владелец и администраторы имеют полный доступ
+            if template.owner == request.user or request.user.is_staff:
                 return True
             
             # Проверяем наличие любого разрешения

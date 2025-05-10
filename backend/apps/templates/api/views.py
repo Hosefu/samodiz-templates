@@ -79,19 +79,18 @@ class TemplateViewSet(RevisionMixin, viewsets.ModelViewSet):
     def get_queryset(self):
         """
         Фильтрация шаблонов на основе прав доступа.
-        
-        Возвращает:
-        - Все шаблоны, принадлежащие пользователю
-        - Публичные шаблоны
-        - Шаблоны, к которым у пользователя есть доступ через permissions
         """
+        # Анонимные пользователи видят только публичные шаблоны
+        if not self.request.user or not self.request.user.is_authenticated:
+            return Template.objects.filter(is_public=True)
+        
         user = self.request.user
         
         # Администраторы видят все шаблоны
         if user.is_staff:
             return Template.objects.all()
         
-        # Обычные пользователи видят свои + доступные им шаблоны
+        # Обычные пользователи видят свои + доступные им шаблоны + публичные
         return Template.objects.filter(
             Q(owner=user) |  # Свои
             Q(is_public=True) |  # Публичные

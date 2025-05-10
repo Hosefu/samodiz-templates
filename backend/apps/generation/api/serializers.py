@@ -14,6 +14,29 @@ class GenerateDocumentSerializer(serializers.Serializer):
     """
     data = serializers.DictField(required=True, help_text="Данные для подстановки в шаблон")
     
+    def _get_template_fields(self, template):
+        """Получает структурированный список полей шаблона."""
+        fields = []
+        for field in template.fields.all():
+            field_data = {
+                'key': field.key,
+                'label': field.label,
+                'required': field.is_required,
+                'page': field.page.index if field.page else None,
+                'is_global': field.page is None,
+            }
+            
+            if field.default_value:
+                field_data['default_value'] = field.default_value
+                
+            if field.is_choices and field.choices:
+                field_data['is_choices'] = True
+                field_data['choices'] = field.choices
+                
+            fields.append(field_data)
+                
+        return fields
+    
     def validate(self, attrs):
         """Валидирует данные на соответствие шаблону."""
         template = self.context.get('template')
@@ -22,33 +45,46 @@ class GenerateDocumentSerializer(serializers.Serializer):
         if template:
             is_valid, errors = TemplateDataValidator.validate_template_data(template, data)
             if not is_valid:
+                # Структурируем поля
+                all_fields = template.fields.all()
+                global_fields = []
+                page_fields = {}
+                
+                for field in all_fields:
+                    field_data = {
+                        'key': field.key,
+                        'label': field.label,
+                        'required': field.is_required,
+                    }
+                    
+                    if field.default_value:
+                        field_data['default_value'] = field.default_value
+                        
+                    if field.is_choices and field.choices:
+                        field_data['is_choices'] = True
+                        field_data['choices'] = field.choices
+                    
+                    if field.page is None:
+                        field_data['is_global'] = True
+                        global_fields.append(field_data)
+                    else:
+                        field_data['is_global'] = False
+                        field_data['page'] = field.page.index
+                        page_key = str(field.page.index)
+                        if page_key not in page_fields:
+                            page_fields[page_key] = []
+                        page_fields[page_key].append(field_data)
+                
                 raise serializers.ValidationError({
                     'detail': 'Ошибки в данных для шаблона',
                     'errors': errors,
-                    'expected_fields': self._get_template_fields(template)
+                    'expected_fields': {
+                        'global_fields': global_fields,
+                        'page_fields': page_fields
+                    }
                 })
         
         return attrs
-    
-    def _get_template_fields(self, template):
-        """Получает список полей шаблона для валидации."""
-        fields = []
-        for field in template.fields.all():
-            fields.append({
-                'key': field.key,
-                'label': field.label,
-                'required': field.is_required,
-                'page': field.page.index if field.page else None,
-                'is_global': field.page is None,
-            })
-            
-            if field.default_value:
-                fields[-1]['default_value'] = field.default_value
-                
-            if field.is_choices:
-                fields[-1]['choices'] = field.choices
-                
-        return fields
 
 
 class DocumentSerializer(serializers.ModelSerializer):
