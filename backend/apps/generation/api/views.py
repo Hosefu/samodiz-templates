@@ -13,6 +13,7 @@ from django_filters import rest_framework as filters
 from rest_framework.decorators import action
 from reversion import revisions
 from reversion.models import Version
+import requests
 
 from apps.templates.models import Template
 from apps.templates.api.permissions import IsPublicTemplateOrAuthenticated
@@ -215,6 +216,36 @@ class GenerateDocumentViewSet(viewsets.GenericViewSet):
         return Response({
             'global_fields': global_fields,
             'page_fields': page_fields
+        })
+    
+    @action(detail=True, methods=['get'], url_path='renderer-status')
+    def check_renderer_status(self, request, template_id=None):
+        """Проверяет доступность сервисов рендеринга."""
+        template = self.get_object()
+        
+        # Получаем URL рендерера из шаблона
+        renderer_url = template.format.render_url
+        
+        # Получаем URL для проверки здоровья из URL рендеринга
+        # Предполагаем, что health endpoint это тот же URL, но с заменой последнего сегмента
+        url_parts = renderer_url.split('/')
+        # Заменяем последний сегмент на health
+        url_parts[-1] = 'health'
+        health_url = '/'.join(url_parts)
+        
+        try:
+            response = requests.get(health_url, timeout=5)
+            status = 'available' if response.ok else 'error'
+            message = response.text if not response.ok else "Сервис доступен"
+        except Exception as e:
+            status = 'unavailable'
+            message = f"Ошибка подключения: {str(e)}"
+        
+        return Response({
+            'format': template.format.name,
+            'renderer_url': renderer_url,
+            'status': status,
+            'message': message
         })
     
     def _get_client_ip(self, request):

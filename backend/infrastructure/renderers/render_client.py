@@ -43,8 +43,13 @@ class RendererClient:
         elif renderer_url:
             self.renderer_url = renderer_url
         else:
-            # Если ничего не передано, это ошибка
-            raise ValueError(f"Must provide either renderer_url or format_obj for {format_type}")
+            # Если ничего не передано, пытаемся найти формат в БД
+            from apps.templates.models import Format
+            try:
+                fmt = Format.objects.get(name=format_type)
+                self.renderer_url = fmt.render_url
+            except Format.DoesNotExist:
+                raise ValueError(f"Format '{format_type}' not found in database")
         
         # Устанавливаем content_type
         if self.format_type == 'pdf':
@@ -99,6 +104,14 @@ class RendererClient:
             
             # Возвращаем байты документа и content-type
             return io.BytesIO(response.content), response.headers.get('Content-Type')
+        
+        except requests.exceptions.ConnectionError as e:
+            # Улучшаем сообщение об ошибке подключения
+            logger.error(f"Unable to connect to renderer at {self.renderer_url}: {e}")
+            raise RendererError(
+                f"Сервис рендеринга {self.format_type} недоступен. "
+                f"Проверьте, что микросервис {self.renderer_url} запущен и доступен."
+            ) from e
         
         except requests.RequestException as e:
             # Обрабатываем ошибки сетевых запросов
