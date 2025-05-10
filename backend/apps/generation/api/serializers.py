@@ -2,8 +2,21 @@
 Сериализаторы для API генерации документов.
 """
 from rest_framework import serializers
-from apps.generation.models import RenderTask, Document
+# Объединяем импорты моделей
+from apps.generation.models import (
+    RenderTask,
+    GeneratedDocument
+)
+from apps.templates.models import (
+    Template,
+    Page,
+    PageSettings,
+    Format,
+    FormatSetting,
+    Unit
+)
 from apps.generation.api.validators import TemplateDataValidator
+# from django.utils import timezone # Пока не используется здесь, можно будет добавить если нужно
 
 
 class GenerateDocumentSerializer(serializers.Serializer):
@@ -100,7 +113,7 @@ class DocumentSerializer(serializers.ModelSerializer):
     format = serializers.CharField(source='task.template.format.name', read_only=True)
     
     class Meta:
-        model = Document
+        model = GeneratedDocument
         fields = [
             'id', 'task', 'file', 'file_name', 'size_bytes', 
             'content_type', 'template_name', 'format', 'created_at'
@@ -143,3 +156,51 @@ class RenderTaskDetailSerializer(RenderTaskSerializer):
             'documents', 'user', 'request_ip', 'input_data', 'worker_id'
         ]
         read_only_fields = fields
+
+
+# Добавляемые сериализаторы
+class UnitSerializer(serializers.ModelSerializer):
+    """Сериализатор для единиц измерения."""
+    class Meta:
+        model = Unit
+        fields = ['id', 'key', 'name', 'description']
+
+class FormatSettingSerializer(serializers.ModelSerializer):
+    """Сериализатор для настроек формата."""
+    class Meta:
+        model = FormatSetting
+        fields = ['id', 'key', 'name', 'description', 'default_value', 'is_required']
+
+class FormatSerializer(serializers.ModelSerializer):
+    """Сериализатор для форматов документов."""
+    expected_settings = FormatSettingSerializer(many=True, read_only=True)
+    class Meta:
+        model = Format
+        fields = ['id', 'name', 'description', 'expected_settings', 'render_url']
+
+class PageSettingsSerializer(serializers.ModelSerializer):
+    """Сериализатор для настроек страницы шаблона."""
+    format_setting = FormatSettingSerializer(read_only=True)
+    class Meta:
+        model = PageSettings
+        fields = ['id', 'format_setting', 'value']
+
+class PageSerializer(serializers.ModelSerializer):
+    """Сериализатор для страниц шаблона."""
+    settings = PageSettingsSerializer(many=True, read_only=True)
+    class Meta:
+        model = Page
+        fields = ['id', 'index', 'html', 'width', 'height', 'settings']
+
+class TemplateSerializer(serializers.ModelSerializer):
+    """Сериализатор для шаблонов документов."""
+    pages = PageSerializer(many=True, read_only=True)
+    format = FormatSerializer(read_only=True)
+    unit = UnitSerializer(read_only=True)
+    class Meta:
+        model = Template
+        fields = [
+            'id', 'name', 'description', 'format', 'unit',
+            'pages', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['created_at', 'updated_at']

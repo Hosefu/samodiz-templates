@@ -12,7 +12,7 @@ from celery import shared_task, Task
 from celery.exceptions import MaxRetriesExceededError, SoftTimeLimitExceeded
 from reversion.models import Version
 
-from apps.generation.models import RenderTask, Document
+from apps.generation.models import RenderTask, GeneratedDocument
 from infrastructure.ceph import ceph_client
 from infrastructure.renderers.render_client import RendererClient
 
@@ -84,7 +84,7 @@ class RenderTaskBase(Task):
 
 
 @shared_task(bind=True, base=RenderTaskBase, time_limit=180)
-def render_pdf(self, task_id, html, options):
+def render_pdf(self, task_id, html, options, renderer_url=None):
     """
     Генерирует PDF документ на основе HTML.
     
@@ -92,6 +92,7 @@ def render_pdf(self, task_id, html, options):
         task_id: ID задачи RenderTask
         html: HTML-код для рендеринга
         options: Опции для рендеринга (формат, размеры и т.д.)
+        renderer_url: URL рендерера (опционально)
     """
     logger.info(f"Starting PDF rendering for task {task_id}")
     
@@ -109,8 +110,8 @@ def render_pdf(self, task_id, html, options):
             'progress': 10
         })
         
-        # Создаем клиент рендерера
-        renderer = RendererClient('pdf')
+        # Создаем клиент рендерера с переданным URL
+        renderer = RendererClient('pdf', renderer_url=renderer_url)
         
         # Отправляем запрос на рендеринг
         self._update_progress(task_id, 30)
@@ -135,7 +136,7 @@ def render_pdf(self, task_id, html, options):
         self._update_progress(task_id, 90)
         
         # Создаем запись о документе
-        document = Document.objects.create(
+        document = GeneratedDocument.objects.create(
             task=render_task,
             file=url,
             size_bytes=len(pdf_bytes),
@@ -176,7 +177,7 @@ def render_pdf(self, task_id, html, options):
 
 
 @shared_task(bind=True, base=RenderTaskBase, time_limit=180)
-def render_png(self, task_id, html, options):
+def render_png(self, task_id, html, options, renderer_url=None):
     """
     Генерирует PNG документ на основе HTML.
     
@@ -184,6 +185,7 @@ def render_png(self, task_id, html, options):
         task_id: ID задачи RenderTask
         html: HTML-код для рендеринга
         options: Опции для рендеринга (формат, размеры и т.д.)
+        renderer_url: URL рендерера (опционально)
     """
     logger.info(f"Starting PNG rendering for task {task_id}")
     
@@ -201,8 +203,8 @@ def render_png(self, task_id, html, options):
             'progress': 10
         })
         
-        # Создаем клиент рендерера
-        renderer = RendererClient('png')
+        # Создаем клиент рендерера с переданным URL
+        renderer = RendererClient('png', renderer_url=renderer_url)
         
         # Отправляем запрос на рендеринг
         self._update_progress(task_id, 30)
@@ -227,7 +229,7 @@ def render_png(self, task_id, html, options):
         self._update_progress(task_id, 90)
         
         # Создаем запись о документе
-        document = Document.objects.create(
+        document = GeneratedDocument.objects.create(
             task=render_task,
             file=url,
             size_bytes=len(png_bytes),
@@ -268,7 +270,7 @@ def render_png(self, task_id, html, options):
 
 
 @shared_task(bind=True, base=RenderTaskBase, time_limit=180)
-def render_svg(self, task_id, html, options):
+def render_svg(self, task_id, html, options, renderer_url=None):
     """
     Генерирует SVG документ на основе HTML.
     
@@ -276,6 +278,7 @@ def render_svg(self, task_id, html, options):
         task_id: ID задачи RenderTask
         html: HTML-код для рендеринга
         options: Опции для рендеринга (формат, размеры и т.д.)
+        renderer_url: URL рендерера (опционально)
     """
     logger.info(f"Starting SVG rendering for task {task_id}")
     
@@ -293,8 +296,8 @@ def render_svg(self, task_id, html, options):
             'progress': 10
         })
         
-        # Создаем клиент рендерера
-        renderer = RendererClient('svg')
+        # Создаем клиент рендерера с переданным URL
+        renderer = RendererClient('svg', renderer_url=renderer_url)
         
         # Отправляем запрос на рендеринг
         self._update_progress(task_id, 30)
@@ -319,7 +322,7 @@ def render_svg(self, task_id, html, options):
         self._update_progress(task_id, 90)
         
         # Создаем запись о документе
-        document = Document.objects.create(
+        document = GeneratedDocument.objects.create(
             task=render_task,
             file=url,
             size_bytes=len(svg_bytes),

@@ -20,7 +20,7 @@ class Template(BaseModel):
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name="templates",
+        related_name="legacy_owner_templates",
         help_text="Владелец шаблона"
     )
     is_public = models.BooleanField(default=False, help_text="Опубликовано?")

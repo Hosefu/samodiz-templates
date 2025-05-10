@@ -2,12 +2,12 @@
 URL-маршруты для API шаблонов.
 """
 from django.urls import path, include
+from django.utils.module_loading import import_string
 from rest_framework.routers import DefaultRouter
 from apps.templates.api.views import (
     TemplateViewSet, PageViewSet, FieldViewSet, 
     AssetViewSet, TemplatePermissionViewSet, FieldChoiceViewSet
 )
-from apps.generation.api.views import GenerateDocumentView
 
 # Создаем основной роутер
 router = DefaultRouter()
@@ -83,12 +83,15 @@ template_nested_routes = [
     }), name='template-permission-detail'),
     
     # Генерация документа
-    path('generate/', GenerateDocumentView.as_view(), name='template-generate'),
+    path('generate/', import_string('apps.generation.api.views.GenerateDocumentView').as_view({'post': 'post'}), name='template-generate'),
     
-    # Получение полей для генерации
-    path('fields-for-generation/', 
-         GenerateDocumentView.as_view(http_method_names=['get']),
-         name='template-generation-fields'),
+    # Получение полей для генерации (используя get_template_fields из GenerateDocumentView)
+    path('fields/', import_string('apps.generation.api.views.GenerateDocumentView').as_view({'get': 'get_template_fields'}), name='template-get-fields'),
+    
+    # Закомментированный старый URL можно будет удалить позже, если новый подход работает
+    # path('fields-for-generation/', 
+    #      'apps.generation.api.views.GenerateDocumentView', # TODO: Разобраться как правильно указать http_method_names=['get'] или переделать
+    #      name='template-generation-fields'),
 ]
 
 urlpatterns = [

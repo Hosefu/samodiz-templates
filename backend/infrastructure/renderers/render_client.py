@@ -7,7 +7,7 @@ import io
 import json
 import logging
 import requests
-from typing import Tuple, Dict, Any, BinaryIO, Union
+from typing import Tuple, Dict, Any, BinaryIO, Union, Optional
 from django.conf import settings
 
 logger = logging.getLogger(__name__)
@@ -25,30 +25,37 @@ class RendererClient:
     Поддерживает различные форматы: PDF, PNG, SVG.
     """
     
-    def __init__(self, format_type: str):
+    def __init__(self, format_type: str, renderer_url: Optional[str] = None):
         """
         Инициализирует клиент для указанного формата.
         
         Args:
             format_type: Тип формата ('pdf', 'png', 'svg')
-        
-        Raises:
-            ValueError: Если указан неподдерживаемый формат
+            renderer_url: (optional) URL рендерера. Если не указан, используется из settings
         """
         self.format_type = format_type.lower()
         
-        # Определяем URL рендерера в зависимости от формата
+        # Если URL передан явно, используем его
+        if renderer_url:
+            self.renderer_url = renderer_url
+        else:
+            # Иначе используем настройки из settings (fallback)
+            if self.format_type == 'pdf':
+                self.renderer_url = settings.PDF_RENDERER_URL
+            elif self.format_type == 'png':
+                self.renderer_url = settings.PNG_RENDERER_URL
+            elif self.format_type == 'svg':
+                self.renderer_url = settings.SVG_RENDERER_URL
+            else:
+                raise ValueError(f"Unsupported format type: {format_type}")
+        
+        # Устанавливаем content_type
         if self.format_type == 'pdf':
-            self.renderer_url = settings.PDF_RENDERER_URL
             self.content_type = 'application/pdf'
         elif self.format_type == 'png':
-            self.renderer_url = settings.PNG_RENDERER_URL
             self.content_type = 'image/png'
         elif self.format_type == 'svg':
-            self.renderer_url = settings.SVG_RENDERER_URL
             self.content_type = 'image/svg+xml'
-        else:
-            raise ValueError(f"Unsupported format type: {format_type}")
         
         logger.debug(f"Initialized {self.format_type} renderer client with URL: {self.renderer_url}")
     
