@@ -100,8 +100,11 @@ class RenderingMixin:
         logger.info(f"Starting {format_type.upper()} rendering for task {task_id}")
         
         try:
-            # Обновляем статус задачи
+            # Получаем задачу и формат
             render_task = RenderTask.objects.get(id=task_id)
+            format_obj = render_task.template.format
+            
+            # Обновляем статус задачи
             render_task.status = 'processing'
             render_task.save(update_fields=['status'])
             
@@ -111,8 +114,8 @@ class RenderingMixin:
                 'progress': 10
             })
             
-            # Создаем клиент рендерера
-            renderer = RendererClient(format_type, renderer_url=renderer_url)
+            # Создаем клиент рендерера с объектом Format
+            renderer = RendererClient(format_type, format_obj=format_obj)
             
             # Обновляем прогресс
             self._update_progress(task_id, 30)

@@ -25,29 +25,26 @@ class RendererClient:
     Поддерживает различные форматы: PDF, PNG, SVG.
     """
     
-    def __init__(self, format_type: str, renderer_url: Optional[str] = None):
+    def __init__(self, format_type: str, renderer_url: Optional[str] = None, format_obj: Optional['Format'] = None):
         """
         Инициализирует клиент для указанного формата.
         
         Args:
             format_type: Тип формата ('pdf', 'png', 'svg')
-            renderer_url: (optional) URL рендерера. Если не указан, используется из settings
+            renderer_url: (optional) URL рендерера
+            format_obj: (optional) Объект Format из БД
         """
         self.format_type = format_type.lower()
         
+        # Если передан объект Format, используем его URL
+        if format_obj:
+            self.renderer_url = format_obj.render_url
         # Если URL передан явно, используем его
-        if renderer_url:
+        elif renderer_url:
             self.renderer_url = renderer_url
         else:
-            # Иначе используем настройки из settings (fallback)
-            if self.format_type == 'pdf':
-                self.renderer_url = settings.PDF_RENDERER_URL
-            elif self.format_type == 'png':
-                self.renderer_url = settings.PNG_RENDERER_URL
-            elif self.format_type == 'svg':
-                self.renderer_url = settings.SVG_RENDERER_URL
-            else:
-                raise ValueError(f"Unsupported format type: {format_type}")
+            # Если ничего не передано, это ошибка
+            raise ValueError(f"Must provide either renderer_url or format_obj for {format_type}")
         
         # Устанавливаем content_type
         if self.format_type == 'pdf':

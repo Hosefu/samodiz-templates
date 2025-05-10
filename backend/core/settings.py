@@ -179,11 +179,6 @@ TIME_ZONE = 'Europe/Moscow'
 USE_I18N = True
 USE_TZ = True
 
-# Renderer services
-PDF_RENDERER_URL = os.environ.get('PDF_RENDERER_URL', 'http://pdf-renderer:8081/api/pdf/render')
-PNG_RENDERER_URL = os.environ.get('PNG_RENDERER_URL', 'http://png-renderer:8082/api/png/render')
-SVG_RENDERER_URL = os.environ.get('SVG_RENDERER_URL', 'http://svg-renderer:8083/api/svg/render')
-
 # Asset upload settings
 MAX_UPLOAD_SIZE = 10 * 1024 * 1024  # 10MB
 

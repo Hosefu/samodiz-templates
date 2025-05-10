@@ -2,10 +2,9 @@
 Сервис для генерации документов.
 """
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from django.db import transaction
 from django.utils import timezone
-from reversion import revisions
 from reversion.models import Version
 
 from apps.templates.models.template import Template
@@ -56,18 +55,15 @@ class DocumentGenerationService:
         """
         try:
             with transaction.atomic():
-                # Создаем или получаем версию шаблона
-                version = cls._ensure_template_version(template, user)
-                
-                # Создаем задачу рендеринга
-                task = cls._create_render_task(template, version, user, request_ip, data)
+                # Создаем задачу рендеринга (без создания версии)
+                task = cls._create_render_task(template, user, request_ip, data)
                 
                 # Подготавливаем данные для рендеринга
                 rendered_html = cls._prepare_template_html(template, data)
                 options = cls._prepare_render_options(template)
                 
                 # Запускаем задачу рендеринга
-                cls._start_render_task(task, rendered_html, options, template.format.name)
+                cls._start_render_task(task, rendered_html, options, template.format)
                 
                 return task
                 
@@ -76,39 +72,20 @@ class DocumentGenerationService:
             raise DocumentGenerationError(f"Ошибка генерации документа: {str(e)}") from e
     
     @staticmethod
-    def _ensure_template_version(template: Template, user) -> Version:
-        """Создает или получает версию шаблона."""
-        # Получаем последнюю версию шаблона
-        versions = Version.objects.get_for_object(template)
-        current_version = versions.first()
-        
-        # Если версии нет, создаем
-        if not current_version:
-            with revisions.create_revision():
-                template.save()
-                revisions.set_user(user)
-                revisions.set_comment("Auto-created during document generation")
-            
-            current_version = Version.objects.get_for_object(template).first()
-            
-            if not current_version:
-                raise DocumentGenerationError("Failed to create template version")
-        
-        return current_version
-    
-    @staticmethod
     def _create_render_task(
         template: Template,
-        version: Version,
         user,
         request_ip: str,
         data: Dict[str, Any]
     ) -> RenderTask:
         """Создает задачу рендеринга."""
+        # Если нужно сохранить информацию о версии шаблона - берем текущую
+        version = Version.objects.get_for_object(template).first()
+        
         return RenderTask.objects.create(
             template=template,
-            version_id=version.id,
-            user=user,
+            version_id=version.id if version else None,  # Сохраняем версию шаблона для истории
+            user=user if not user.is_anonymous else None,
             request_ip=request_ip,
             data_input=data,
             status='pending',
@@ -167,16 +144,15 @@ class DocumentGenerationService:
         task: RenderTask,
         html: str,
         options: Dict[str, Any],
-        format_name: str
+        format_obj: 'Format'  # Передаем весь объект Format
     ):
         """Запускает задачу рендеринга."""
         # Получаем соответствующую задачу Celery
-        celery_task_func = cls.FORMAT_TASKS.get(format_name.lower())
+        celery_task_func = cls.FORMAT_TASKS.get(format_obj.name.lower())
         if not celery_task_func:
-            raise DocumentGenerationError(f"Неподдерживаемый формат: {format_name}")
+            raise DocumentGenerationError(f"Неподдерживаемый формат: {format_obj.name}")
         
-        # Получаем URL рендерера из формата
-        format_obj = Template.objects.get(id=task.template.id).format
+        # Используем URL рендерера из формата
         renderer_url = format_obj.render_url
         
         # Запускаем задачу Celery
