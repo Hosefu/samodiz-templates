@@ -29,9 +29,12 @@ class GenerateDocumentSerializer(serializers.Serializer):
             if field.default_value:
                 field_data['default_value'] = field.default_value
                 
-            if field.is_choices and field.choices:
+            if field.type == 'choices' and field.choices.exists():
                 field_data['is_choices'] = True
-                field_data['choices'] = field.choices
+                field_data['choices'] = [
+                    {'label': choice.label, 'value': choice.value}
+                    for choice in field.choices.all()
+                ]
                 
             fields.append(field_data)
                 
@@ -60,9 +63,12 @@ class GenerateDocumentSerializer(serializers.Serializer):
                     if field.default_value:
                         field_data['default_value'] = field.default_value
                         
-                    if field.is_choices and field.choices:
+                    if field.type == 'choices' and field.choices.exists():
                         field_data['is_choices'] = True
-                        field_data['choices'] = field.choices
+                        field_data['choices'] = [
+                            {'label': choice.label, 'value': choice.value}
+                            for choice in field.choices.all()
+                        ]
                     
                     if field.page is None:
                         field_data['is_global'] = True

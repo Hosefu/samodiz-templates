@@ -100,7 +100,7 @@ class AssetSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Asset
-        fields = ['id', 'page', 'name', 'file', 'content_type']
+        fields = ['id', 'page', 'name', 'file', 'mime_type']
         read_only_fields = ['id']
 
 

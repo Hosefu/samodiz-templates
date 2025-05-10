@@ -15,7 +15,7 @@ from reversion import revisions
 from reversion.models import Version
 
 from apps.templates.models.template import Template
-from apps.templates.api.permissions import IsTemplateViewerOrBetter
+from apps.templates.api.permissions import IsPublicTemplateOrAuthenticated
 from apps.templates.services.templating import template_renderer
 from apps.generation.models import RenderTask, Document
 from apps.generation.api.serializers import (
@@ -34,7 +34,7 @@ class GenerateDocumentView(views.APIView):
     
     Принимает данные для подстановки в шаблон и запускает асинхронную задачу рендеринга.
     """
-    permission_classes = [IsAuthenticated, IsTemplateViewerOrBetter]
+    permission_classes = [IsPublicTemplateOrAuthenticated]
     
     def _get_client_ip(self, request):
         """Получает IP-адрес клиента."""

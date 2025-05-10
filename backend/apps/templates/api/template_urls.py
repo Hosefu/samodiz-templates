@@ -11,7 +11,7 @@ from apps.generation.api.views import GenerateDocumentView
 
 # Создаем основной роутер
 router = DefaultRouter()
-router.register(r'templates', TemplateViewSet, basename='template')
+router.register(r'', TemplateViewSet, basename='template')
 
 # Создаем вложенные пути для доступа к ресурсам шаблона
 template_nested_routes = [
@@ -93,5 +93,5 @@ template_nested_routes = [
 
 urlpatterns = [
     path('', include(router.urls)),
-    path('templates/<uuid:template_id>/', include(template_nested_routes)),
+    path('<uuid:template_id>/', include(template_nested_routes)),
 ]

@@ -141,3 +141,41 @@ class HasFormatAccess(permissions.BasePermission):
         """Проверка базовых разрешений."""
         # Только аутентифицированные пользователи
         return request.user and request.user.is_authenticated
+
+
+class IsPublicTemplateOrAuthenticated(permissions.BasePermission):
+    """
+    Разрешение для доступа к публичным шаблонам без аутентификации
+    и к приватным шаблонам с аутентификацией и проверкой прав.
+    """
+    
+    def has_permission(self, request, view):
+        """Проверка базовых разрешений."""
+        # Получаем ID шаблона из URL
+        template_id = view.kwargs.get('pk') or view.kwargs.get('template_id')
+        if not template_id:
+            return False
+        
+        try:
+            template = Template.objects.get(id=template_id)
+            
+            # Публичные шаблоны доступны всем
+            if template.is_public:
+                return True
+            
+            # Для непубличных шаблонов требуется аутентификация
+            if not request.user or not request.user.is_authenticated:
+                return False
+            
+            # Владелец и администраторы имеют полный доступ
+            if template.owner == request.user or request.user.is_staff:
+                return True
+            
+            # Проверяем наличие разрешения
+            return TemplatePermission.objects.filter(
+                template=template,
+                grantee=request.user
+            ).exists()
+        
+        except Template.DoesNotExist:
+            return False

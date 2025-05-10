@@ -27,8 +27,8 @@ class TemplateDataValidator:
         
         # Проверяем валидность выбора для полей с выбором
         for field in fields:
-            if field.is_choices and field.choices and field.key in data:
-                valid_values = [choice.get('value') for choice in field.choices]
+            if field.type == 'choices' and field.choices.exists() and field.key in data:
+                valid_values = [choice.value for choice in field.choices.all()]
                 if data[field.key] not in valid_values:
                     errors.append({
                         'field': field.key,
