@@ -230,11 +230,6 @@ def setup_template():
         with open(HTML_PATH, 'r', encoding='utf-8') as f:
             html_template = f.read()
         
-        # Обновляем путь к шрифту в HTML-шаблоне
-        html_template = html_template.replace(
-            "url('assets/InterDisplay-Regular.ttf')", 
-            "url('{{asset:InterDisplay-Regular.ttf}}')"
-        )
     except Exception as e:
         logger.error(f"Error reading HTML template: {e}")
         return
@@ -248,13 +243,11 @@ def setup_template():
                 is_public=True,
                 format=pdf_format,
                 unit=mm_unit,
-                description="Создать визитку для сотрудника RWB",
+                description="Шаблон визитки для RWB",
                 html=html_template
             )
-            revisions.set_user(admin)
-            revisions.set_comment("Initial revision")
             
-            # Создаем страницу визитки (стандартный размер 90х50 мм)
+            # Создаем страницу
             page = Page.objects.create(
                 template=template,
                 index=1,
@@ -262,6 +255,42 @@ def setup_template():
                 width=90,
                 height=50
             )
+            
+            # Создаем поля, привязанные к странице (локальные)
+            fields = [
+                {
+                    'key': 'name',
+                    'label': 'Имя',
+                    'is_required': True
+                },
+                {
+                    'key': 'position',
+                    'label': 'Должность',
+                    'is_required': True
+                },
+                {
+                    'key': 'phone',
+                    'label': 'Телефон',
+                    'is_required': True
+                },
+                {
+                    'key': 'email',
+                    'label': 'Email',
+                    'is_required': True
+                }
+            ]
+            
+            # Создаем поля с уникальными значениями order
+            for i, field_data in enumerate(fields, start=1):  # Начинаем с 1
+                Field.objects.create(
+                    template=template,
+                    page=page,  # Привязка к странице делает поле локальным
+                    key=field_data['key'],
+                    label=field_data['label'],
+                    is_required=field_data['is_required'],
+                    order=i  # Добавляем уникальный order
+                )
+                logger.info(f"Created field: {field_data['key']}")
             
     # Копируем шрифт из директории assets и загружаем его через Ceph
     src_font_path = os.path.join(ASSETS_DIR, 'InterDisplay-Regular.ttf')
@@ -327,29 +356,6 @@ def setup_template():
             logger.error(f"Error uploading font file: {e}")
     else:
         logger.warning(f"Font file not found at {src_font_path}")
-    
-    # Создаем поля для шаблона на основе используемых в HTML
-    fields = [
-        # Поля для визитки RWB
-        {'key': 'surname', 'label': 'Фамилия', 'is_required': True},
-        {'key': 'first_name', 'label': 'Имя', 'is_required': True},
-        {'key': 'patronymic', 'label': 'Отчество', 'is_required': False},
-        {'key': 'position', 'label': 'Должность', 'is_required': True},
-        {'key': 'address', 'label': 'Адрес', 'is_required': True},
-        {'key': 'number', 'label': 'Телефон', 'is_required': True},
-        {'key': 'email', 'label': 'Email', 'is_required': True},
-    ]
-    
-    # Создаем поля, привязанные к странице (локальные)
-    for field_data in fields:
-        Field.objects.create(
-            template=template,
-            page=page,  # Привязка к странице делает поле локальным
-            key=field_data['key'],
-            label=field_data['label'],
-            is_required=field_data['is_required']
-        )
-        logger.info(f"Created field: {field_data['key']}")
     
     logger.info(f"Created RWB business card template with ID {template.id}")
 

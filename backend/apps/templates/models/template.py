@@ -194,7 +194,7 @@ class Field(BaseModel):
     )
     
     # Позиционирование
-    order = models.PositiveIntegerField(default=0, help_text="Порядок отображения поля")
+    order = models.PositiveIntegerField(help_text="Порядок отображения поля")
     
     # Мета-информация о поле
     is_required = models.BooleanField(default=False)
@@ -204,8 +204,26 @@ class Field(BaseModel):
     
     class Meta:
         ordering = ['page', 'order', 'created_at']
-        unique_together = [['template', 'page', 'key'], ['template', 'page', 'order']]
+        unique_together = [['template', 'page', 'key']]
     
+    def save(self, *args, **kwargs):
+        # Автоматически назначаем order при создании, если не указан
+        if self.pk is None and self.order is None:
+            # Находим максимальный order для данного контекста
+            filters = {'template': self.template}
+            if self.page:
+                filters['page'] = self.page
+            else:
+                filters['page__isnull'] = True
+                
+            max_order = Field.objects.filter(**filters).aggregate(
+                max_order=models.Max('order')
+            )['max_order']
+            
+            self.order = (max_order or 0) + 1
+            
+        super().save(*args, **kwargs)
+
     def __str__(self):
         if self.page:
             return f"{self.template.name} - Страница {self.page.index} - {self.key}"

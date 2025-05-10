@@ -4,6 +4,7 @@
 from typing import Dict, Optional
 from django.db import transaction
 from django.core.exceptions import ValidationError
+from django.db.models import Max
 
 from apps.templates.models.template import Field
 
@@ -124,4 +125,28 @@ class FieldOrderingService:
                 ).update(order=models.F('order') + 1)
             
             # Устанавливаем новый порядок для поля
-            Field.objects.filter(id=field_id).update(order=new_position) 
+            Field.objects.filter(id=field_id).update(order=new_position)
+    
+    @staticmethod
+    def get_next_order(template_id: str, page_id: Optional[str] = None) -> int:
+        """
+        Получает следующий доступный порядковый номер для нового поля.
+        
+        Args:
+            template_id: ID шаблона
+            page_id: ID страницы (None для глобальных полей)
+            
+        Returns:
+            int: Следующий доступный порядковый номер
+        """
+        filters = {'template_id': template_id}
+        if page_id:
+            filters['page_id'] = page_id
+        else:
+            filters['page__isnull'] = True
+        
+        max_order = Field.objects.filter(**filters).aggregate(
+            max_order=Max('order')
+        )['max_order']
+        
+        return (max_order or 0) + 1 
