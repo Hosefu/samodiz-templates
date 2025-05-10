@@ -259,8 +259,18 @@ def setup_template():
             # Создаем поля, привязанные к странице (локальные)
             fields = [
                 {
-                    'key': 'name',
+                    'key': 'first_name',
                     'label': 'Имя',
+                    'is_required': True
+                },
+                {
+                    'key': 'last_name',
+                    'label': 'Фамилия',
+                    'is_required': True
+                },
+                {
+                    'key': 'patronymic',
+                    'label': 'Отчество',
                     'is_required': True
                 },
                 {

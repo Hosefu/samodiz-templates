@@ -28,6 +28,25 @@ from apps.generation.tasks.render import render_pdf, render_png, render_svg
 logger = logging.getLogger(__name__)
 
 
+def validate_template_syntax(html_content, data_sample=None):
+    """Валидирует синтаксис Jinja шаблона."""
+    try:
+        from apps.templates.services.templating import template_renderer
+        
+        # Проверяем синтаксис
+        errors = template_renderer.validate_template(html_content)
+        if errors:
+            return False, errors
+            
+        # Пробуем рендерить с пустыми данными
+        test_data = data_sample or {}
+        template_renderer.render_template(html_content, test_data)
+        
+        return True, None
+    except Exception as e:
+        return False, str(e)
+
+
 class GenerateDocumentView(views.APIView):
     """
     API для генерации документов на основе шаблонов.
@@ -64,7 +83,7 @@ class GenerateDocumentView(views.APIView):
                 if not current_version:
                     with revisions.create_revision():
                         template.save()
-                        revisions.set_user(request.user)
+                        revisions.set_user(request.user if request.user.is_authenticated else None)
                         revisions.set_comment("Auto-created during document generation")
                         current_version = Version.objects.get_for_object(template).first()
                 
@@ -72,7 +91,7 @@ class GenerateDocumentView(views.APIView):
                 task = RenderTask.objects.create(
                     template=template,
                     version_id=current_version.id,
-                    user=request.user,
+                    user=request.user if request.user.is_authenticated else None,
                     request_ip=self._get_client_ip(request),
                     data_input=serializer.validated_data,
                     status='pending',
@@ -87,11 +106,31 @@ class GenerateDocumentView(views.APIView):
                     # Получаем HTML шаблона из текущей версии
                     template_html = current_version.field_dict.get('html', template.html)
                     
+                    # Логируем данные для диагностики
+                    logger.info(f"Template HTML: {template_html[:200]}...")  # Первые 200 символов
+                    logger.info(f"User data: {data}")
+                    
+                    # Валидируем шаблон
+                    is_valid, validation_error = validate_template_syntax(template_html, data)
+                    if not is_valid:
+                        logger.error(f"Template validation failed: {validation_error}")
+                        task.status = 'failed'
+                        task.error = f"Ошибка валидации шаблона: {validation_error}"
+                        task.finished_at = timezone.now()
+                        task.save(update_fields=['status', 'error', 'finished_at'])
+                        return Response(
+                            {"detail": f"Ошибка валидации шаблона: {validation_error}"},
+                            status=status.HTTP_400_BAD_REQUEST
+                        )
+                    
                     # Рендерим шаблон по страницам
                     pages_html = []
                     for page in template.pages.all().order_by('index'):
                         # Получаем HTML страницы
                         page_html = page.html if page.html else template_html
+                        
+                        # Логируем HTML страницы
+                        logger.info(f"Page {page.index} HTML: {page_html[:200]}...")
                         
                         # Рендерим страницу с учетом локальных ассетов
                         rendered_page_html = template_renderer.render_template(
@@ -101,6 +140,9 @@ class GenerateDocumentView(views.APIView):
                             page_id=page.id  # Передаем ID страницы для поиска локальных ассетов
                         )
                         
+                        # Логируем результат рендеринга
+                        logger.info(f"Rendered page {page.index}: {rendered_page_html[:200]}...")
+                        
                         pages_html.append(rendered_page_html)
                     
                     # Объединяем все страницы
@@ -108,6 +150,10 @@ class GenerateDocumentView(views.APIView):
                     
                 except Exception as e:
                     logger.error(f"Template rendering error: {e}")
+                    logger.error(f"Template HTML: {template_html}")
+                    logger.error(f"User data: {data}")
+                    logger.exception("Full error traceback:")
+                    
                     task.status = 'failed'
                     task.error = f"Ошибка подготовки шаблона: {str(e)}"
                     task.finished_at = timezone.now()
