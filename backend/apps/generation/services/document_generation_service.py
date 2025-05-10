@@ -1,16 +1,14 @@
 """
 Сервис для генерации документов.
-Координирует весь процесс от получения данных до запуска задачи рендеринга.
 """
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 from django.db import transaction
 from django.utils import timezone
 from reversion import revisions
 from reversion.models import Version
 
 from apps.templates.models.template import Template
-from apps.templates.models.unit_format import Format
 from apps.templates.services.templating import template_renderer
 from apps.generation.models import RenderTask
 from apps.generation.tasks.render import render_pdf, render_png, render_svg
@@ -18,84 +16,24 @@ from apps.generation.tasks.render import render_pdf, render_png, render_svg
 logger = logging.getLogger(__name__)
 
 
+class DocumentGenerationError(Exception):
+    """Исключение для ошибок генерации документов."""
+    pass
+
+
 class DocumentGenerationService:
     """Сервис для генерации документов."""
     
-    @staticmethod
-    def _get_or_create_template_version(template: Template, user) -> Version:
-        """Получает или создает версию шаблона."""
-        # Получаем текущую версию шаблона
-        versions = Version.objects.get_for_object(template)
-        current_version = versions.first()
-        
-        # Если версии нет, создаем
-        if not current_version:
-            try:
-                with revisions.create_revision():
-                    template.save()
-                    revisions.set_user(user)
-                    revisions.set_comment("Auto-created during document generation")
-                
-                # Перезапрашиваем версию после создания
-                current_version = Version.objects.get_for_object(template).first()
-                
-                if not current_version:
-                    raise RuntimeError("Failed to create template version")
-                    
-            except Exception as e:
-                logger.error(f"Error creating version: {e}")
-                raise RuntimeError(f"Ошибка создания версии шаблона: {str(e)}")
-        
-        return current_version
+    # Маппинг форматов к задачам Celery
+    FORMAT_TASKS = {
+        'pdf': render_pdf,
+        'png': render_png,
+        'svg': render_svg,
+    }
     
-    @staticmethod
-    def _prepare_html(template: Template, data: Dict[str, Any]) -> str:
-        """Подготавливает HTML со всеми страницами."""
-        pages_html = []
-        
-        for page in template.pages.all().order_by('index'):
-            # Получаем HTML страницы (если у страницы нет HTML, используем базовый шаблон)
-            page_html = page.html if page.html else template.html
-            
-            # Рендерим страницу с учетом локальных ассетов
-            rendered_page_html = template_renderer.render_template(
-                page_html, 
-                data, 
-                template_id=template.id,
-                page_id=page.id
-            )
-            
-            pages_html.append(rendered_page_html)
-        
-        return ''.join(pages_html)
-    
-    @staticmethod
-    def _prepare_render_options(template: Template) -> Dict[str, Any]:
-        """Подготавливает опции для рендеринга."""
-        # Базовые опции
-        first_page = template.pages.first()
-        if not first_page:
-            raise RuntimeError("Шаблон не содержит ни одной страницы")
-        
-        options = {
-            'format': template.format.name.lower(),
-            'width': float(first_page.width),
-            'height': float(first_page.height),
-            'unit': template.unit.key,
-        }
-        
-        # Добавляем специфичные настройки формата
-        format_settings = {}
-        for page in template.pages.all():
-            for setting in page.settings.all():
-                format_settings[setting.format_setting.key] = setting.value
-        
-        options.update(format_settings)
-        
-        return options
-    
-    @staticmethod
+    @classmethod
     def generate_document(
+        cls,
         template: Template,
         data: Dict[str, Any],
         user,
@@ -112,50 +50,143 @@ class DocumentGenerationService:
             
         Returns:
             RenderTask: Созданная задача рендеринга
+            
+        Raises:
+            DocumentGenerationError: При ошибке генерации
         """
         try:
             with transaction.atomic():
-                # 1. Получаем или создаем версию шаблона
-                current_version = DocumentGenerationService._get_or_create_template_version(template, user)
+                # Создаем или получаем версию шаблона
+                version = cls._ensure_template_version(template, user)
                 
-                # 2. Создаем задачу рендеринга
-                task = RenderTask.objects.create(
-                    template=template,
-                    version_id=current_version.id,
-                    user=user,
-                    request_ip=request_ip,
-                    data_input={'data': data},
-                    status='pending',
-                    progress=0,
-                )
+                # Создаем задачу рендеринга
+                task = cls._create_render_task(template, version, user, request_ip, data)
                 
-                # 3. Подготавливаем HTML
-                rendered_html = DocumentGenerationService._prepare_html(template, data)
+                # Подготавливаем данные для рендеринга
+                rendered_html = cls._prepare_template_html(template, data)
+                options = cls._prepare_render_options(template)
                 
-                # 4. Подготавливаем опции рендеринга
-                options = DocumentGenerationService._prepare_render_options(template)
-                
-                # 5. Получаем формат и URL рендерера
-                format_name = template.format.name.lower()
-                format_obj = Format.objects.get(name=format_name)
-                renderer_url = format_obj.render_url
-                
-                # 6. Запускаем соответствующую задачу Celery
-                if format_name == 'pdf':
-                    celery_task = render_pdf.delay(str(task.id), rendered_html, options, renderer_url)
-                elif format_name == 'png':
-                    celery_task = render_png.delay(str(task.id), rendered_html, options, renderer_url)
-                elif format_name == 'svg':
-                    celery_task = render_svg.delay(str(task.id), rendered_html, options, renderer_url)
-                else:
-                    raise ValueError(f"Неподдерживаемый формат: {format_name}")
-                
-                # 7. Сохраняем ID задачи Celery
-                task.worker_id = celery_task.id
-                task.save(update_fields=['worker_id'])
+                # Запускаем задачу рендеринга
+                cls._start_render_task(task, rendered_html, options, template.format.name)
                 
                 return task
                 
         except Exception as e:
             logger.error(f"Error generating document: {e}")
-            raise 
+            raise DocumentGenerationError(f"Ошибка генерации документа: {str(e)}") from e
+    
+    @staticmethod
+    def _ensure_template_version(template: Template, user) -> Version:
+        """Создает или получает версию шаблона."""
+        # Получаем последнюю версию шаблона
+        versions = Version.objects.get_for_object(template)
+        current_version = versions.first()
+        
+        # Если версии нет, создаем
+        if not current_version:
+            with revisions.create_revision():
+                template.save()
+                revisions.set_user(user)
+                revisions.set_comment("Auto-created during document generation")
+            
+            current_version = Version.objects.get_for_object(template).first()
+            
+            if not current_version:
+                raise DocumentGenerationError("Failed to create template version")
+        
+        return current_version
+    
+    @staticmethod
+    def _create_render_task(
+        template: Template,
+        version: Version,
+        user,
+        request_ip: str,
+        data: Dict[str, Any]
+    ) -> RenderTask:
+        """Создает задачу рендеринга."""
+        return RenderTask.objects.create(
+            template=template,
+            version_id=version.id,
+            user=user,
+            request_ip=request_ip,
+            data_input=data,
+            status='pending',
+            progress=0,
+        )
+    
+    @staticmethod
+    def _prepare_template_html(template: Template, data: Dict[str, Any]) -> str:
+        """Подготавливает HTML шаблона со всеми страницами."""
+        pages_html = []
+        
+        for page in template.pages.all().order_by('index'):
+            # Используем HTML страницы или базовый шаблон
+            page_html = page.html if page.html else template.html
+            
+            # Рендерим страницу с данными
+            try:
+                rendered_page = template_renderer.render_template(
+                    page_html, 
+                    data, 
+                    template_id=str(template.id),
+                    page_id=str(page.id)
+                )
+                pages_html.append(rendered_page)
+            except Exception as e:
+                logger.error(f"Error rendering page {page.index}: {e}")
+                raise DocumentGenerationError(f"Ошибка рендеринга страницы {page.index}: {str(e)}")
+        
+        return ''.join(pages_html)
+    
+    @staticmethod
+    def _prepare_render_options(template: Template) -> Dict[str, Any]:
+        """Подготавливает опции для рендеринга."""
+        first_page = template.pages.first()
+        if not first_page:
+            raise DocumentGenerationError("Шаблон не содержит ни одной страницы")
+        
+        # Базовые опции
+        options = {
+            'format': template.format.name.lower(),
+            'width': float(first_page.width),
+            'height': float(first_page.height),
+            'unit': template.unit.key,
+        }
+        
+        # Добавляем настройки формата
+        for page in template.pages.all():
+            for setting in page.settings.all():
+                options[setting.format_setting.key] = setting.value
+        
+        return options
+    
+    @classmethod
+    def _start_render_task(
+        cls,
+        task: RenderTask,
+        html: str,
+        options: Dict[str, Any],
+        format_name: str
+    ):
+        """Запускает задачу рендеринга."""
+        # Получаем соответствующую задачу Celery
+        celery_task_func = cls.FORMAT_TASKS.get(format_name.lower())
+        if not celery_task_func:
+            raise DocumentGenerationError(f"Неподдерживаемый формат: {format_name}")
+        
+        # Получаем URL рендерера из формата
+        format_obj = Template.objects.get(id=task.template.id).format
+        renderer_url = format_obj.render_url
+        
+        # Запускаем задачу Celery
+        celery_task = celery_task_func.delay(
+            str(task.id),
+            html,
+            options,
+            renderer_url
+        )
+        
+        # Сохраняем ID задачи Celery
+        task.worker_id = celery_task.id
+        task.save(update_fields=['worker_id']) 

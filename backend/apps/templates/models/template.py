@@ -20,7 +20,7 @@ class Template(BaseModel):
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name="legacy_owner_templates",
+        related_name="owned_templates",
         help_text="Владелец шаблона"
     )
     is_public = models.BooleanField(default=False, help_text="Опубликовано?")
@@ -37,15 +37,43 @@ class Template(BaseModel):
         help_text="Единица измерения для шаблона"
     )
     description = models.TextField(blank=True, help_text="Описание шаблона")
-    html = models.TextField(blank=True, help_text="HTML-код шаблона")
+    html = models.TextField(blank=True, help_text="Base HTML шаблона")
     
     class Meta:
         verbose_name = "Шаблон"
         verbose_name_plural = "Шаблоны"
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['owner', '-created_at']),
+            models.Index(fields=['is_public', '-created_at']),
+            models.Index(fields=['format', '-created_at']),
+        ]
     
     def __str__(self):
         return self.name
+    
+    def get_all_fields(self):
+        """Возвращает все поля шаблона сгруппированные по страницам."""
+        from collections import defaultdict
+        
+        fields_by_page = defaultdict(list)
+        
+        for field in self.fields.all().order_by('page', 'order'):
+            if field.page is None:
+                fields_by_page['global'].append(field)
+            else:
+                fields_by_page[field.page.index].append(field)
+        
+        return dict(fields_by_page)
+    
+    def get_required_fields(self):
+        """Возвращает список обязательных полей."""
+        return self.fields.filter(is_required=True).order_by('page', 'order')
+    
+    def validate_data(self, data):
+        """Валидирует данные для шаблона."""
+        from apps.generation.api.validators import TemplateDataValidator
+        return TemplateDataValidator.validate_template_data(self, data)
 
 
 @register()

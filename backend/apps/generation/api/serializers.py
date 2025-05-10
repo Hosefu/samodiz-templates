@@ -2,56 +2,16 @@
 Сериализаторы для API генерации документов.
 """
 from rest_framework import serializers
-# Объединяем импорты моделей
-from apps.generation.models import (
-    RenderTask,
-    GeneratedDocument
-)
-from apps.templates.models import (
-    Template,
-    Page,
-    PageSettings,
-    Format,
-    FormatSetting,
-    Unit
-)
+from apps.generation.models import RenderTask, GeneratedDocument
+from apps.templates.models import Template, Page, Format, FormatSetting, Unit
 from apps.generation.api.validators import TemplateDataValidator
-# from django.utils import timezone # Пока не используется здесь, можно будет добавить если нужно
 
 
 class GenerateDocumentSerializer(serializers.Serializer):
     """
     Сериализатор для запроса генерации документа.
-    
-    Принимает пользовательские данные для подстановки в шаблон.
     """
     data = serializers.DictField(required=True, help_text="Данные для подстановки в шаблон")
-    
-    def _get_template_fields(self, template):
-        """Получает структурированный список полей шаблона."""
-        fields = []
-        for field in template.fields.all():
-            field_data = {
-                'key': field.key,
-                'label': field.label,
-                'required': field.is_required,
-                'page': field.page.index if field.page else None,
-                'is_global': field.page is None,
-            }
-            
-            if field.default_value:
-                field_data['default_value'] = field.default_value
-                
-            if field.type == 'choices' and field.choices.exists():
-                field_data['is_choices'] = True
-                field_data['choices'] = [
-                    {'label': choice.label, 'value': choice.value}
-                    for choice in field.choices.all()
-                ]
-                
-            fields.append(field_data)
-                
-        return fields
     
     def validate(self, attrs):
         """Валидирует данные на соответствие шаблону."""
@@ -61,54 +21,52 @@ class GenerateDocumentSerializer(serializers.Serializer):
         if template:
             is_valid, errors = TemplateDataValidator.validate_template_data(template, data)
             if not is_valid:
-                # Структурируем поля
-                all_fields = template.fields.all()
-                global_fields = []
-                page_fields = {}
-                
-                for field in all_fields:
-                    field_data = {
-                        'key': field.key,
-                        'label': field.label,
-                        'required': field.is_required,
-                    }
-                    
-                    if field.default_value:
-                        field_data['default_value'] = field.default_value
-                        
-                    if field.type == 'choices' and field.choices.exists():
-                        field_data['is_choices'] = True
-                        field_data['choices'] = [
-                            {'label': choice.label, 'value': choice.value}
-                            for choice in field.choices.all()
-                        ]
-                    
-                    if field.page is None:
-                        field_data['is_global'] = True
-                        global_fields.append(field_data)
-                    else:
-                        field_data['is_global'] = False
-                        field_data['page'] = field.page.index
-                        page_key = str(field.page.index)
-                        if page_key not in page_fields:
-                            page_fields[page_key] = []
-                        page_fields[page_key].append(field_data)
-                
                 raise serializers.ValidationError({
                     'detail': 'Ошибки в данных для шаблона',
                     'errors': errors,
-                    'expected_fields': {
-                        'global_fields': global_fields,
-                        'page_fields': page_fields
-                    }
+                    'template_fields': self._get_template_fields_structure(template)
                 })
         
         return attrs
+    
+    def _get_template_fields_structure(self, template):
+        """Структурирует поля шаблона для ответа на ошибку."""
+        global_fields = []
+        page_fields = {}
+        
+        for field in template.fields.all():
+            field_data = {
+                'key': field.key,
+                'label': field.label,
+                'required': field.is_required,
+                'type': field.type,
+            }
+            
+            if field.default_value:
+                field_data['default_value'] = field.default_value
+                
+            if field.type == 'choices' and field.choices.exists():
+                field_data['choices'] = [
+                    {'label': choice.label, 'value': choice.value}
+                    for choice in field.choices.all()
+                ]
+            
+            if field.page is None:
+                global_fields.append(field_data)
+            else:
+                page_key = str(field.page.index)
+                if page_key not in page_fields:
+                    page_fields[page_key] = []
+                page_fields[page_key].append(field_data)
+        
+        return {
+            'global_fields': global_fields,
+            'page_fields': page_fields
+        }
 
 
 class DocumentSerializer(serializers.ModelSerializer):
-    """Сериализатор для сгенерированных документов."""
-    
+    """Базовый сериализатор для документов."""
     template_name = serializers.CharField(source='task.template.name', read_only=True)
     format = serializers.CharField(source='task.template.format.name', read_only=True)
     
@@ -122,8 +80,7 @@ class DocumentSerializer(serializers.ModelSerializer):
 
 
 class DocumentDetailSerializer(DocumentSerializer):
-    """Расширенный сериализатор для детального представления документа."""
-    
+    """Детальный сериализатор для документов."""
     task_data = serializers.JSONField(source='task.data_input', read_only=True)
     
     class Meta(DocumentSerializer.Meta):
@@ -131,8 +88,7 @@ class DocumentDetailSerializer(DocumentSerializer):
 
 
 class RenderTaskSerializer(serializers.ModelSerializer):
-    """Сериализатор для задач рендеринга."""
-    
+    """Базовый сериализатор для задач рендеринга."""
     template_name = serializers.CharField(source='template.name', read_only=True)
     format = serializers.CharField(source='template.format.name', read_only=True)
     
@@ -146,8 +102,7 @@ class RenderTaskSerializer(serializers.ModelSerializer):
 
 
 class RenderTaskDetailSerializer(RenderTaskSerializer):
-    """Расширенный сериализатор для детального представления задачи рендеринга."""
-    
+    """Детальный сериализатор для задач рендеринга."""
     documents = DocumentSerializer(many=True, read_only=True)
     input_data = serializers.JSONField(source='data_input', read_only=True)
     

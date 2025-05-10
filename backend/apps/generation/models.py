@@ -6,7 +6,7 @@ from django.db import models
 from django.conf import settings
 from django.utils import timezone
 from django.core.validators import MinValueValidator, MaxValueValidator
-from apps.templates.models import Template, Format, FormatSetting, Unit, Page
+from apps.templates.models import Template
 from apps.common.models import BaseModel
 
 logger = logging.getLogger(__name__)
@@ -31,6 +31,22 @@ class RenderTask(BaseModel):
         related_name='render_tasks',
         help_text="Шаблон"
     )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='render_tasks',
+        help_text="Пользователь, запросивший рендеринг"
+    )
+    
+    # Ссылка на версию шаблона через reversion
+    version_id = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="ID версии шаблона из django-reversion"
+    )
+    
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
@@ -43,6 +59,27 @@ class RenderTask(BaseModel):
         help_text="Прогресс выполнения (0-100)"
     )
     error = models.TextField(blank=True, help_text="Сообщение об ошибке")
+    
+    # Данные для рендеринга
+    data_input = models.JSONField(
+        default=dict,
+        help_text="Данные для подстановки в шаблон"
+    )
+    
+    # Информация о запросе
+    request_ip = models.GenericIPAddressField(
+        null=True,
+        blank=True,
+        help_text="IP адрес запроса"
+    )
+    worker_id = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text="ID задачи Celery"
+    )
+    
+    # Временные метки
     started_at = models.DateTimeField(auto_now_add=True, help_text="Время начала")
     finished_at = models.DateTimeField(null=True, blank=True, help_text="Время завершения")
     
@@ -50,6 +87,10 @@ class RenderTask(BaseModel):
         verbose_name = "Задача рендеринга"
         verbose_name_plural = "Задачи рендеринга"
         ordering = ['-started_at']
+        indexes = [
+            models.Index(fields=['status', '-started_at']),
+            models.Index(fields=['user', '-started_at']),
+        ]
     
     def __str__(self):
         return f"{self.template.name} - {self.get_status_display()}"
@@ -67,6 +108,11 @@ class RenderTask(BaseModel):
         self.error = error_message
         self.finished_at = timezone.now()
         self.save(update_fields=['status', 'error', 'finished_at'])
+    
+    def update_progress(self, progress):
+        """Обновляет прогресс выполнения задачи."""
+        self.progress = min(max(progress, 0), 100)
+        self.save(update_fields=['progress'])
 
 
 class GeneratedDocument(BaseModel):
@@ -90,6 +136,9 @@ class GeneratedDocument(BaseModel):
         verbose_name = "Документ"
         verbose_name_plural = "Документы"
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['task', '-created_at']),
+        ]
     
     def __str__(self):
         return self.file_name

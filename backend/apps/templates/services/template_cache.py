@@ -6,7 +6,7 @@ from typing import Dict, Any, Optional
 from django.core.cache import cache
 from django.core.cache.utils import make_template_fragment_key
 
-from apps.templates.models.template import Template
+from apps.templates.models import Template, FieldVersion
 
 
 class TemplateCache:
@@ -32,8 +32,10 @@ class TemplateCache:
         if cached_data:
             return json.loads(cached_data)
         
-        # Если нет в кеше - загружаем из БД
-        template = Template.objects.select_related().prefetch_related(
+        # Загружаем из БД
+        template = Template.objects.select_related(
+            'format', 'unit'
+        ).prefetch_related(
             'pages__fields', 'fields'
         ).get(id=template_id)
         
@@ -52,10 +54,14 @@ class TemplateCache:
         Args:
             template_id: ID шаблона
         """
-        # Инвалидируем все версии
-        cache_keys = cache.keys(f"template_structure_{template_id}_*")
-        for key in cache_keys:
-            cache.delete(key)
+        # Получаем все ключи кеша для этого шаблона
+        pattern = f"template_structure_{template_id}_*"
+        
+        # Django не поддерживает wildcard delete, поэтому используем альтернативный подход
+        cache.delete_many([
+            f"template_structure_{template_id}_latest",
+            *[f"template_structure_{template_id}_{i}" for i in range(1, 100)]
+        ])
     
     @staticmethod
     def _build_structure(template: Template, version: Optional[int] = None) -> Dict[str, Any]:
@@ -71,10 +77,13 @@ class TemplateCache:
         """
         if version:
             # Получаем структуру из версии
-            field_version = template.field_versions.filter(version_number=version).first()
-            if not field_version:
-                raise ValueError(f"Версия {version} не найдена")
-            return field_version.fields_snapshot
+            field_version = FieldVersion.objects.filter(
+                template=template,
+                version_number=version
+            ).first()
+            
+            if field_version:
+                return field_version.fields_snapshot
         
         # Строим текущую структуру
         structure = {
@@ -84,7 +93,6 @@ class TemplateCache:
             'format': {
                 'id': str(template.format.id),
                 'name': template.format.name,
-                'key': template.format.key
             },
             'unit': {
                 'id': str(template.unit.id),
@@ -100,41 +108,48 @@ class TemplateCache:
             page_data = {
                 'id': str(page.id),
                 'index': page.index,
-                'width': page.width,
-                'height': page.height,
+                'width': float(page.width),
+                'height': float(page.height),
                 'fields': []
             }
             
             # Добавляем поля страницы
             for field in page.fields.all().order_by('order'):
-                page_data['fields'].append({
-                    'id': str(field.id),
-                    'key': field.key,
-                    'type': field.type,
-                    'label': field.label,
-                    'order': field.order,
-                    'is_required': field.is_required,
-                    'default_value': field.default_value,
-                    'placeholder': field.placeholder,
-                    'help_text': field.help_text,
-                    'attributes': field.attributes
-                })
+                page_data['fields'].append(TemplateCache._serialize_field(field))
             
             structure['pages'].append(page_data)
         
         # Добавляем глобальные поля
         for field in template.fields.filter(page__isnull=True).order_by('order'):
-            structure['global_fields'].append({
-                'id': str(field.id),
-                'key': field.key,
-                'type': field.type,
-                'label': field.label,
-                'order': field.order,
-                'is_required': field.is_required,
-                'default_value': field.default_value,
-                'placeholder': field.placeholder,
-                'help_text': field.help_text,
-                'attributes': field.attributes
-            })
+            structure['global_fields'].append(TemplateCache._serialize_field(field))
         
-        return structure 
+        return structure
+    
+    @staticmethod
+    def _serialize_field(field) -> Dict[str, Any]:
+        """Сериализует поле для кеша."""
+        field_data = {
+            'id': str(field.id),
+            'key': field.key,
+            'label': field.label,
+            'type': field.type,
+            'order': field.order,
+            'is_required': field.is_required,
+            'placeholder': field.placeholder,
+            'help_text': field.help_text,
+        }
+        
+        if field.default_value:
+            field_data['default_value'] = field.default_value
+        
+        if field.type == 'choices' and field.choices.exists():
+            field_data['choices'] = [
+                {
+                    'label': choice.label,
+                    'value': choice.value,
+                    'order': choice.order
+                }
+                for choice in field.choices.all().order_by('order')
+            ]
+        
+        return field_data 

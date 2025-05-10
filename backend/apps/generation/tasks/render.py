@@ -1,5 +1,5 @@
 """
-Задачи Celery для рендеринга документов (PDF, PNG, SVG).
+Задачи Celery для рендеринга документов.
 """
 import logging
 import time
@@ -14,7 +14,7 @@ from reversion.models import Version
 
 from apps.generation.models import RenderTask, GeneratedDocument
 from infrastructure.ceph import ceph_client
-from infrastructure.renderers.render_client import RendererClient
+from infrastructure.renderers.render_client import RendererClient, RendererError
 
 logger = logging.getLogger(__name__)
 
@@ -83,280 +83,140 @@ class RenderTaskBase(Task):
             logger.error(f"Failed to send WebSocket update for task {task_id}: {e}")
 
 
-@shared_task(bind=True, base=RenderTaskBase, time_limit=180)
-def render_pdf(self, task_id, html, options, renderer_url=None):
-    """
-    Генерирует PDF документ на основе HTML.
+class RenderingMixin:
+    """Миксин для общей логики рендеринга."""
     
-    Args:
-        task_id: ID задачи RenderTask
-        html: HTML-код для рендеринга
-        options: Опции для рендеринга (формат, размеры и т.д.)
-        renderer_url: URL рендерера (опционально)
-    """
-    logger.info(f"Starting PDF rendering for task {task_id}")
-    
-    try:
-        # Получаем задачу из БД
-        render_task = RenderTask.objects.get(id=task_id)
+    def _render_document(self, task_id, html, options, format_type, renderer_url=None):
+        """
+        Общая логика рендеринга документа.
         
-        # Обновляем статус
-        render_task.status = 'processing'
-        render_task.save(update_fields=['status'])
-        
-        # Отправляем WebSocket обновление
-        self._send_ws_update(task_id, {
-            'status': 'processing',
-            'progress': 10
-        })
-        
-        # Создаем клиент рендерера с переданным URL
-        renderer = RendererClient('pdf', renderer_url=renderer_url)
-        
-        # Отправляем запрос на рендеринг
-        self._update_progress(task_id, 30)
-        
-        # Выполняем рендеринг
-        pdf_bytes, content_type = renderer.render(html, options)
-        
-        # Обновляем прогресс
-        self._update_progress(task_id, 70)
-        
-        # Загружаем результат в Ceph
-        template_name = render_task.template.name
-        file_name = f"{template_name.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d%H%M%S')}.pdf"
-        key, url = ceph_client.upload_file(
-            file_obj=pdf_bytes,
-            folder=f"documents/{task_id}",
-            filename=file_name,
-            content_type=content_type
-        )
-        
-        # Обновляем прогресс
-        self._update_progress(task_id, 90)
-        
-        # Создаем запись о документе
-        document = GeneratedDocument.objects.create(
-            task=render_task,
-            file=url,
-            size_bytes=len(pdf_bytes),
-            file_name=file_name,
-            content_type=content_type
-        )
-        
-        # Завершаем задачу
-        render_task.status = 'done'
-        render_task.progress = 100
-        render_task.finished_at = timezone.now()
-        render_task.save(update_fields=['status', 'progress', 'finished_at'])
-        
-        # Отправляем финальное WebSocket обновление
-        self._send_ws_update(task_id, {
-            'status': 'done',
-            'progress': 100,
-            'document_id': str(document.id),
-            'file_url': url
-        })
-        
-        logger.info(f"PDF rendering completed for task {task_id}")
-        return str(document.id)
-    
-    except SoftTimeLimitExceeded:
-        logger.error(f"PDF rendering timeout for task {task_id}")
-        raise
-    except Exception as e:
-        logger.error(f"Error in PDF rendering for task {task_id}: {e}")
+        Args:
+            task_id: ID задачи рендеринга
+            html: HTML для рендеринга
+            options: Опции рендеринга
+            format_type: Тип формата (pdf, png, svg)
+            renderer_url: URL рендерера
+        """
+        logger.info(f"Starting {format_type.upper()} rendering for task {task_id}")
         
         try:
-            self.retry(countdown=self.default_retry_delay * (self.request.retries + 1))
+            # Обновляем статус задачи
+            render_task = RenderTask.objects.get(id=task_id)
+            render_task.status = 'processing'
+            render_task.save(update_fields=['status'])
+            
+            # Отправляем WebSocket уведомление
+            self._send_ws_update(task_id, {
+                'status': 'processing',
+                'progress': 10
+            })
+            
+            # Создаем клиент рендерера
+            renderer = RendererClient(format_type, renderer_url=renderer_url)
+            
+            # Обновляем прогресс
+            self._update_progress(task_id, 30)
+            
+            # Выполняем рендеринг
+            document_bytes, content_type = renderer.render(html, options)
+            
+            # Обновляем прогресс
+            self._update_progress(task_id, 70)
+            
+            # Создаем запись документа
+            document = self._create_document_record(
+                task_id, 
+                document_bytes, 
+                f"document.{format_type}", 
+                content_type
+            )
+            
+            # Обновляем прогресс
+            self._update_progress(task_id, 90)
+            
+            # Завершаем задачу
+            render_task.mark_as_done()
+            
+            # Отправляем финальное WebSocket уведомление
+            self._send_ws_update(task_id, {
+                'status': 'done',
+                'progress': 100,
+                'document_id': str(document.id),
+                'file_url': document.file
+            })
+            
+            logger.info(f"{format_type.upper()} rendering completed for task {task_id}")
+            return str(document.id)
+            
+        except RendererError as e:
+            logger.error(f"Renderer error for task {task_id}: {e}")
+            self._handle_render_error(task_id, e)
+            
+        except SoftTimeLimitExceeded:
+            logger.error(f"Rendering timeout for task {task_id}")
+            self._handle_timeout(task_id)
+            
+        except Exception as e:
+            logger.error(f"Unexpected error in rendering task {task_id}: {e}")
+            self._handle_unexpected_error(task_id, e)
+    
+    def _handle_render_error(self, task_id, error):
+        """Обрабатывает ошибки рендерера."""
+        try:
+            render_task = RenderTask.objects.get(id=task_id)
+            render_task.mark_as_failed(f"Ошибка рендеринга: {str(error)}")
+            
+            # Определяем, стоит ли повторять попытку
+            if "timeout" in str(error).lower() and self.request.retries < self.max_retries:
+                self.retry(countdown=self.default_retry_delay * (self.request.retries + 1))
+            else:
+                raise
         except MaxRetriesExceededError:
-            logger.error(f"Max retries exceeded for PDF rendering task {task_id}")
+            logger.error(f"Max retries exceeded for task {task_id}")
             raise
-        
-        raise
+    
+    def _handle_timeout(self, task_id):
+        """Обрабатывает таймаут."""
+        try:
+            render_task = RenderTask.objects.get(id=task_id)
+            render_task.mark_as_failed("Превышено время ожидания рендеринга")
+            raise SoftTimeLimitExceeded()
+        except Exception as e:
+            logger.error(f"Error handling timeout for task {task_id}: {e}")
+            raise
+    
+    def _handle_unexpected_error(self, task_id, error):
+        """Обрабатывает неожиданные ошибки."""
+        try:
+            if self.request.retries < self.max_retries:
+                delay = self.default_retry_delay * (self.request.retries + 1)
+                logger.info(f"Retrying task {task_id} in {delay} seconds")
+                self.retry(countdown=delay)
+            else:
+                raise MaxRetriesExceededError(f"Max retries exceeded: {str(error)}")
+        except MaxRetriesExceededError:
+            logger.error(f"Max retries exceeded for task {task_id}")
+            raise
+
+
+@shared_task(bind=True, base=RenderTaskBase, time_limit=180)
+def render_pdf(self, task_id, html, options, renderer_url=None):
+    """Генерирует PDF документ."""
+    return self._render_document(task_id, html, options, 'pdf', renderer_url)
 
 
 @shared_task(bind=True, base=RenderTaskBase, time_limit=180)
 def render_png(self, task_id, html, options, renderer_url=None):
-    """
-    Генерирует PNG документ на основе HTML.
-    
-    Args:
-        task_id: ID задачи RenderTask
-        html: HTML-код для рендеринга
-        options: Опции для рендеринга (формат, размеры и т.д.)
-        renderer_url: URL рендерера (опционально)
-    """
-    logger.info(f"Starting PNG rendering for task {task_id}")
-    
-    try:
-        # Получаем задачу из БД
-        render_task = RenderTask.objects.get(id=task_id)
-        
-        # Обновляем статус
-        render_task.status = 'processing'
-        render_task.save(update_fields=['status'])
-        
-        # Отправляем WebSocket обновление
-        self._send_ws_update(task_id, {
-            'status': 'processing',
-            'progress': 10
-        })
-        
-        # Создаем клиент рендерера с переданным URL
-        renderer = RendererClient('png', renderer_url=renderer_url)
-        
-        # Отправляем запрос на рендеринг
-        self._update_progress(task_id, 30)
-        
-        # Выполняем рендеринг
-        png_bytes, content_type = renderer.render(html, options)
-        
-        # Обновляем прогресс
-        self._update_progress(task_id, 70)
-        
-        # Загружаем результат в Ceph
-        template_name = render_task.template.name
-        file_name = f"{template_name.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d%H%M%S')}.png"
-        key, url = ceph_client.upload_file(
-            file_obj=png_bytes,
-            folder=f"documents/{task_id}",
-            filename=file_name,
-            content_type=content_type
-        )
-        
-        # Обновляем прогресс
-        self._update_progress(task_id, 90)
-        
-        # Создаем запись о документе
-        document = GeneratedDocument.objects.create(
-            task=render_task,
-            file=url,
-            size_bytes=len(png_bytes),
-            file_name=file_name,
-            content_type=content_type
-        )
-        
-        # Завершаем задачу
-        render_task.status = 'done'
-        render_task.progress = 100
-        render_task.finished_at = timezone.now()
-        render_task.save(update_fields=['status', 'progress', 'finished_at'])
-        
-        # Отправляем финальное WebSocket обновление
-        self._send_ws_update(task_id, {
-            'status': 'done',
-            'progress': 100,
-            'document_id': str(document.id),
-            'file_url': url
-        })
-        
-        logger.info(f"PNG rendering completed for task {task_id}")
-        return str(document.id)
-    
-    except SoftTimeLimitExceeded:
-        logger.error(f"PNG rendering timeout for task {task_id}")
-        raise
-    except Exception as e:
-        logger.error(f"Error in PNG rendering for task {task_id}: {e}")
-        
-        try:
-            self.retry(countdown=self.default_retry_delay * (self.request.retries + 1))
-        except MaxRetriesExceededError:
-            logger.error(f"Max retries exceeded for PNG rendering task {task_id}")
-            raise
-        
-        raise
+    """Генерирует PNG документ."""
+    return self._render_document(task_id, html, options, 'png', renderer_url)
 
 
 @shared_task(bind=True, base=RenderTaskBase, time_limit=180)
 def render_svg(self, task_id, html, options, renderer_url=None):
-    """
-    Генерирует SVG документ на основе HTML.
-    
-    Args:
-        task_id: ID задачи RenderTask
-        html: HTML-код для рендеринга
-        options: Опции для рендеринга (формат, размеры и т.д.)
-        renderer_url: URL рендерера (опционально)
-    """
-    logger.info(f"Starting SVG rendering for task {task_id}")
-    
-    try:
-        # Получаем задачу из БД
-        render_task = RenderTask.objects.get(id=task_id)
-        
-        # Обновляем статус
-        render_task.status = 'processing'
-        render_task.save(update_fields=['status'])
-        
-        # Отправляем WebSocket обновление
-        self._send_ws_update(task_id, {
-            'status': 'processing',
-            'progress': 10
-        })
-        
-        # Создаем клиент рендерера с переданным URL
-        renderer = RendererClient('svg', renderer_url=renderer_url)
-        
-        # Отправляем запрос на рендеринг
-        self._update_progress(task_id, 30)
-        
-        # Выполняем рендеринг
-        svg_bytes, content_type = renderer.render(html, options)
-        
-        # Обновляем прогресс
-        self._update_progress(task_id, 70)
-        
-        # Загружаем результат в Ceph
-        template_name = render_task.template.name
-        file_name = f"{template_name.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d%H%M%S')}.svg"
-        key, url = ceph_client.upload_file(
-            file_obj=svg_bytes,
-            folder=f"documents/{task_id}",
-            filename=file_name,
-            content_type=content_type
-        )
-        
-        # Обновляем прогресс
-        self._update_progress(task_id, 90)
-        
-        # Создаем запись о документе
-        document = GeneratedDocument.objects.create(
-            task=render_task,
-            file=url,
-            size_bytes=len(svg_bytes),
-            file_name=file_name,
-            content_type=content_type
-        )
-        
-        # Завершаем задачу
-        render_task.status = 'done'
-        render_task.progress = 100
-        render_task.finished_at = timezone.now()
-        render_task.save(update_fields=['status', 'progress', 'finished_at'])
-        
-        # Отправляем финальное WebSocket обновление
-        self._send_ws_update(task_id, {
-            'status': 'done',
-            'progress': 100,
-            'document_id': str(document.id),
-            'file_url': url
-        })
-        
-        logger.info(f"SVG rendering completed for task {task_id}")
-        return str(document.id)
-    
-    except SoftTimeLimitExceeded:
-        logger.error(f"SVG rendering timeout for task {task_id}")
-        raise
-    except Exception as e:
-        logger.error(f"Error in SVG rendering for task {task_id}: {e}")
-        
-        try:
-            self.retry(countdown=self.default_retry_delay * (self.request.retries + 1))
-        except MaxRetriesExceededError:
-            logger.error(f"Max retries exceeded for SVG rendering task {task_id}")
-            raise
-        
-        raise
+    """Генерирует SVG документ."""
+    return self._render_document(task_id, html, options, 'svg', renderer_url)
+
+
+# Применяем миксин к задачам
+for task in [render_pdf, render_png, render_svg]:
+    task.__class__ = type(task.__class__.__name__, (RenderingMixin, task.__class__), {})
