@@ -3,7 +3,7 @@
 """
 from rest_framework import serializers
 from apps.generation.models import RenderTask, GeneratedDocument
-from apps.templates.models import Template, Page, Format, FormatSetting, Unit
+from apps.templates.models import Template, Page, Format, FormatSetting, Unit, PageSettings
 from apps.generation.api.validators import TemplateDataValidator
 
 

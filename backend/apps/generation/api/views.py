@@ -14,7 +14,7 @@ from rest_framework.decorators import action
 from reversion import revisions
 from reversion.models import Version
 
-from apps.templates.models.template import Template
+from apps.templates.models import Template
 from apps.templates.api.permissions import IsPublicTemplateOrAuthenticated
 from apps.templates.services.templating import template_renderer
 from apps.generation.models import RenderTask, GeneratedDocument

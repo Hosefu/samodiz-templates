@@ -15,10 +15,14 @@ router.register(r'documents', DocumentViewSet, basename='document')
 # Дополнительные маршруты для генерации
 urlpatterns = [
     path('', include(router.urls)),
-    path('templates/<uuid:template_id>/generate/', 
-         GenerateDocumentViewSet.as_view({'post': 'generate'}),
-         name='template-generate'),
-    path('templates/<uuid:template_id>/fields/', 
-         GenerateDocumentViewSet.as_view({'get': 'get_template_fields'}),
-         name='template-generation-fields'),
+    path(
+        'templates/<uuid:template_id>/generate/',
+        GenerateDocumentViewSet.as_view({'post': 'generate'}),
+        name='generate-document'
+    ),
+    path(
+        'templates/<uuid:template_id>/fields/',
+        GenerateDocumentViewSet.as_view({'get': 'get_template_fields'}),
+        name='template-fields'
+    ),
 ] 
