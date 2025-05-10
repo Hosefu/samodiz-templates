@@ -83,10 +83,10 @@ template_nested_routes = [
     }), name='template-permission-detail'),
     
     # Генерация документа
-    path('generate/', import_string('apps.generation.api.views.GenerateDocumentView').as_view({'post': 'post'}), name='template-generate'),
+    path('generate/', import_string('apps.generation.api.views.GenerateDocumentViewSet').as_view({'post': 'generate'}), name='template-generate'),
     
-    # Получение полей для генерации (используя get_template_fields из GenerateDocumentView)
-    path('fields/', import_string('apps.generation.api.views.GenerateDocumentView').as_view({'get': 'get_template_fields'}), name='template-get-fields'),
+    # Получение полей для генерации
+    path('fields/', import_string('apps.generation.api.views.GenerateDocumentViewSet').as_view({'get': 'get_template_fields'}), name='template-get-fields'),
     
     # Закомментированный старый URL можно будет удалить позже, если новый подход работает
     # path('fields-for-generation/', 
