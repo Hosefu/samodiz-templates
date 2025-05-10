@@ -71,10 +71,13 @@ services:
       context: ./pdf-renderer
       dockerfile: Dockerfile
     container_name: pdf-renderer
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://0.0.0.0:8081
     expose:
-      - "${PDF_PORT}"
+      - "8081"
     healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:${PDF_PORT}/health"]
+      test: ["CMD", "curl", "--fail", "http://localhost:8081/health"]
       interval: 5s
       timeout: 5s
       retries: 5
