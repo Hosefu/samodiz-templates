@@ -167,11 +167,22 @@ class GenerateDocumentView(views.APIView):
                 format_name = template.format.name.lower()
                 
                 # Опции для рендеринга
+                first_page = template.pages.first()
+                if not first_page:
+                    task.status = 'failed'
+                    task.error = "Шаблон не содержит ни одной страницы. Необходимо добавить хотя бы одну страницу."
+                    task.finished_at = timezone.now()
+                    task.save(update_fields=['status', 'error', 'finished_at'])
+                    return Response(
+                        {"detail": "Ошибка генерации документа: шаблон не содержит ни одной страницы"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                
                 options = {
                     # Базовые опции
                     'format': format_name,
-                    'width': float(template.pages.first().width),
-                    'height': float(template.pages.first().height),
+                    'width': float(first_page.width),
+                    'height': float(first_page.height),
                     'unit': template.unit.key,
                 }
                 

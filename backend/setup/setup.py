@@ -256,20 +256,18 @@ def setup_template():
             description="Бизнес-визитка в стиле RWB",
             html=html_template,
             format=pdf_format,
-            width=95,
-            height=65,
             unit=mm_unit,
-            created_by=admin,
-            updated_by=admin,
+            owner=admin,
             is_public=True
         )
         
         # Создаем первую страницу
-        template.pages.create(
+        Page.objects.create(
+            template=template,
             index=0,
             html=html_template,
-            created_by=admin,
-            updated_by=admin
+            width=95,
+            height=65
         )
         
         logger.info("Created RWB business card template")
