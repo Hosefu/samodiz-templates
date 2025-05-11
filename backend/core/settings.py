@@ -246,6 +246,11 @@ MINIO_BUCKET_TEMPLATES = os.environ.get('MINIO_BUCKET_TEMPLATES', 'templates-ass
 MINIO_BUCKET_DOCUMENTS = os.environ.get('MINIO_BUCKET_DOCUMENTS', 'generated-documents')
 MINIO_PUBLIC_URL = f"http://localhost/{MINIO_BUCKET_TEMPLATES}"
 
+# После существующих MinIO настроек добавить:
+# Публичный базовый URL для доступа к ассетам
+# В продакшене будет домен, в разработке - localhost через nginx
+MINIO_PUBLIC_BASE_URL = os.environ.get('MINIO_PUBLIC_BASE_URL', 'http://localhost')
+
 # Для совместимости с существующим кодом
 CEPH_ENDPOINT_URL = MINIO_ENDPOINT_URL
 CEPH_ACCESS_KEY = MINIO_ACCESS_KEY

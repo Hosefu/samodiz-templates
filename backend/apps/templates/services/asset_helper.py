@@ -263,6 +263,7 @@ class AssetHelper:
         if asset and asset.file:
             from urllib.parse import urlparse
             from datetime import timedelta
+            from django.conf import settings
             
             # Парсим сохранённый URL
             parsed_url = urlparse(asset.file)
@@ -271,7 +272,13 @@ class AssetHelper:
             if len(path_parts) >= 2:
                 object_name = '/'.join(path_parts[1:])
                 # Генерируем подписанную ссылку на 24 часа
-                return minio_client.get_presigned_url(object_name, 'templates', timedelta(hours=24))
+                presigned_url = minio_client.get_presigned_url(object_name, 'templates', timedelta(hours=24))
+                
+                # Преобразуем внутренний URL в публичный
+                public_base_url = settings.MINIO_PUBLIC_BASE_URL
+                presigned_url = presigned_url.replace('http://minio:9000', public_base_url)
+                
+                return presigned_url
             else:
                 logger.error(f"Invalid asset URL: {asset.file}")
                 return ""
