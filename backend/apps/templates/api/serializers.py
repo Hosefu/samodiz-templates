@@ -110,7 +110,6 @@ class PageSerializer(serializers.ModelSerializer):
     settings = PageSettingsSerializer(many=True, read_only=True)
     fields = FieldSerializer(many=True, read_only=True)
     assets = AssetSerializer(many=True, read_only=True)
-    html = serializers.SerializerMethodField()
     
     class Meta:
         model = Page
@@ -120,17 +119,23 @@ class PageSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id']
     
-    def get_html(self, obj):
-        """Возвращает HTML только для владельцев и редакторов."""
+    def to_representation(self, instance):
+        """Кастомизируем вывод, исключая HTML для неавторизованных пользователей."""
+        data = super().to_representation(instance)
+        
         request = self.context.get('request')
         if not request or not request.user.is_authenticated:
-            return None
+            # Удаляем поле html из ответа
+            data.pop('html', None)
+            return data
         
-        template = obj.template
-        if (request.user == template.owner or 
-            template.permissions.filter(grantee=request.user, role__in=['editor', 'owner']).exists()):
-            return obj.html
-        return None
+        template = instance.template
+        if not (request.user == template.owner or 
+                template.permissions.filter(grantee=request.user, role__in=['editor', 'owner']).exists()):
+            # Удаляем поле html из ответа
+            data.pop('html', None)
+        
+        return data
 
 
 class TemplatePermissionSerializer(serializers.ModelSerializer):
@@ -170,6 +175,7 @@ class TemplateDetailSerializer(serializers.ModelSerializer):
     
     pages = PageSerializer(many=True, read_only=True)
     global_fields = serializers.SerializerMethodField()
+    global_assets = serializers.SerializerMethodField()
     permissions = serializers.SerializerMethodField()
     
     class Meta:
@@ -177,7 +183,7 @@ class TemplateDetailSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'name', 'description', 'is_public', 
             'format', 'unit', 'pages', 'global_fields',
-            'permissions'
+            'permissions', 'global_assets'
         ]
         read_only_fields = ['id']
     
@@ -185,6 +191,11 @@ class TemplateDetailSerializer(serializers.ModelSerializer):
         """Получает глобальные поля шаблона."""
         fields = obj.fields.filter(page__isnull=True)
         return FieldSerializer(fields, many=True).data
+    
+    def get_global_assets(self, obj):
+        """Получает глобальные ассеты шаблона."""
+        assets = obj.assets.filter(page__isnull=True)
+        return AssetSerializer(assets, many=True).data
     
     def get_permissions(self, obj):
         """Получает разрешения для текущего пользователя."""

@@ -244,11 +244,11 @@ def setup_template():
                     value=setting.default_value or '',
                 )
             
-            # Создаем поля шаблона
+            # Создаем поля шаблона для конкретной страницы
             for field_data in TEMPLATE_DATA['fields']:
                 Field.objects.create(
                     template=template,
-                    page=None,  # Глобальные поля
+                    page=page,  # Привязываем к странице вместо глобальных
                     **field_data
                 )
             logger.info(f"Created {len(TEMPLATE_DATA['fields'])} fields")
@@ -259,11 +259,14 @@ def setup_template():
             font_path = ASSETS_DIR / 'InterDisplay-Regular.ttf'
             if font_path.exists():
                 try:
+                    # Получаем первую страницу для привязки ассета
+                    page = template.pages.first()
                     asset_helper.upload_asset(
                         template_id=str(template.id),
                         file_obj=font_path,
                         filename='InterDisplay-Regular.ttf',
-                        mime_type='font/ttf'
+                        mime_type='font/ttf',
+                        page_id=str(page.id) if page else None  # Привязываем к странице
                     )
                     logger.info("Font asset uploaded successfully")
                 except Exception as e:
