@@ -29,6 +29,7 @@ from django.contrib.auth import get_user_model
 from apps.templates.models import Unit, Format, FormatSetting, Template, Page, Field, Asset, PageSettings
 from apps.templates.models import FieldChoice
 from infrastructure.minio_client import minio_client
+from apps.templates.services.asset_helper import asset_helper
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -175,69 +176,6 @@ def setup_formats():
     logger.info("Formats setup complete")
 
 
-def _upload_asset(template_id, asset_path, asset_name=None, mime_type=None):
-    """
-    Загружает ассет в MinIO.
-    
-    Args:
-        template_id: ID шаблона
-        asset_path: Путь к файлу
-        asset_name: Имя файла (по умолчанию из пути)
-        mime_type: MIME-тип (автодетекция)
-    
-    Returns:
-        Asset: Созданный объект ассета
-    """
-    if not asset_path.exists():
-        raise FileNotFoundError(f"Asset file not found: {asset_path}")
-    
-    asset_name = asset_name or asset_path.name
-    
-    # Определяем MIME-тип по расширению
-    if mime_type is None:
-        ext = asset_path.suffix.lower()
-        if ext == '.ttf':
-            mime_type = 'font/ttf'
-        elif ext == '.otf':
-            mime_type = 'font/otf'
-        elif ext in ['.jpg', '.jpeg']:
-            mime_type = 'image/jpeg'
-        elif ext == '.png':
-            mime_type = 'image/png'
-        elif ext == '.svg':
-            mime_type = 'image/svg+xml'
-        else:
-            mime_type = 'application/octet-stream'
-    
-    # Читаем файл и загружаем в MinIO
-    with open(asset_path, 'rb') as file:
-        file_content = file.read()
-        file_obj = BytesIO(file_content)
-        
-        # Загружаем в MinIO
-        object_name, public_url = minio_client.upload_file(
-            file_obj=file_obj,
-            folder=f"templates/{template_id}/assets",
-            filename=asset_name,
-            content_type=mime_type,
-            bucket_type='templates'
-        )
-        
-        logger.info(f"Uploaded asset: {asset_name} to {object_name}")
-        
-        # Создаем запись ассета
-        asset = Asset.objects.create(
-            template_id=template_id,
-            page=None,  # Глобальный ассет
-            name=asset_name,
-            file=public_url,
-            size_bytes=len(file_content),
-            mime_type=mime_type
-        )
-        
-        return asset
-
-
 def setup_template():
     """Создает базовый шаблон с полями и ассетами."""
     logger.info("Setting up template...")
@@ -320,8 +258,16 @@ def setup_template():
             # Загружаем шрифт
             font_path = ASSETS_DIR / 'InterDisplay-Regular.ttf'
             if font_path.exists():
-                _upload_asset(template.id, font_path, 'InterDisplay-Regular.ttf', 'font/ttf')
-                logger.info("Font asset uploaded successfully")
+                try:
+                    asset_helper.upload_asset(
+                        template_id=str(template.id),
+                        file_obj=font_path,
+                        filename='InterDisplay-Regular.ttf',
+                        mime_type='font/ttf'
+                    )
+                    logger.info("Font asset uploaded successfully")
+                except Exception as e:
+                    logger.error(f"Failed to upload font asset: {e}")
             else:
                 logger.warning(f"Font file not found: {font_path}")
         

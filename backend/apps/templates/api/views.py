@@ -31,6 +31,7 @@ from apps.templates.api.permissions import (
     IsTemplateViewerOrBetter, HasFormatAccess
 )
 from apps.templates.services.template_version_service import template_version_service
+from apps.templates.services.asset_helper import asset_helper
 from infrastructure.minio_client import minio_client
 
 logger = logging.getLogger(__name__)
@@ -317,7 +318,6 @@ class AssetViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         """Загрузка нового ассета."""
         template_id = self.kwargs.get('template_id')
-        template = get_object_or_404(Template, id=template_id)
         
         # Проверяем наличие файла в запросе
         if 'file' not in request.FILES:
@@ -336,30 +336,24 @@ class AssetViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Загружаем файл в MinIO
         try:
-            folder = f"templates/{template_id}/assets"
-            object_name, url = minio_client.upload_file(
+            # Используем AssetHelper для загрузки
+            asset = asset_helper.upload_asset(
+                template_id=template_id,
                 file_obj=file_obj,
-                folder=folder,
                 filename=file_obj.name,
-                content_type=file_obj.content_type,
-                bucket_type='templates'
-            )
-            
-            # Создаем запись ассета
-            asset = Asset.objects.create(
-                template=template,
-                page_id=page_id if page_id else None,
-                name=file_obj.name,
-                file=url,
-                size_bytes=file_obj.size,
+                page_id=page_id,
                 mime_type=file_obj.content_type
             )
             
             serializer = self.get_serializer(asset)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
-        
+            
+        except ValueError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         except Exception as e:
             logger.error(f"Error uploading asset: {e}")
             return Response(
@@ -369,19 +363,10 @@ class AssetViewSet(viewsets.ModelViewSet):
     
     def perform_destroy(self, instance):
         """Удаление ассета с удалением файла из MinIO."""
-        try:
-            # Извлекаем имя объекта из URL
-            object_name = '/'.join(instance.file.split('/')[-3:])  # Берем последние 3 части пути
-            
-            # Удаляем файл из MinIO
-            minio_client.delete_file(object_name, 'templates')
-            
-            # Удаляем запись из БД
-            instance.delete()
-        
-        except Exception as e:
-            logger.error(f"Error deleting asset: {e}")
-            raise
+        success = asset_helper.delete_asset(instance)
+        if not success:
+            logger.error(f"Failed to delete asset: {instance.id}")
+            # Не поднимаем исключение, чтобы не блокировать удаление из БД
 
 
 class TemplatePermissionViewSet(viewsets.ModelViewSet):
