@@ -31,7 +31,7 @@ from apps.templates.api.permissions import (
     IsTemplateViewerOrBetter, HasFormatAccess
 )
 from apps.templates.services.template_version_service import template_version_service
-from infrastructure.ceph import ceph_client
+from infrastructure.minio_client import minio_client
 
 logger = logging.getLogger(__name__)
 
@@ -336,14 +336,15 @@ class AssetViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Загружаем файл в Ceph
+        # Загружаем файл в MinIO
         try:
             folder = f"templates/{template_id}/assets"
-            key, url = ceph_client.upload_file(
+            object_name, url = minio_client.upload_file(
                 file_obj=file_obj,
                 folder=folder,
                 filename=file_obj.name,
-                content_type=file_obj.content_type
+                content_type=file_obj.content_type,
+                bucket_type='templates'
             )
             
             # Создаем запись ассета
@@ -367,13 +368,13 @@ class AssetViewSet(viewsets.ModelViewSet):
             )
     
     def perform_destroy(self, instance):
-        """Удаление ассета с удалением файла из Ceph."""
+        """Удаление ассета с удалением файла из MinIO."""
         try:
-            # Извлекаем ключ из URL
-            file_key = instance.file.split('/')[-2] + '/' + instance.file.split('/')[-1]
+            # Извлекаем имя объекта из URL
+            object_name = '/'.join(instance.file.split('/')[-3:])  # Берем последние 3 части пути
             
-            # Удаляем файл из Ceph
-            ceph_client.delete_file(file_key)
+            # Удаляем файл из MinIO
+            minio_client.delete_file(object_name, 'templates')
             
             # Удаляем запись из БД
             instance.delete()

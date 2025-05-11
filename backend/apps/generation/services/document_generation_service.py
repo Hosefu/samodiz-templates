@@ -152,12 +152,13 @@ class DocumentGenerationService:
             from io import BytesIO
             file_obj = BytesIO(file_bytes)
             
-            from infrastructure.ceph import ceph_client
-            object_name, url = ceph_client.upload_file(
+            from infrastructure.minio_client import minio_client
+            object_name, url = minio_client.upload_file(
                 file_obj=file_obj,
                 folder=f"documents/{task.id}",
                 filename=file_name,
-                content_type=content_type
+                content_type=content_type,
+                bucket_type='documents'
             )
             
             # Создаем запись документа

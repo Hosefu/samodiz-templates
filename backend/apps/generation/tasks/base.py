@@ -8,9 +8,11 @@ from celery.exceptions import MaxRetriesExceededError, SoftTimeLimitExceeded
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 import requests
+from pathlib import Path
+from django.conf import settings
 
 from apps.generation.models import RenderTask, GeneratedDocument
-from infrastructure.ceph import ceph_client
+from infrastructure.minio_client import minio_client
 from infrastructure.renderers.render_client import RendererClient, RendererError
 
 logger = logging.getLogger(__name__)
@@ -60,17 +62,17 @@ class RenderTaskBase(Task):
             logger.error(f"Failed to update render task {task_id} progress: {e}")
     
     def _send_ws_update(self, task_id, data):
-        """Отправляет обновления через WebSocket."""
+        """Отправляет обновление статуса через WebSocket."""
         try:
             async_to_sync(self.channel_layer.group_send)(
-                f"task_{task_id}",
+                f"render_task_{task_id}",
                 {
-                    'type': 'task_progress',
+                    'type': 'render_task_update',
                     'message': data
                 }
             )
         except Exception as e:
-            logger.error(f"Failed to send WebSocket update for task {task_id}: {e}")
+            logger.error(f"Failed to send WebSocket update: {e}")
     
     def _create_document_record(self, task_id, file_bytes, file_name, content_type):
         """Создает запись документа в БД."""
@@ -83,12 +85,13 @@ class RenderTaskBase(Task):
             safe_template_name = template_name.replace(' ', '_')
             file_name = f"{safe_template_name}_{timestamp}.{file_name.split('.')[-1]}"
             
-            # Загружаем файл в Ceph
-            key, url = ceph_client.upload_file(
+            # Загружаем файл в MinIO
+            object_name, url = minio_client.upload_file(
                 file_obj=file_bytes,
                 folder=f"documents/{task_id}",
                 filename=file_name,
-                content_type=content_type
+                content_type=content_type,
+                bucket_type='documents'
             )
             
             # Создаем запись документа
@@ -109,79 +112,75 @@ class RenderTaskBase(Task):
     def _render_document(self, task_id, html, options, format_type, renderer_url=None):
         """
         Общая логика рендеринга документа.
-        
-        Args:
-            task_id: ID задачи рендеринга
-            html: HTML для рендеринга
-            options: Опции рендеринга
-            format_type: Тип формата (pdf, png, svg)
-            renderer_url: URL рендерера
         """
         logger.info(f"Starting {format_type.upper()} rendering for task {task_id}")
         
+        # Добавляем логирование HTML (только начало и конец, чтобы не засорять логи)
+        html_preview = html[:500] + "..." if len(html) > 500 else html
+        logger.debug(f"HTML for rendering (preview):\n{html_preview}")
+        
+        # Для отладки можно временно писать полный HTML в файл
+        if settings.DEBUG:
+            debug_file = Path(settings.BASE_DIR) / 'logs' / f'render_debug_{task_id}.html'
+            debug_file.parent.mkdir(exist_ok=True)
+            with open(debug_file, 'w', encoding='utf-8') as f:
+                f.write(html)
+            logger.info(f"Full HTML saved to: {debug_file}")
+        
+        render_task = RenderTask.objects.get(id=task_id)
+        client = RendererClient(renderer_url)
+        
         try:
-            # Получаем задачу и формат
-            render_task = RenderTask.objects.get(id=task_id)
-            format_obj = render_task.template.format
-            
-            # Обновляем статус задачи
-            render_task.status = 'processing'
-            render_task.save(update_fields=['status'])
+            # Обновляем статус
+            render_task.mark_as_processing()
             
             # Отправляем WebSocket уведомление
             self._send_ws_update(task_id, {
                 'status': 'processing',
-                'progress': 10
+                'progress': render_task.progress
             })
             
-            # Создаем клиент рендерера с объектом Format
-            renderer = RendererClient(format_type, format_obj=format_obj)
+            # Рендерим документ
+            rendered_data = client.render_document(html, options)
             
-            # Обновляем прогресс
-            self._update_progress(task_id, 30)
+            # Сохраняем результат
+            if not rendered_data:
+                raise RendererError("Empty response from renderer")
             
-            # Выполняем рендеринг
-            document_bytes, content_type = renderer.render(html, options)
-            
-            # Обновляем прогресс
-            self._update_progress(task_id, 70)
-            
-            # Создаем запись документа
+            # Создаем запись документа в БД
             document = self._create_document_record(
-                task_id, 
-                document_bytes, 
-                f"document.{format_type}", 
-                content_type
+                task_id=task_id,
+                file_bytes=rendered_data,
+                file_name=f"document.{format_type}",
+                content_type=f"application/{format_type}"
             )
             
-            # Обновляем прогресс
-            self._update_progress(task_id, 90)
+            # Обновляем статус задачи
+            render_task.mark_as_completed(document.file)
             
-            # Завершаем задачу
-            render_task.mark_as_done()
-            
-            # Отправляем финальное WebSocket уведомление
+            # Отправляем WebSocket уведомление
             self._send_ws_update(task_id, {
-                'status': 'done',
-                'progress': 100,
-                'document_id': str(document.id),
-                'file_url': document.file
+                'status': 'completed',
+                'document_url': document.file,
+                'progress': 100
             })
             
-            logger.info(f"{format_type.upper()} rendering completed for task {task_id}")
-            return str(document.id)
-            
-        except RendererError as e:
-            logger.error(f"Renderer error for task {task_id}: {e}")
-            self._handle_render_error(task_id, e)
-            
-        except SoftTimeLimitExceeded:
-            logger.error(f"Rendering timeout for task {task_id}")
-            self._handle_timeout(task_id)
+            logger.info(f"Document rendered successfully: {document.file}")
+            return document.file
             
         except Exception as e:
-            logger.error(f"Unexpected error in rendering task {task_id}: {e}")
-            self._handle_unexpected_error(task_id, e)
+            logger.error(f"Error rendering document: {e}")
+            render_task.mark_as_failed(str(e))
+            
+            # Отправляем WebSocket уведомление
+            self._send_ws_update(task_id, {
+                'status': 'failed',
+                'error': str(e),
+                'progress': render_task.progress
+            })
+            
+            # Повторяем задачу, если не превышен лимит повторов
+            raise self.retry(exc=e)
     
     def _handle_render_error(self, task_id, error):
         """Обрабатывает ошибки рендерера."""

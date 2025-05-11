@@ -4,6 +4,7 @@
 import logging
 from typing import Optional, List, Dict
 from apps.templates.models.template import Asset, Template
+from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 
@@ -72,15 +73,15 @@ class AssetHelper:
                 return asset.file
             else:
                 # Для приватных шаблонов генерируем подписанную ссылку
-                object_name = asset.file.split('/')[-1]  # Извлекаем имя объекта
-                folder = f"templates/{template_id}/assets"
-                if asset.page:
-                    folder = f"templates/{template_id}/assets/pages/{asset.page.id}"
-                else:
-                    folder = f"templates/{template_id}/assets/global"
+                parsed_url = urlparse(asset.file)
+                path_parts = parsed_url.path.strip('/').split('/')
+                
+                # Извлекаем bucket и object_name
+                bucket = path_parts[0]
+                object_name = '/'.join(path_parts[1:])
                 
                 from infrastructure.minio_client import minio_client
-                return minio_client.get_presigned_url(f"{folder}/{object_name}", 'templates')
+                return minio_client.get_presigned_url(object_name, 'templates')
         
         logger.warning(f"Asset not found: {asset_name} in template {template_id}")
         return ""

@@ -8,7 +8,7 @@ from celery import shared_task
 
 from apps.generation.models import RenderTask
 from apps.templates.models.template import Asset
-from infrastructure.ceph import ceph_client
+from infrastructure.minio_client import minio_client
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +42,7 @@ def cleanup_deleted():
                 object_name = asset.file.split('/')[-1]
             
             # Удаляем файл из MinIO
-            success = ceph_client.delete_file(object_name)
+            success = minio_client.delete_file(object_name, 'templates')
             
             if success:
                 # Физически удаляем запись из БД

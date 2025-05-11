@@ -1,319 +1,375 @@
 #!/usr/bin/env python
 """
 Скрипт для первоначальной настройки системы Самодизайн.
-
-Создает базовые форматы, единицы измерения и другие необходимые данные.
 """
 import os
 import sys
-import django
 import logging
-from django.db import transaction
+from pathlib import Path
 from io import BytesIO
 
-# Добавляем родительскую директорию в sys.path, если скрипт запускается напрямую
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if BASE_DIR not in sys.path:
-    sys.path.append(BASE_DIR)
+# Настройка путей
+SETUP_DIR = Path(__file__).parent
+PROJECT_ROOT = SETUP_DIR.parent
+sys.path.append(str(PROJECT_ROOT))
 
 # Настройка Django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
+
 try:
+    import django
     django.setup()
 except Exception as e:
-    print(f"Ошибка при настройке Django: {e}")
+    print(f"Ошибка при инициализации Django: {e}")
     sys.exit(1)
 
-# Только после django.setup() импортируем модели
-from reversion import revisions
+# Импорты после настройки Django
+from django.db import transaction
 from django.contrib.auth import get_user_model
-from apps.templates.models.unit_format import Unit, Format, FormatSetting
-from apps.templates.models.template import Template, Page, Asset, Field, PageSettings
+from apps.templates.models import Unit, Format, FormatSetting, Template, Page, Field, Asset, PageSettings
 from apps.templates.models import FieldChoice
-from infrastructure.ceph import ceph_client
-
-logger = logging.getLogger(__name__)
+from infrastructure.minio_client import minio_client
 
 User = get_user_model()
+logger = logging.getLogger(__name__)
 
-# Находим абсолютный путь к директории с активами
-SETUP_DIR = os.path.dirname(os.path.abspath(__file__))
-TEMPLATE_DIR = os.path.join(SETUP_DIR, 'rwb-template')
-ASSETS_DIR = os.path.join(TEMPLATE_DIR, 'assets')
-HTML_PATH = os.path.join(TEMPLATE_DIR, 'input.html')
+# Константы
+TEMPLATE_DIR = SETUP_DIR / 'rwb-template'
+ASSETS_DIR = TEMPLATE_DIR / 'assets'
+HTML_PATH = TEMPLATE_DIR / 'input.html'
 
-def setup_units():
-    """Создает базовые единицы измерения."""
-    units = [
-        ('mm', 'Миллиметры'),
-        ('cm', 'Сантиметры'),
-        ('in', 'Дюймы'),
-        ('px', 'Пиксели'),
-    ]
-    
-    for key, name in units:
-        Unit.objects.get_or_create(
-            key=key,
-            defaults={
-                'name': name
-            }
-        )
-    
-    logger.info(f"Created {len(units)} units")
+# Данные для инициализации
+UNITS_DATA = [
+    ('mm', 'Миллиметры'),
+    ('cm', 'Сантиметры'),
+    ('in', 'Дюймы'),
+    ('px', 'Пиксели'),
+]
 
+FORMATS_DATA = {
+    'pdf': {
+        'description': 'Portable Document Format (PDF)',
+        'render_url': 'http://pdf-renderer:8081/api/render',
+        'settings': [
+            ('dpi', 'DPI', '300', False),
+            ('cmyk_support', 'Поддержка CMYK', 'true', False),
+            ('bleeds', 'Припуски под обрез', '0', False),
+        ],
+        'units': ['mm', 'cm', 'in', 'px']
+    },
+    'png': {
+        'description': 'Portable Network Graphics (PNG)',
+        'render_url': 'http://png-renderer:8082/api/render',
+        'settings': [
+            ('dpi', 'DPI', '300', True),
+            ('quality', 'Качество', '100', True),
+            ('transparent', 'Прозрачность', 'false', False),
+        ],
+        'units': ['px']
+    },
+    'svg': {
+        'description': 'Scalable Vector Graphics (SVG)',
+        'render_url': 'http://svg-renderer:8083/api/render',
+        'settings': [],
+        'units': ['px', 'mm', 'cm', 'in']
+    }
+}
 
-def setup_formats():
-    """Создает базовые форматы документов и их настройки."""
-    # Создаем формат PDF
-    pdf_format, _ = Format.objects.get_or_create(
-        name='pdf',
-        defaults={
-            'description': 'Portable Document Format (PDF)',
-            'render_url': 'http://pdf-renderer:8081/api/render'
-        }
-    )
-    
-    # Настройки для PDF
-    pdf_settings = [
-        ('dpi', 'DPI', '300', False),
-        ('cmyk_support', 'Поддержка CMYK', 'true', False),
-        ('bleeds', 'Припуски под обрез', '0', False),
-    ]
-    
-    for key, name, default, required in pdf_settings:
-        FormatSetting.objects.get_or_create(
-            format=pdf_format,
-            key=key,
-            defaults={
-                'name': name,
-                'default_value': default,
-                'is_required': required
-            }
-        )
-    
-    # Создаем формат PNG
-    png_format, _ = Format.objects.get_or_create(
-        name='png',
-        defaults={
-            'description': 'Portable Network Graphics (PNG)',
-            'render_url': 'http://png-renderer:8082/api/render'
-        }
-    )
-    
-    # Настройки для PNG
-    png_settings = [
-        ('dpi', 'DPI', '300', True),
-        ('quality', 'Качество', '100', True),
-        ('transparent', 'Прозрачность', 'false', False),
-    ]
-    
-    for key, name, default, required in png_settings:
-        FormatSetting.objects.get_or_create(
-            format=png_format,
-            key=key,
-            defaults={
-                'name': name,
-                'default_value': default,
-                'is_required': required
-            }
-        )
-    
-    # Создаем формат SVG
-    svg_format, _ = Format.objects.get_or_create(
-        name='svg',
-        defaults={
-            'description': 'Scalable Vector Graphics (SVG)',
-            'render_url': 'http://svg-renderer:8083/api/render'
-        }
-    )
-    
-    # Назначаем поддерживаемые единицы измерения для форматов
-    mm_unit = Unit.objects.get(key='mm')
-    cm_unit = Unit.objects.get(key='cm')
-    px_unit = Unit.objects.get(key='px')
-    in_unit = Unit.objects.get(key='in')
-    
-    # PDF поддерживает все единицы
-    pdf_format.allowed_units.add(mm_unit, cm_unit, px_unit, in_unit)
-    
-    # PNG в основном пиксели
-    png_format.allowed_units.add(px_unit)
-    
-    # SVG поддерживает разные единицы
-    svg_format.allowed_units.add(px_unit, mm_unit, cm_unit, in_unit)
-    
-    logger.info("Created formats and settings")
-
-def setup_template():
-    """Создаёт базовый PDF шаблон с полями и настройками."""
-    # Получаем админа (первого суперпользователя) или создаем его, если его нет
-    admin = User.objects.filter(is_superuser=True).first()
-    if not admin:
-        logger.warning("No admin user found, skipping template creation")
-        return
-        
-    # Получаем формат PDF и единицу измерения
-    try:
-        pdf_format = Format.objects.get(name='pdf')
-        mm_unit = Unit.objects.get(key='mm')
-    except (Format.DoesNotExist, Unit.DoesNotExist):
-        logger.error("PDF format or mm unit not found, run setup_formats() first")
-        return
-    
-    # Проверяем, существует ли уже шаблон
-    if Template.objects.filter(name="Визитка RWB").exists():
-        # Обновляем существующий шаблон для использования нового синтаксиса
-        template = Template.objects.get(name="Визитка RWB")
-        
-        # Читаем обновленный HTML
-        try:
-            with open(HTML_PATH, 'r', encoding='utf-8') as f:
-                html_template = f.read()
-            
-            template.html = html_template
-            template.save()
-            
-            # Обновляем HTML первой страницы
-            first_page = template.pages.first()
-            if first_page:
-                first_page.html = html_template
-                first_page.save()
-            
-            logger.info("Updated RWB business card template with new asset syntax")
-            return
-            
-        except Exception as e:
-            logger.error(f"Error updating template: {e}")
-            return
-    
-    # Создаем новый шаблон
-    try:
-        with open(HTML_PATH, 'r', encoding='utf-8') as f:
-            html_template = f.read()
-            
-        template = Template.objects.create(
-            name="Визитка RWB",
-            description="Бизнес-визитка в стиле RWB",
-            html=html_template,
-            format=pdf_format,
-            unit=mm_unit,
-            owner=admin,
-            is_public=True
-        )
-        
-        # Создаем первую страницу
-        page = Page.objects.create(
-            template=template,
-            index=0,
-            html=html_template,
-            width=95,
-            height=65
-        )
-        
-        # Создаем настройки форматов для страницы
-        for setting in pdf_format.expected_settings.all():
-            PageSettings.objects.create(
-                page=page,
-                format_setting=setting,
-                value=setting.default_value or '',
-            )
-        
-        # Создаем поля шаблона
-        fields_to_create = [
-            {'key': 'last_name', 'label': 'Фамилия', 'order': 1, 'is_required': True},
-            {'key': 'first_name', 'label': 'Имя', 'order': 2, 'is_required': True},
-            {'key': 'patronymic', 'label': 'Отчество', 'order': 3, 'is_required': True},
-            {'key': 'position', 'label': 'Должность', 'order': 4, 'is_required': True},
-            {'key': 'address', 'label': 'Адрес', 'order': 5, 'is_required': True},
-            {'key': 'phone', 'label': 'Телефон', 'order': 6, 'is_required': True},
-            {'key': 'email', 'label': 'Email', 'order': 7, 'is_required': True},
-        ]
-        
-        for field_data in fields_to_create:
-            Field.objects.create(
-                template=template,
-                page=None,  # Глобальные поля
-                **field_data
-            )
-        
-        # ОБЯЗАТЕЛЬНО: Загружаем шрифт как ассет
-        font_path = os.path.join(ASSETS_DIR, 'InterDisplay-Regular.ttf')
-        if os.path.exists(font_path):
-            with open(font_path, 'rb') as font_file:
-                # Создаем BytesIO объект для ceph_client
-                font_bytes = BytesIO(font_file.read())
-                
-                # Загружаем шрифт в Ceph
-                font_key, font_url = ceph_client.upload_file(
-                    file_obj=font_bytes,
-                    folder=f"templates/{template.id}/assets",
-                    filename="InterDisplay-Regular.ttf",
-                    content_type="font/ttf"
-                )
-                
-                # Создаем запись ассета
-                Asset.objects.create(
-                    template=template,
-                    page=None,  # Глобальный ассет
-                    name="InterDisplay-Regular.ttf",
-                    file=font_url,
-                    size_bytes=os.path.getsize(font_path),
-                    mime_type="font/ttf"
-                )
-            logger.info("Uploaded font asset: InterDisplay-Regular.ttf")
-        else:
-            logger.warning(f"Font file not found: {font_path}")
-        
-        logger.info("Created RWB business card template with fields and assets")
-        
-    except Exception as e:
-        logger.error(f"Error creating template: {e}")
-        return
-
-def setup_admin():
-    """Создает суперпользователя."""
-    if not User.objects.filter(username='admin').exists():
-        User.objects.create_superuser(
-            username='admin',
-            email='admin@samodesign.ru',
-            password='admin'
-        )
-        logger.info("Created superuser 'admin'")
-
-@transaction.atomic
-def main():
-    """Основная функция настройки."""
-    try:
-        logger.info("Starting initial setup")
-        logger.info(f"Current working directory: {os.getcwd()}")
-        logger.info(f"Base directory: {BASE_DIR}")
-        logger.info(f"Setup directory: {SETUP_DIR}")
-        
-        # Создаем базовые единицы измерения
-        setup_units()
-        
-        # Создаем форматы и их настройки
-        setup_formats()
-        
-        # Создаем базовый шаблон
-        setup_template()
-        
-        # Создаем суперпользователя
-        setup_admin()
-        
-        logger.info("Setup completed successfully")
-        
-    except Exception as e:
-        logger.error(f"Setup failed: {e}")
-        logger.exception("Detailed error:")
-        raise
+TEMPLATE_DATA = {
+    'name': "Визитка RWB",
+    'description': "Бизнес-визитка в стиле RWB",
+    'fields': [
+        {'key': 'last_name', 'label': 'Фамилия', 'order': 1, 'is_required': True},
+        {'key': 'first_name', 'label': 'Имя', 'order': 2, 'is_required': True},
+        {'key': 'patronymic', 'label': 'Отчество', 'order': 3, 'is_required': True},
+        {'key': 'position', 'label': 'Должность', 'order': 4, 'is_required': True},
+        {'key': 'address', 'label': 'Адрес', 'order': 5, 'is_required': True},
+        {'key': 'phone', 'label': 'Телефон', 'order': 6, 'is_required': True},
+        {'key': 'email', 'label': 'Email', 'order': 7, 'is_required': True},
+    ],
+    'page': {
+        'width': 95,
+        'height': 65,
+        'index': 0
+    }
+}
 
 
-if __name__ == '__main__':
-    # Настройка логирования
+class SetupError(Exception):
+    """Исключение для ошибок установки."""
+    pass
+
+
+def setup_logging():
+    """Настройка логирования."""
     logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
+
+
+def ensure_directories():
+    """Проверяет наличие необходимых директорий."""
+    if not TEMPLATE_DIR.exists():
+        raise SetupError(f"Template directory not found: {TEMPLATE_DIR}")
     
+    if not HTML_PATH.exists():
+        raise SetupError(f"Template HTML file not found: {HTML_PATH}")
+    
+    if not ASSETS_DIR.exists():
+        logger.warning(f"Assets directory not found: {ASSETS_DIR}")
+
+
+def setup_units():
+    """Создает единицы измерения."""
+    logger.info("Setting up units...")
+    
+    for key, name in UNITS_DATA:
+        unit, created = Unit.objects.get_or_create(
+            key=key,
+            defaults={'name': name}
+        )
+        if created:
+            logger.info(f"Created unit: {key} ({name})")
+    
+    logger.info(f"Units setup complete: {len(UNITS_DATA)} units")
+
+
+def setup_formats():
+    """Создает форматы документов."""
+    logger.info("Setting up formats...")
+    
+    for format_name, format_info in FORMATS_DATA.items():
+        # Создаем формат
+        format_obj, created = Format.objects.get_or_create(
+            name=format_name,
+            defaults={
+                'description': format_info['description'],
+                'render_url': format_info['render_url']
+            }
+        )
+        
+        if created:
+            logger.info(f"Created format: {format_name}")
+        
+        # Создаем настройки формата
+        for key, name, default, required in format_info['settings']:
+            FormatSetting.objects.get_or_create(
+                format=format_obj,
+                key=key,
+                defaults={
+                    'name': name,
+                    'default_value': default,
+                    'is_required': required
+                }
+            )
+        
+        # Назначаем поддерживаемые единицы
+        for unit_key in format_info['units']:
+            try:
+                unit = Unit.objects.get(key=unit_key)
+                format_obj.allowed_units.add(unit)
+            except Unit.DoesNotExist:
+                logger.error(f"Unit not found: {unit_key}")
+    
+    logger.info("Formats setup complete")
+
+
+def _upload_asset(template_id, asset_path, asset_name=None, mime_type=None):
+    """
+    Загружает ассет в MinIO.
+    
+    Args:
+        template_id: ID шаблона
+        asset_path: Путь к файлу
+        asset_name: Имя файла (по умолчанию из пути)
+        mime_type: MIME-тип (автодетекция)
+    
+    Returns:
+        Asset: Созданный объект ассета
+    """
+    if not asset_path.exists():
+        raise FileNotFoundError(f"Asset file not found: {asset_path}")
+    
+    asset_name = asset_name or asset_path.name
+    
+    # Определяем MIME-тип по расширению
+    if mime_type is None:
+        ext = asset_path.suffix.lower()
+        if ext == '.ttf':
+            mime_type = 'font/ttf'
+        elif ext == '.otf':
+            mime_type = 'font/otf'
+        elif ext in ['.jpg', '.jpeg']:
+            mime_type = 'image/jpeg'
+        elif ext == '.png':
+            mime_type = 'image/png'
+        elif ext == '.svg':
+            mime_type = 'image/svg+xml'
+        else:
+            mime_type = 'application/octet-stream'
+    
+    # Читаем файл и загружаем в MinIO
+    with open(asset_path, 'rb') as file:
+        file_content = file.read()
+        file_obj = BytesIO(file_content)
+        
+        # Загружаем в MinIO
+        object_name, public_url = minio_client.upload_file(
+            file_obj=file_obj,
+            folder=f"templates/{template_id}/assets",
+            filename=asset_name,
+            content_type=mime_type,
+            bucket_type='templates'
+        )
+        
+        logger.info(f"Uploaded asset: {asset_name} to {object_name}")
+        
+        # Создаем запись ассета
+        asset = Asset.objects.create(
+            template_id=template_id,
+            page=None,  # Глобальный ассет
+            name=asset_name,
+            file=public_url,
+            size_bytes=len(file_content),
+            mime_type=mime_type
+        )
+        
+        return asset
+
+
+def setup_template():
+    """Создает базовый шаблон с полями и ассетами."""
+    logger.info("Setting up template...")
+    
+    # Получаем суперпользователя
+    admin = User.objects.filter(is_superuser=True).first()
+    if not admin:
+        raise SetupError("No admin user found. Create superuser first.")
+    
+    # Получаем необходимые объекты
+    try:
+        pdf_format = Format.objects.get(name='pdf')
+        mm_unit = Unit.objects.get(key='mm')
+    except (Format.DoesNotExist, Unit.DoesNotExist) as e:
+        raise SetupError(f"Required objects not found: {e}")
+    
+    # Проверяем существование шаблона
+    if Template.objects.filter(name=TEMPLATE_DATA['name']).exists():
+        template = Template.objects.get(name=TEMPLATE_DATA['name'])
+        logger.info("Template already exists, updating...")
+    else:
+        template = None
+    
+    # Читаем HTML шаблона
+    try:
+        with open(HTML_PATH, 'r', encoding='utf-8') as f:
+            html_content = f.read()
+    except Exception as e:
+        raise SetupError(f"Failed to read template HTML: {e}")
+    
+    with transaction.atomic():
+        if template:
+            # Обновляем существующий шаблон
+            template.html = html_content
+            template.save()
+            logger.info("Updated template HTML")
+        else:
+            # Создаем новый шаблон
+            template = Template.objects.create(
+                name=TEMPLATE_DATA['name'],
+                description=TEMPLATE_DATA['description'],
+                html=html_content,
+                format=pdf_format,
+                unit=mm_unit,
+                owner=admin,
+                is_public=True
+            )
+            logger.info(f"Created template: {template.name}")
+            
+            # Создаем страницу
+            page_data = TEMPLATE_DATA['page']
+            page = Page.objects.create(
+                template=template,
+                index=page_data['index'],
+                html=html_content,
+                width=page_data['width'],
+                height=page_data['height']
+            )
+            logger.info(f"Created page {page.index}")
+            
+            # Создаем настройки страницы
+            for setting in pdf_format.expected_settings.all():
+                PageSettings.objects.create(
+                    page=page,
+                    format_setting=setting,
+                    value=setting.default_value or '',
+                )
+            
+            # Создаем поля шаблона
+            for field_data in TEMPLATE_DATA['fields']:
+                Field.objects.create(
+                    template=template,
+                    page=None,  # Глобальные поля
+                    **field_data
+                )
+            logger.info(f"Created {len(TEMPLATE_DATA['fields'])} fields")
+        
+        # Загружаем ассеты
+        if ASSETS_DIR.exists():
+            # Загружаем шрифт
+            font_path = ASSETS_DIR / 'InterDisplay-Regular.ttf'
+            if font_path.exists():
+                _upload_asset(template.id, font_path, 'InterDisplay-Regular.ttf', 'font/ttf')
+                logger.info("Font asset uploaded successfully")
+            else:
+                logger.warning(f"Font file not found: {font_path}")
+        
+        logger.info("Template setup complete")
+
+
+def setup_admin():
+    """Создает суперпользователя."""
+    logger.info("Setting up admin user...")
+    
+    if User.objects.filter(username='admin').exists():
+        logger.info("Admin user already exists")
+        return
+    
+    User.objects.create_superuser(
+        username='admin',
+        email='admin@samodesign.ru',
+        password='admin'
+    )
+    logger.info("Created admin user")
+
+
+@transaction.atomic
+def main():
+    """Основная функция настройки."""
+    setup_logging()
+    
+    try:
+        logger.info("Starting initial setup...")
+        logger.info(f"Working directory: {os.getcwd()}")
+        logger.info(f"Setup directory: {SETUP_DIR}")
+        
+        # Проверяем директории
+        ensure_directories()
+        
+        # Создаем базовые данные
+        setup_units()
+        setup_formats()
+        setup_admin()
+        setup_template()
+        
+        logger.info("Setup completed successfully!")
+        
+    except Exception as e:
+        logger.error(f"Setup failed: {e}")
+        logger.exception("Detailed error:")
+        sys.exit(1)
+
+
+if __name__ == '__main__':
     main()
