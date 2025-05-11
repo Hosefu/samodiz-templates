@@ -11,7 +11,9 @@ echo "Database ready!"
 
 # Ждем MinIO
 echo "Waiting for MinIO..."
-while ! nc -z minio 9000; do
+# Используем python вместо nc для проверки соединения
+while ! python -c "import socket; s=socket.socket(); s.connect(('minio', 9000))" 2>/dev/null; do
+  echo "MinIO not available, waiting..."
   sleep 1
 done
 echo "MinIO ready!"
