@@ -232,3 +232,23 @@ LOGGING = {
 
 # Создаем директорию для логов, если её нет
 os.makedirs(os.path.join(BASE_DIR, 'logs'), exist_ok=True) 
+
+# MinIO/S3 Storage settings
+USE_S3_STORAGE = True
+
+# MinIO Configuration
+MINIO_ENDPOINT_URL = f"http://{os.environ.get('MINIO_ENDPOINT', 'minio:9000')}"
+MINIO_ACCESS_KEY = os.environ.get('MINIO_ACCESS_KEY', 'minioadmin')
+MINIO_SECRET_KEY = os.environ.get('MINIO_SECRET_KEY', 'minioadmin123')
+MINIO_SECURE = os.environ.get('MINIO_SECURE', 'False').lower() == 'true'
+MINIO_REGION = os.environ.get('MINIO_REGION', 'eu-west-1')
+MINIO_BUCKET_TEMPLATES = os.environ.get('MINIO_BUCKET_TEMPLATES', 'templates-assets')
+MINIO_BUCKET_DOCUMENTS = os.environ.get('MINIO_BUCKET_DOCUMENTS', 'generated-documents')
+MINIO_PUBLIC_URL = f"http://minio:9000/{MINIO_BUCKET_TEMPLATES}"
+
+# Для совместимости с существующим кодом
+CEPH_ENDPOINT_URL = MINIO_ENDPOINT_URL
+CEPH_ACCESS_KEY = MINIO_ACCESS_KEY
+CEPH_SECRET_KEY = MINIO_SECRET_KEY
+CEPH_BUCKET_NAME = MINIO_BUCKET_TEMPLATES
+CEPH_PUBLIC_URL = MINIO_PUBLIC_URL 

@@ -6,10 +6,11 @@ from typing import Dict, Any, Optional
 from django.db import transaction
 from django.utils import timezone
 from reversion.models import Version
+from datetime import datetime
 
 from apps.templates.models.template import Template
 from apps.templates.services.templating import template_renderer
-from apps.generation.models import RenderTask
+from apps.generation.models import RenderTask, GeneratedDocument
 from apps.generation.tasks.render import render_pdf, render_png, render_svg
 
 logger = logging.getLogger(__name__)
@@ -137,6 +138,42 @@ class DocumentGenerationService:
                 options[setting.format_setting.key] = setting.value
         
         return options
+    
+    @staticmethod
+    def _create_document_record(task: RenderTask, file_bytes: bytes, file_name: str, content_type: str) -> 'GeneratedDocument':
+        """Создает запись документа в БД и сохраняет в MinIO."""
+        try:
+            # Генерируем имя файла
+            timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+            template_name = task.template.name.replace(' ', '_')
+            file_name = f"{template_name}_{timestamp}.{file_name.split('.')[-1]}"
+            
+            # Загружаем файл в MinIO
+            from io import BytesIO
+            file_obj = BytesIO(file_bytes)
+            
+            from infrastructure.ceph import ceph_client
+            object_name, url = ceph_client.upload_file(
+                file_obj=file_obj,
+                folder=f"documents/{task.id}",
+                filename=file_name,
+                content_type=content_type
+            )
+            
+            # Создаем запись документа
+            document = GeneratedDocument.objects.create(
+                task=task,
+                file=url,
+                size_bytes=len(file_bytes),
+                file_name=file_name,
+                content_type=content_type
+            )
+            
+            return document
+            
+        except Exception as e:
+            logger.error(f"Failed to create document record: {e}")
+            raise DocumentGenerationError(f"Ошибка создания документа: {str(e)}")
     
     @classmethod
     def _start_render_task(

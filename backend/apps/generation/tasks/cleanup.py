@@ -34,18 +34,22 @@ def cleanup_deleted():
     asset_count = 0
     for asset in deleted_assets:
         try:
-            # Извлекаем ключ из URL
-            file_key = asset.file.split('/')[-2] + '/' + asset.file.split('/')[-1]
+            # Извлекаем имя объекта из URL
+            if 'templates/' in asset.file:
+                object_name = asset.file.split('/')[-2] + '/' + asset.file.split('/')[-1]
+            else:
+                # Для старых файлов
+                object_name = asset.file.split('/')[-1]
             
-            # Удаляем файл из Ceph
-            success = ceph_client.delete_file(file_key)
+            # Удаляем файл из MinIO
+            success = ceph_client.delete_file(object_name)
             
             if success:
                 # Физически удаляем запись из БД
                 asset.hard_delete()
                 asset_count += 1
             else:
-                logger.warning(f"Failed to delete asset file from Ceph: {file_key}")
+                logger.warning(f"Failed to delete asset file from MinIO: {object_name}")
         
         except Exception as e:
             logger.error(f"Error deleting asset {asset.id}: {e}")

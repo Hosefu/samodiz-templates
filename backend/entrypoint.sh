@@ -9,6 +9,13 @@ while ! python -c "import psycopg2; psycopg2.connect(dbname='${DB_NAME}', user='
 done
 echo "Database ready!"
 
+# Ждем MinIO
+echo "Waiting for MinIO..."
+while ! nc -z minio 9000; do
+  sleep 1
+done
+echo "MinIO ready!"
+
 # Определяем первый аргумент команды
 COMMAND=$1
 

@@ -65,7 +65,22 @@ class AssetHelper:
         """
         asset = AssetHelper.find_asset(template_id, asset_name, page_id)
         if asset and asset.file:
-            return asset.file
+            # Проверяем права доступа к шаблону
+            template = asset.template
+            if template.is_public:
+                # Для публичных шаблонов возвращаем прямую ссылку
+                return asset.file
+            else:
+                # Для приватных шаблонов генерируем подписанную ссылку
+                object_name = asset.file.split('/')[-1]  # Извлекаем имя объекта
+                folder = f"templates/{template_id}/assets"
+                if asset.page:
+                    folder = f"templates/{template_id}/assets/pages/{asset.page.id}"
+                else:
+                    folder = f"templates/{template_id}/assets/global"
+                
+                from infrastructure.minio_client import minio_client
+                return minio_client.get_presigned_url(f"{folder}/{object_name}", 'templates')
         
         logger.warning(f"Asset not found: {asset_name} in template {template_id}")
         return ""
