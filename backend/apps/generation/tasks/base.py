@@ -7,10 +7,11 @@ from celery import Task
 from celery.exceptions import MaxRetriesExceededError, SoftTimeLimitExceeded
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
+import requests
 
 from apps.generation.models import RenderTask, GeneratedDocument
 from infrastructure.ceph import ceph_client
-from infrastructure.renderers.render_client import RendererClient
+from infrastructure.renderers.render_client import RendererClient, RendererError
 
 logger = logging.getLogger(__name__)
 
@@ -103,4 +104,119 @@ class RenderTaskBase(Task):
             
         except Exception as e:
             logger.error(f"Failed to create document record: {e}")
+            raise
+    
+    def _render_document(self, task_id, html, options, format_type, renderer_url=None):
+        """
+        Общая логика рендеринга документа.
+        
+        Args:
+            task_id: ID задачи рендеринга
+            html: HTML для рендеринга
+            options: Опции рендеринга
+            format_type: Тип формата (pdf, png, svg)
+            renderer_url: URL рендерера
+        """
+        logger.info(f"Starting {format_type.upper()} rendering for task {task_id}")
+        
+        try:
+            # Получаем задачу и формат
+            render_task = RenderTask.objects.get(id=task_id)
+            format_obj = render_task.template.format
+            
+            # Обновляем статус задачи
+            render_task.status = 'processing'
+            render_task.save(update_fields=['status'])
+            
+            # Отправляем WebSocket уведомление
+            self._send_ws_update(task_id, {
+                'status': 'processing',
+                'progress': 10
+            })
+            
+            # Создаем клиент рендерера с объектом Format
+            renderer = RendererClient(format_type, format_obj=format_obj)
+            
+            # Обновляем прогресс
+            self._update_progress(task_id, 30)
+            
+            # Выполняем рендеринг
+            document_bytes, content_type = renderer.render(html, options)
+            
+            # Обновляем прогресс
+            self._update_progress(task_id, 70)
+            
+            # Создаем запись документа
+            document = self._create_document_record(
+                task_id, 
+                document_bytes, 
+                f"document.{format_type}", 
+                content_type
+            )
+            
+            # Обновляем прогресс
+            self._update_progress(task_id, 90)
+            
+            # Завершаем задачу
+            render_task.mark_as_done()
+            
+            # Отправляем финальное WebSocket уведомление
+            self._send_ws_update(task_id, {
+                'status': 'done',
+                'progress': 100,
+                'document_id': str(document.id),
+                'file_url': document.file
+            })
+            
+            logger.info(f"{format_type.upper()} rendering completed for task {task_id}")
+            return str(document.id)
+            
+        except RendererError as e:
+            logger.error(f"Renderer error for task {task_id}: {e}")
+            self._handle_render_error(task_id, e)
+            
+        except SoftTimeLimitExceeded:
+            logger.error(f"Rendering timeout for task {task_id}")
+            self._handle_timeout(task_id)
+            
+        except Exception as e:
+            logger.error(f"Unexpected error in rendering task {task_id}: {e}")
+            self._handle_unexpected_error(task_id, e)
+    
+    def _handle_render_error(self, task_id, error):
+        """Обрабатывает ошибки рендерера."""
+        try:
+            render_task = RenderTask.objects.get(id=task_id)
+            render_task.mark_as_failed(f"Ошибка рендеринга: {str(error)}")
+            
+            # Определяем, стоит ли повторять попытку
+            if "timeout" in str(error).lower() and self.request.retries < self.max_retries:
+                self.retry(countdown=self.default_retry_delay * (self.request.retries + 1))
+            else:
+                raise
+        except MaxRetriesExceededError:
+            logger.error(f"Max retries exceeded for task {task_id}")
+            raise
+    
+    def _handle_timeout(self, task_id):
+        """Обрабатывает таймаут."""
+        try:
+            render_task = RenderTask.objects.get(id=task_id)
+            render_task.mark_as_failed("Превышено время ожидания рендеринга")
+            raise SoftTimeLimitExceeded()
+        except Exception as e:
+            logger.error(f"Error handling timeout for task {task_id}: {e}")
+            raise
+    
+    def _handle_unexpected_error(self, task_id, error):
+        """Обрабатывает неожиданные ошибки."""
+        try:
+            if self.request.retries < self.max_retries:
+                delay = self.default_retry_delay * (self.request.retries + 1)
+                logger.info(f"Retrying task {task_id} in {delay} seconds")
+                self.retry(countdown=delay)
+            else:
+                raise MaxRetriesExceededError(f"Max retries exceeded: {str(error)}")
+        except MaxRetriesExceededError:
+            logger.error(f"Max retries exceeded for task {task_id}")
             raise 
