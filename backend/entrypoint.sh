@@ -44,6 +44,10 @@ EOF
   python manage.py shell < /tmp/create_superuser.py
   rm /tmp/create_superuser.py
 
+  # Инициализируем MinIO
+  echo "Initializing MinIO..."
+  python manage.py init_minio
+
   # Запускаем начальную настройку, если файл существует
   if [ -f "setup/setup.py" ]; then
       echo "Running initial setup..."

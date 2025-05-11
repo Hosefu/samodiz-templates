@@ -244,7 +244,7 @@ MINIO_SECURE = os.environ.get('MINIO_SECURE', 'False').lower() == 'true'
 MINIO_REGION = os.environ.get('MINIO_REGION', 'eu-west-1')
 MINIO_BUCKET_TEMPLATES = os.environ.get('MINIO_BUCKET_TEMPLATES', 'templates-assets')
 MINIO_BUCKET_DOCUMENTS = os.environ.get('MINIO_BUCKET_DOCUMENTS', 'generated-documents')
-MINIO_PUBLIC_URL = f"http://minio:9000/{MINIO_BUCKET_TEMPLATES}"
+MINIO_PUBLIC_URL = f"http://localhost/{MINIO_BUCKET_TEMPLATES}"
 
 # Для совместимости с существующим кодом
 CEPH_ENDPOINT_URL = MINIO_ENDPOINT_URL

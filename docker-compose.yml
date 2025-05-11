@@ -41,7 +41,9 @@ services:
       - "9000:9000"   # API
       - "9001:9001"   # Console
     volumes:
-      - minio_data:/data
+      # Закомментируем volume для разработки - MinIO будет пересоздаваться
+      # - minio_data:/data
+      - ./minio/entrypoint.sh:/entrypoint.sh:ro
     environment:
       - MINIO_ROOT_USER=minioadmin
       - MINIO_ROOT_PASSWORD=minioadmin123
@@ -50,21 +52,7 @@ services:
       interval: 30s
       timeout: 20s
       retries: 3
-    networks:
-      - samodes-network
-
-  minio-init:
-    image: minio/mc:latest
-    depends_on:
-      - minio
-    entrypoint: >
-      /bin/sh -c "
-      mc config host add minio http://minio:9000 minioadmin minioadmin123;
-      mc mb minio/templates-assets || true;
-      mc mb minio/generated-documents || true;
-      mc policy set download minio/templates-assets;
-      mc policy set none minio/generated-documents;
-      "
+    entrypoint: ["/entrypoint.sh"]
     networks:
       - samodes-network
 

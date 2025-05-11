@@ -264,8 +264,19 @@ class AssetHelper:
             # Проверяем права доступа к шаблону
             template = asset.template
             if template.is_public:
-                # Для публичных шаблонов возвращаем прямую ссылку
-                return asset.file
+                # Для публичных шаблонов используем правильный базовый URL через nginx
+                # Извлекаем object_name из полного URL
+                from urllib.parse import urlparse
+                parsed_url = urlparse(asset.file)
+                path_parts = parsed_url.path.strip('/').split('/')
+                
+                if len(path_parts) >= 2:
+                    object_name = '/'.join(path_parts[1:])
+                    # Возвращаем URL через nginx
+                    return f"/templates-assets/{object_name}"
+                else:
+                    logger.error(f"Invalid asset URL: {asset.file}")
+                    return ""
             else:
                 # Для приватных шаблонов генерируем подписанную ссылку
                 from urllib.parse import urlparse
