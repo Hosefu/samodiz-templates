@@ -113,14 +113,11 @@ class MinioClient:
                 metadata=metadata
             )
             
-            # Генерируем URL
-            if bucket_type == 'templates':
-                url = f"{settings.MINIO_PUBLIC_URL}/{object_name}"
-            else:
-                # Для документов никогда не даем публичные ссылки
-                url = self.get_presigned_url(object_name, bucket_type)
+            # После успешной загрузки, не генерируем публичные URL
+            # А храним только object_name для последующего создания подписанных URL
+            object_url = f"{bucket}/{object_name}"
             
-            return object_name, url
+            return object_name, object_url
             
         except S3Error as e:
             logger.error(f"Error uploading to MinIO: {e}")

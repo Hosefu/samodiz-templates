@@ -17,11 +17,8 @@ mc alias set local http://localhost:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWOR
 mc mb local/templates-assets --ignore-existing
 mc mb local/generated-documents --ignore-existing
 
-# Устанавливаем политики
-mc policy set public local/templates-assets
-mc policy set none local/generated-documents
-
-echo "MinIO buckets and policies configured successfully"
+# Не устанавливаем публичные политики - будем использовать только подписанные URL
+echo "MinIO buckets configured successfully"
 
 # Возвращаем управление основному процессу
 wait 

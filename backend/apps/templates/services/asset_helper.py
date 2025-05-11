@@ -249,7 +249,7 @@ class AssetHelper:
     @staticmethod
     def get_asset_url(template_id: str, asset_name: str, page_id: Optional[str] = None) -> str:
         """
-        Получает URL ассета.
+        Получает подписанный URL ассета.
         
         Args:
             template_id: ID шаблона
@@ -261,36 +261,20 @@ class AssetHelper:
         """
         asset = AssetHelper.find_asset(template_id, asset_name, page_id)
         if asset and asset.file:
-            # Проверяем права доступа к шаблону
-            template = asset.template
-            if template.is_public:
-                # Для публичных шаблонов используем правильный базовый URL через nginx
-                # Извлекаем object_name из полного URL
-                from urllib.parse import urlparse
-                parsed_url = urlparse(asset.file)
-                path_parts = parsed_url.path.strip('/').split('/')
-                
-                if len(path_parts) >= 2:
-                    object_name = '/'.join(path_parts[1:])
-                    # Возвращаем URL через nginx
-                    return f"/templates-assets/{object_name}"
-                else:
-                    logger.error(f"Invalid asset URL: {asset.file}")
-                    return ""
+            from urllib.parse import urlparse
+            from datetime import timedelta
+            
+            # Парсим сохранённый URL
+            parsed_url = urlparse(asset.file)
+            path_parts = parsed_url.path.strip('/').split('/')
+            
+            if len(path_parts) >= 2:
+                object_name = '/'.join(path_parts[1:])
+                # Генерируем подписанную ссылку на 24 часа
+                return minio_client.get_presigned_url(object_name, 'templates', timedelta(hours=24))
             else:
-                # Для приватных шаблонов генерируем подписанную ссылку
-                from urllib.parse import urlparse
-                parsed_url = urlparse(asset.file)
-                path_parts = parsed_url.path.strip('/').split('/')
-                
-                # Извлекаем object_name
-                if len(path_parts) >= 2:
-                    object_name = '/'.join(path_parts[1:])
-                else:
-                    logger.error(f"Invalid asset URL: {asset.file}")
-                    return ""
-                
-                return minio_client.get_presigned_url(object_name, 'templates')
+                logger.error(f"Invalid asset URL: {asset.file}")
+                return ""
         
         logger.warning(f"Asset not found: {asset_name} in template {template_id}")
         return ""

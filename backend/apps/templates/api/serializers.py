@@ -8,6 +8,7 @@ from apps.templates.models.template import (
 )
 from apps.templates.services.templating import template_renderer
 from django.db.models import Q
+from apps.templates.services.asset_helper import asset_helper
 
 
 class UnitSerializer(serializers.ModelSerializer):
@@ -102,6 +103,19 @@ class AssetSerializer(serializers.ModelSerializer):
         model = Asset
         fields = ['id', 'page', 'name', 'file', 'mime_type']
         read_only_fields = ['id']
+    
+    def to_representation(self, instance):
+        """Модифицируем представление для замены file на подписанный URL."""
+        data = super().to_representation(instance)
+        
+        # Заменяем file на подписанный URL
+        data['file'] = asset_helper.get_asset_url(
+            template_id=str(instance.template.id),
+            asset_name=instance.name,
+            page_id=str(instance.page.id) if instance.page else None
+        )
+        
+        return data
 
 
 class PageSerializer(serializers.ModelSerializer):
