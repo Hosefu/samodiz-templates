@@ -5,6 +5,7 @@ import logging
 from typing import Union, Optional
 from datetime import timedelta
 from io import BytesIO
+from urllib.parse import urlparse, urlunparse
 
 from infrastructure.helpers.file_helper import FileHelper
 from apps.generation.models import GeneratedDocument, RenderTask
@@ -107,6 +108,19 @@ class DocumentHelper(FileHelper):
             else:
                 # Если не можем определить размер
                 size = 0
+            
+            # Проверяем URL на дублирование пути
+            parsed_url = urlparse(url)
+            path_parts = parsed_url.path.strip('/').split('/')
+            
+            # Проверяем наличие паттерна дублирования в начале пути
+            if len(path_parts) >= 2 and path_parts[0] == 'documents' and path_parts[1] == 'documents':
+                cls.log_error(f"Обнаружено дублирование пути в URL документа: {url}", level='warning')
+                # Исправляем URL, убирая дублирование
+                path_without_duplication = '/'.join(path_parts[1:])
+                url_parts = list(parsed_url)
+                url_parts[2] = f"/{path_without_duplication}"  # Обновляем path в URL
+                url = urlunparse(url_parts)
             
             # Создаем запись документа
             document = GeneratedDocument.objects.create(

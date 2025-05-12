@@ -53,8 +53,13 @@ class FileHelper(BaseHelper):
             
             # Извлекаем имя объекта из пути
             if len(path_parts) >= 1:
+                # Проверяем наличие паттерна дублирования пути
+                if len(path_parts) >= 2 and path_parts[0] == bucket_name and path_parts[1] == bucket_name:
+                    # Если обнаружено дублирование (bucket_name/bucket_name/...)
+                    object_name = '/'.join(path_parts[1:])
+                    cls.log_error(f"Обнаружено дублирование пути в URL: {file_path}", level='warning')
                 # Если первая часть - имя бакета, удаляем её
-                if path_parts[0] == bucket_name and len(path_parts) > 1:
+                elif path_parts[0] == bucket_name and len(path_parts) > 1:
                     object_name = '/'.join(path_parts[1:])
                 else:
                     object_name = '/'.join(path_parts)
