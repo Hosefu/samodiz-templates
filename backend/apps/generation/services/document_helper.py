@@ -41,8 +41,16 @@ class DocumentHelper(FileHelper):
             cls.log_error(f"Unsupported document type: {type(document)}", level='warning')
             return ""
         
+        # Добавляем логирование для отладки
+        logger.debug(f"get_document_url: получен file_path={file_path}")
+        
         # Генерируем подписанный URL
-        return cls.get_presigned_url(file_path, 'documents', expires)
+        url = cls.get_presigned_url(file_path, 'documents', expires)
+        
+        # Добавляем логирование результата
+        logger.debug(f"get_document_url: сгенерирован url={url}")
+        
+        return url
     
     @classmethod
     def find_document(cls, document_id: str) -> Optional[GeneratedDocument]:
@@ -113,14 +121,41 @@ class DocumentHelper(FileHelper):
             parsed_url = urlparse(url)
             path_parts = parsed_url.path.strip('/').split('/')
             
-            # Проверяем наличие паттерна дублирования в начале пути
-            if len(path_parts) >= 2 and path_parts[0] == 'documents' and path_parts[1] == 'documents':
-                cls.log_error(f"Обнаружено дублирование пути в URL документа: {url}", level='warning')
-                # Исправляем URL, убирая дублирование
-                path_without_duplication = '/'.join(path_parts[1:])
-                url_parts = list(parsed_url)
-                url_parts[2] = f"/{path_without_duplication}"  # Обновляем path в URL
-                url = urlunparse(url_parts)
+            # На более общую проверку:
+            if len(path_parts) >= 2:
+                # Ищем дублирование сегмента generated-documents
+                if 'generated-documents' in path_parts and path_parts.count('generated-documents') > 1:
+                    # Удаляем все дубликаты 'generated-documents' кроме первого
+                    cleaned_parts = []
+                    seen_generated = False
+                    for part in path_parts:
+                        if part == 'generated-documents' and seen_generated:
+                            continue
+                        if part == 'generated-documents':
+                            seen_generated = True
+                        cleaned_parts.append(part)
+                    path_without_duplication = '/'.join(cleaned_parts)
+                    url_parts = list(parsed_url)
+                    url_parts[2] = f"/{path_without_duplication}"
+                    url = urlunparse(url_parts)
+                    cls.log_error(f"Исправлено дублирование 'generated-documents' в пути: {url}", level='info')
+                
+                # Также проверяем дублирование 'documents'
+                if 'documents' in path_parts and path_parts.count('documents') > 1:
+                    # Аналогично удаляем дубликаты
+                    cleaned_parts = []
+                    seen_documents = False
+                    for part in path_parts:
+                        if part == 'documents' and seen_documents:
+                            continue
+                        if part == 'documents':
+                            seen_documents = True
+                        cleaned_parts.append(part)
+                    path_without_duplication = '/'.join(cleaned_parts)
+                    url_parts = list(parsed_url)
+                    url_parts[2] = f"/{path_without_duplication}"
+                    url = urlunparse(url_parts)
+                    cls.log_error(f"Исправлено дублирование 'documents' в пути: {url}", level='info')
             
             # Создаем запись документа
             document = GeneratedDocument.objects.create(

@@ -92,8 +92,8 @@ class MinioClient:
                 file_obj.seek(0)
             
             # Определяем размер файла
-            if hasattr(file_obj, 'getbuffer'):
-                length = len(file_obj.getbuffer())
+            if hasattr(file_obj, 'getvalue'):
+                length = len(file_obj.getvalue())
             elif hasattr(file_obj, 'size'):
                 length = file_obj.size
             else:
@@ -103,19 +103,25 @@ class MinioClient:
                 length = file_obj.tell()
                 file_obj.seek(current_pos)  # Return to original position
             
-            # Загружаем файл
-            result = self.client.put_object(
-                bucket_name=bucket,
-                object_name=object_name,
-                data=file_obj,
-                length=length,
-                content_type=content_type,
-                metadata=metadata
-            )
+            # Загружаем файл в MinIO
+            try:
+                self.client.put_object(
+                    Bucket=bucket,
+                    Key=object_name,
+                    Data=file_obj,
+                    Length=length,
+                    ContentType=content_type
+                )
+                logger.info(f"Файл {filename} успешно загружен в {bucket}/{object_name}")
+            except S3Error as e:
+                logger.error(f"Ошибка загрузки файла в MinIO: {e}")
+                raise
             
-            # После успешной загрузки, не генерируем публичные URL
-            # А храним только object_name для последующего создания подписанных URL
-            object_url = f"{bucket}/{object_name}"
+            # Формируем URL объекта
+            if bucket_type == 'documents':
+                object_url = f"generated-documents/{object_name}"
+            else:
+                object_url = f"{bucket_type}-assets/{object_name}"
             
             return object_name, object_url
             

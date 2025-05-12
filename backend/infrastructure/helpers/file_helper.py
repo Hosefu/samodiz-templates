@@ -6,7 +6,7 @@ from typing import BinaryIO, Optional, Union, Tuple
 from pathlib import Path
 from io import BytesIO
 from datetime import timedelta
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlunparse
 from django.conf import settings
 
 from infrastructure.helpers.base_helper import BaseHelper
@@ -23,65 +23,71 @@ class FileHelper(BaseHelper):
     """
     
     @classmethod
-    def get_presigned_url(
-        cls,
-        file_path: str, 
-        bucket_type: str, 
-        expires: timedelta = timedelta(hours=24)
-    ) -> str:
-        """
-        Генерирует подписанный URL для объекта в хранилище.
-        
-        Args:
-            file_path: Путь к файлу или полный URL
-            bucket_type: Тип бакета ('templates' или 'documents')
-            expires: Время действия подписанной ссылки
-            
-        Returns:
-            str: Подписанный URL или исходный путь в случае ошибки
-        """
+    def get_presigned_url(cls, file_path: str, bucket_type: str, expires: timedelta = timedelta(hours=24)) -> str:
+        """Генерирует подписанный URL для объекта в хранилище."""
         if not file_path:
             return ""
         
         try:
-            # Парсим путь для извлечения object_name
+            # Определяем настоящий bucket для MinIO (не URL-префикс)
+            bucket = minio_client.templates_bucket if bucket_type == 'templates' else minio_client.documents_bucket
+            
+            # Парсим URL для извлечения объекта
             parsed_url = urlparse(file_path)
-            path_parts = parsed_url.path.strip('/').split('/')
+            path = parsed_url.path.strip('/')
             
-            # Определяем имя бакета для проверки
-            bucket_name = f"{bucket_type}-assets" if bucket_type == 'templates' else bucket_type
+            # Убираем все префиксы, чтобы получить чистое имя объекта
+            path_parts = path.split('/')
+            clean_parts = []
             
-            # Извлекаем имя объекта из пути
-            if len(path_parts) >= 1:
-                # Проверяем наличие паттерна дублирования пути
-                if len(path_parts) >= 2 and path_parts[0] == bucket_name and path_parts[1] == bucket_name:
-                    # Если обнаружено дублирование (bucket_name/bucket_name/...)
-                    object_name = '/'.join(path_parts[1:])
-                    cls.log_error(f"Обнаружено дублирование пути в URL: {file_path}", level='warning')
-                # Если первая часть - имя бакета, удаляем её
-                elif path_parts[0] == bucket_name and len(path_parts) > 1:
-                    object_name = '/'.join(path_parts[1:])
-                else:
-                    object_name = '/'.join(path_parts)
-                
-                # Генерируем подписанную ссылку
-                presigned_url = minio_client.get_presigned_url(
-                    object_name=object_name,
-                    bucket_type=bucket_type,
-                    expires=expires
-                )
-                
-                # Преобразуем внутренний URL в публичный
-                public_base_url = settings.MINIO_PUBLIC_BASE_URL
-                presigned_url = presigned_url.replace('http://minio:9000', public_base_url)
-                
-                return presigned_url
-            else:
-                cls.log_error(f"Invalid file path format", level='warning')
+            # Пропускаем известные префиксы в пути
+            skip_prefixes = ['generated-documents', 'templates-assets', 'documents', bucket]
+            
+            for i, part in enumerate(path_parts):
+                # Пропускаем первые части, если они совпадают с префиксами
+                if i == 0 and part in skip_prefixes:
+                    continue
+                clean_parts.append(part)
+            
+            # Собираем чистое имя объекта
+            object_name = '/'.join(clean_parts)
+            
+            # Проверим, если путь действительно не распарсился правильно
+            if not object_name:
+                cls.log_error(f"Не удалось извлечь object_name из {file_path}", level="warning")
                 return file_path
                 
+            # DEBUG: добавляем логирование
+            logger.debug(f"get_presigned_url: path={path}, object_name={object_name}")
+            
+            # Генерируем подписанный URL для MinIO
+            presigned_url = minio_client.client.presigned_get_object(
+                bucket_name=bucket,
+                object_name=object_name,
+                expires=expires
+            )
+            
+            # Преобразуем internal MinIO URL в публичный URL
+            public_url = presigned_url.replace('http://minio:9000', settings.MINIO_PUBLIC_BASE_URL)
+            
+            # Формируем правильный путь с нужным префиксом для nginx
+            if bucket_type == 'documents':
+                url_parts = list(urlparse(public_url))
+                path = url_parts[2]  # Путь URL
+                
+                # Заменяем /documents/ на /generated-documents/ в начале пути
+                if path.startswith(f"/{bucket}/"):
+                    path = path.replace(f"/{bucket}/", "/generated-documents/", 1)
+                else:
+                    path = f"/generated-documents{path}"
+                
+                url_parts[2] = path
+                public_url = urlunparse(url_parts)
+            
+            return public_url
+            
         except Exception as e:
-            cls.log_error(f"Error generating presigned URL for {file_path}", e)
+            cls.log_error(f"Ошибка генерации presigned URL: {e}", exc_info=True)
             return file_path
     
     @classmethod
