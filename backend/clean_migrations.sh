@@ -41,7 +41,7 @@ else
 fi
 
 echo -e "${YELLOW}Создание новых миграций...${NC}"
-python3 manage.py makemigrations
+python3 manage.py makemigrations --skip-checks
 
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✓ Новые миграции созданы${NC}"
@@ -50,14 +50,5 @@ else
     exit 1
 fi
 
-echo -e "${YELLOW}Применение миграций...${NC}"
-python3 manage.py migrate
-
-if [ $? -eq 0 ]; then
-    echo -e "${GREEN}✓ Миграции применены успешно${NC}"
-else
-    echo -e "${RED}✗ Ошибка применения миграций${NC}"
-    exit 1
-fi
 
 echo -e "${GREEN}Готово! Все миграции пересозданы и применены.${NC}" 

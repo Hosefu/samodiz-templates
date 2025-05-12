@@ -59,6 +59,10 @@ class DocumentGenerationService:
                 # Создаем задачу рендеринга (без создания версии)
                 task = cls._create_render_task(template, user, request_ip, data)
                 
+                # Если пользователь анонимный, генерируем токен документа
+                if not user or user.is_anonymous:
+                    task.generate_document_token(expires_in_hours=48)  # 48 часов для анонимов
+                
                 # Подготавливаем данные для рендеринга
                 rendered_html = cls._prepare_template_html(template, data)
                 options = cls._prepare_render_options(template)
@@ -190,15 +194,13 @@ class DocumentGenerationService:
         if not celery_task_func:
             raise DocumentGenerationError(f"Неподдерживаемый формат: {format_obj.name}")
         
-        # Используем URL рендерера из формата
-        renderer_url = format_obj.render_url
-        
-        # Запускаем задачу Celery
+        # Запускаем задачу Celery с format_type и renderer_url
         celery_task = celery_task_func.delay(
             str(task.id),
             html,
             options,
-            renderer_url
+            format_obj.name.lower(),  # Передаем format_type
+            format_obj.render_url     # Передаем renderer_url
         )
         
         # Сохраняем ID задачи Celery

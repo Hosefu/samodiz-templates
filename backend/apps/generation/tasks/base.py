@@ -98,7 +98,7 @@ class RenderTaskBase(Task):
             document = GeneratedDocument.objects.create(
                 task=render_task,
                 file=url,
-                size_bytes=len(file_bytes.getvalue()) if hasattr(file_bytes, 'getvalue') else len(file_bytes),
+                size_bytes=len(file_bytes.getvalue()) if hasattr(file_bytes, 'getvalue') else file_bytes.getbuffer().nbytes,
                 file_name=file_name,
                 content_type=content_type
             )
@@ -128,7 +128,7 @@ class RenderTaskBase(Task):
             logger.info(f"Full HTML saved to: {debug_file}")
         
         render_task = RenderTask.objects.get(id=task_id)
-        client = RendererClient(renderer_url)
+        client = RendererClient(format_type, renderer_url=renderer_url)
         
         try:
             # Обновляем статус
@@ -140,8 +140,8 @@ class RenderTaskBase(Task):
                 'progress': render_task.progress
             })
             
-            # Рендерим документ
-            rendered_data = client.render_document(html, options)
+            # Рендерим документ - используем правильное имя метода render
+            rendered_data, content_type = client.render(html, options)
             
             # Сохраняем результат
             if not rendered_data:
@@ -152,15 +152,15 @@ class RenderTaskBase(Task):
                 task_id=task_id,
                 file_bytes=rendered_data,
                 file_name=f"document.{format_type}",
-                content_type=f"application/{format_type}"
+                content_type=content_type  # Используем возвращенный content_type
             )
             
             # Обновляем статус задачи
-            render_task.mark_as_completed(document.file)
+            render_task.mark_as_done()
             
             # Отправляем WebSocket уведомление
             self._send_ws_update(task_id, {
-                'status': 'completed',
+                'status': 'done',
                 'document_url': document.file,
                 'progress': 100
             })

@@ -83,6 +83,22 @@ class RenderTask(BaseModel):
     started_at = models.DateTimeField(auto_now_add=True, help_text="Время начала")
     finished_at = models.DateTimeField(null=True, blank=True, help_text="Время завершения")
     
+    # Токен для доступа к документу анонимными пользователями
+    document_token = models.CharField(
+        max_length=64,
+        unique=True,
+        null=True,
+        blank=True,
+        help_text="Токен для доступа к документу"
+    )
+    
+    # Время истечения токена
+    document_token_expires_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Время истечения токена доступа"
+    )
+    
     class Meta:
         verbose_name = "Задача рендеринга"
         verbose_name_plural = "Задачи рендеринга"
@@ -109,10 +125,26 @@ class RenderTask(BaseModel):
         self.finished_at = timezone.now()
         self.save(update_fields=['status', 'error', 'finished_at'])
     
+    def mark_as_processing(self):
+        """Отмечает задачу как обрабатываемую."""
+        self.status = 'processing'
+        self.save(update_fields=['status'])
+    
     def update_progress(self, progress):
         """Обновляет прогресс выполнения задачи."""
         self.progress = min(max(progress, 0), 100)
         self.save(update_fields=['progress'])
+        
+    def generate_document_token(self, expires_in_hours=24):
+        """Генерирует токен доступа к документу."""
+        import secrets
+        from datetime import timedelta
+        
+        self.document_token = secrets.token_urlsafe(32)
+        self.document_token_expires_at = timezone.now() + timedelta(hours=expires_in_hours)
+        self.save(update_fields=['document_token', 'document_token_expires_at'])
+        
+        return self.document_token
 
 
 class GeneratedDocument(BaseModel):

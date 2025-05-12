@@ -27,6 +27,7 @@ from apps.generation.api.serializers import (
 )
 from apps.generation.tasks.render import render_pdf, render_png, render_svg
 from apps.generation.services.document_generation_service import DocumentGenerationService, DocumentGenerationError
+from apps.generation.api.permissions import DocumentTokenOrAuthenticated
 
 logger = logging.getLogger(__name__)
 
@@ -71,16 +72,27 @@ class RenderTaskViewSet(viewsets.ReadOnlyModelViewSet):
     """
     ViewSet для просмотра задач рендеринга.
     """
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [DocumentTokenOrAuthenticated]
     
     def get_queryset(self):
-        """Возвращает задачи пользователя."""
+        """Возвращает задачи с учетом токена или пользователя."""
         user = self.request.user
         
-        if user.is_staff:
-            return RenderTask.objects.all().order_by('-started_at')
+        # Если есть токен документа
+        if hasattr(self.request, 'document_token'):
+            token = self.request.document_token
+            return RenderTask.objects.filter(
+                document_token=token,
+                document_token_expires_at__gt=timezone.now()
+            )
         
-        return RenderTask.objects.filter(user=user).order_by('-started_at')
+        # Если авторизован
+        if user.is_authenticated:
+            if user.is_staff:
+                return RenderTask.objects.all().order_by('-started_at')
+            return RenderTask.objects.filter(user=user).order_by('-started_at')
+        
+        return RenderTask.objects.none()
     
     def get_serializer_class(self):
         """Выбор сериализатора в зависимости от действия."""
@@ -106,17 +118,29 @@ class DocumentViewSet(viewsets.ReadOnlyModelViewSet):
     """
     ViewSet для просмотра документов.
     """
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [DocumentTokenOrAuthenticated]
     filterset_class = DocumentFilter
     
     def get_queryset(self):
-        """Возвращает документы пользователя."""
+        """Возвращает документы с учетом токена или пользователя."""
         user = self.request.user
         
-        if user.is_staff:
-            return GeneratedDocument.objects.all().order_by('-created_at')
+        # Если есть токен документа
+        if hasattr(self.request, 'document_token'):
+            token = self.request.document_token
+            tasks = RenderTask.objects.filter(
+                document_token=token,
+                document_token_expires_at__gt=timezone.now()
+            )
+            return GeneratedDocument.objects.filter(task__in=tasks)
         
-        return GeneratedDocument.objects.filter(task__user=user).order_by('-created_at')
+        # Если авторизован
+        if user.is_authenticated:
+            if user.is_staff:
+                return GeneratedDocument.objects.all().order_by('-created_at')
+            return GeneratedDocument.objects.filter(task__user=user).order_by('-created_at')
+        
+        return GeneratedDocument.objects.none()
     
     def get_serializer_class(self):
         """Выбор сериализатора в зависимости от действия."""
@@ -159,11 +183,20 @@ class GenerateDocumentViewSet(viewsets.GenericViewSet):
                 request_ip=self._get_client_ip(request)
             )
             
+            # Создаем структуру ответа
+            response_data = RenderTaskSerializer(task).data
+            
+            # Если пользователь анонимный, добавляем токен документа
+            if not request.user or request.user.is_anonymous:
+                response_data['document_token'] = task.document_token
+                response_data['document_token_expires_at'] = task.document_token_expires_at
+                response_data['document_access_examples'] = {
+                    'documents': f"/api/v1/documents/?document_token={task.document_token}",
+                    'task_details': f"/api/v1/tasks/{task.id}/?document_token={task.document_token}"
+                }
+            
             # Возвращаем информацию о задаче
-            return Response(
-                RenderTaskSerializer(task).data,
-                status=status.HTTP_202_ACCEPTED
-            )
+            return Response(response_data, status=status.HTTP_202_ACCEPTED)
             
         except DocumentGenerationError as e:
             return Response(
