@@ -2,49 +2,34 @@
 Хелпер для работы с ассетами шаблонов.
 """
 import logging
-from typing import Optional, List, Dict, BinaryIO, Union, Tuple
+from typing import Optional, List, Dict, BinaryIO, Union
 from pathlib import Path
 from io import BytesIO
 from django.conf import settings
 from apps.templates.models.template import Asset, Template
-from infrastructure.minio_client import minio_client
+from infrastructure.helpers.file_helper import FileHelper
 
 logger = logging.getLogger(__name__)
 
 
-class AssetHelper:
-    """Централизованный сервис для управления ассетами."""
-    
-    # Маппинг MIME-типов по расширениям
-    MIME_TYPES = {
-        '.ttf': 'font/ttf',
-        '.otf': 'font/otf',
-        '.woff': 'font/woff',
-        '.woff2': 'font/woff2',
-        '.jpg': 'image/jpeg',
-        '.jpeg': 'image/jpeg',
-        '.png': 'image/png',
-        '.gif': 'image/gif',
-        '.svg': 'image/svg+xml',
-        '.ico': 'image/x-icon',
-        '.pdf': 'application/pdf',
-    }
+class AssetHelper(FileHelper):
+    """Централизованный сервис для управления ассетами шаблонов."""
     
     @classmethod
     def upload_asset(
         cls,
         template_id: str,
-        file_obj: Union[BinaryIO, Path, str],
+        file_obj: Union[BinaryIO, Path, str, bytes],
         filename: Optional[str] = None,
         page_id: Optional[str] = None,
         mime_type: Optional[str] = None
     ) -> Asset:
         """
-        Загружает ассет в MinIO и создает запись в БД.
+        Загружает ассет в хранилище и создает запись в БД.
         
         Args:
             template_id: ID шаблона
-            file_obj: Файловый объект, путь к файлу или bytes
+            file_obj: Файловый объект, путь к файлу или байты
             filename: Имя файла (автоматически определяется если не указано)
             page_id: ID страницы (None для глобального ассета)
             mime_type: MIME-тип (автоматически определяется если не указано)
@@ -63,42 +48,22 @@ class AssetHelper:
         except Template.DoesNotExist:
             raise ValueError(f"Template not found: {template_id}")
         
-        # Преобразуем различные типы входных данных в BytesIO
+        # Подготавливаем файловый объект и получаем его размер
         if isinstance(file_obj, (str, Path)):
-            # Если передан путь к файлу
             file_path = Path(file_obj)
-            if not file_path.exists():
-                raise FileNotFoundError(f"File not found: {file_path}")
-            
-            filename = filename or file_path.name
-            with open(file_path, 'rb') as f:
-                file_content = f.read()
-            file_obj = BytesIO(file_content)
-            
+            file_size = file_path.stat().st_size
         elif isinstance(file_obj, bytes):
-            # Если переданы raw bytes
-            file_obj = BytesIO(file_obj)
-            if not filename:
-                raise ValueError("filename must be provided when uploading raw bytes")
-        
-        elif hasattr(file_obj, 'read'):
-            # Если это уже файловый объект
-            if hasattr(file_obj, 'name') and not filename:
-                filename = Path(file_obj.name).name
-        
+            file_size = len(file_obj)
+        elif hasattr(file_obj, 'getbuffer'):
+            file_size = len(file_obj.getbuffer())
+        elif hasattr(file_obj, 'size'):
+            file_size = file_obj.size
         else:
-            raise ValueError(f"Unsupported file_obj type: {type(file_obj)}")
-        
-        # Определяем MIME-тип если не указан
-        if mime_type is None and filename:
-            ext = Path(filename).suffix.lower()
-            mime_type = cls.MIME_TYPES.get(ext, 'application/octet-stream')
-        
-        # Определяем размер файла
-        current_pos = file_obj.tell() if hasattr(file_obj, 'tell') else 0
-        file_obj.seek(0, 2)  # Seek to end
-        file_size = file_obj.tell()
-        file_obj.seek(current_pos)  # Return to original position
+            # Если не можем определить размер
+            current_pos = file_obj.tell() if hasattr(file_obj, 'tell') else 0
+            file_obj.seek(0, 2)  # Seek to end
+            file_size = file_obj.tell()
+            file_obj.seek(current_pos)  # Return to original position
         
         # Определяем папку для сохранения
         if page_id:
@@ -106,17 +71,17 @@ class AssetHelper:
         else:
             folder = f"templates/{template_id}/assets/global"
         
-        # Загружаем файл в MinIO
+        # Загружаем файл в хранилище
         try:
-            object_name, public_url = minio_client.upload_file(
+            object_name, public_url = cls.upload_file(
                 file_obj=file_obj,
                 folder=folder,
                 filename=filename,
-                content_type=mime_type,
+                mime_type=mime_type,
                 bucket_type='templates'
             )
         except Exception as e:
-            logger.error(f"Failed to upload asset to MinIO: {e}")
+            cls.log_error(f"Failed to upload asset to storage", e)
             raise
         
         # Создаем запись в БД
@@ -126,7 +91,7 @@ class AssetHelper:
             name=filename,
             file=public_url,
             size_bytes=file_size,
-            mime_type=mime_type
+            mime_type=mime_type or cls._get_mime_type(Path(filename).suffix.lower())
         )
         
         logger.info(f"Asset uploaded: {filename} ({file_size} bytes) to {object_name}")
@@ -135,7 +100,7 @@ class AssetHelper:
     @classmethod
     def delete_asset(cls, asset: Union[Asset, str]) -> bool:
         """
-        Удаляет ассет из MinIO и БД.
+        Удаляет ассет из хранилища и БД.
         
         Args:
             asset: Объект Asset или его ID
@@ -148,7 +113,7 @@ class AssetHelper:
             try:
                 asset = Asset.objects.get(id=asset)
             except Asset.DoesNotExist:
-                logger.error(f"Asset not found: {asset}")
+                cls.log_error(f"Asset not found: {asset}", level='warning')
                 return False
         
         try:
@@ -161,11 +126,11 @@ class AssetHelper:
             if len(path_parts) >= 2:
                 object_name = '/'.join(path_parts[1:])
             else:
-                logger.error(f"Invalid asset URL: {asset.file}")
+                cls.log_error(f"Invalid asset URL: {asset.file}", level='warning')
                 return False
             
-            # Удаляем файл из MinIO
-            success = minio_client.delete_file(object_name, 'templates')
+            # Удаляем файл из хранилища
+            success = cls.delete_file(object_name, 'templates')
             
             if success:
                 # Удаляем запись из БД
@@ -173,39 +138,93 @@ class AssetHelper:
                 logger.info(f"Asset deleted: {asset.name}")
                 return True
             else:
-                logger.error(f"Failed to delete asset from MinIO: {object_name}")
+                cls.log_error(f"Failed to delete asset from storage: {object_name}", level='warning')
                 return False
                 
         except Exception as e:
-            logger.error(f"Error deleting asset {asset.id}: {e}")
+            cls.log_error(f"Error deleting asset {asset.id}", e)
             return False
     
     @classmethod
-    def get_asset_metadata(cls, asset_id: str) -> Optional[Dict]:
+    def get_asset_url(cls, template_id: str, asset_name: str, page_id: Optional[str] = None) -> str:
         """
-        Получает метаданные ассета.
+        Получает подписанный URL ассета.
         
         Args:
-            asset_id: ID ассета
+            template_id: ID шаблона
+            asset_name: Имя ассета
+            page_id: (optional) ID страницы для поиска локальных ассетов
             
         Returns:
-            Optional[Dict]: Метаданные ассета или None
+            str: URL ассета или пустую строку, если не найден
+        """
+        asset = cls.find_asset(template_id, asset_name, page_id)
+        if asset and asset.file:
+            # Используем метод базового класса
+            return cls.get_presigned_url(asset.file, 'templates')
+        
+        cls.log_error(f"Asset not found: {asset_name} in template {template_id}", level='warning')
+        return ""
+    
+    @classmethod
+    def list_template_assets(cls, template_id: str, include_page_assets: bool = True) -> Dict[str, List[Dict]]:
+        """
+        Получает список всех ассетов шаблона.
+        
+        Args:
+            template_id: ID шаблона
+            include_page_assets: Включать ли ассеты страниц
+            
+        Returns:
+            Словарь с глобальными и постраничными ассетами
         """
         try:
-            asset = Asset.objects.get(id=asset_id)
-            return {
-                'id': str(asset.id),
-                'name': asset.name,
-                'size': asset.size_bytes,
-                'mime_type': asset.mime_type,
-                'url': cls.get_asset_url(str(asset.template.id), asset.name, str(asset.page.id) if asset.page else None),
-                'template_id': str(asset.template.id),
-                'page_id': str(asset.page.id) if asset.page else None,
-                'created_at': asset.created_at.isoformat(),
-                'updated_at': asset.updated_at.isoformat(),
-            }
-        except Asset.DoesNotExist:
-            return None
+            template = Template.objects.get(id=template_id)
+        except Template.DoesNotExist:
+            cls.log_error(f"Template not found: {template_id}", level='warning')
+            return {"global": [], "pages": {}}
+        
+        result = {
+            "global": [],
+            "pages": {}
+        }
+        
+        # Получаем глобальные ассеты
+        global_assets = Asset.objects.filter(
+            template=template,
+            page__isnull=True
+        ).order_by('name')
+        
+        for asset in global_assets:
+            result["global"].append({
+                "id": str(asset.id),
+                "name": asset.name,
+                "url": cls.get_presigned_url(asset.file, 'templates'),
+                "size": asset.size_bytes,
+                "mime_type": asset.mime_type
+            })
+        
+        # Получаем ассеты страниц
+        if include_page_assets:
+            page_assets = Asset.objects.filter(
+                template=template,
+                page__isnull=False
+            ).order_by('page__index', 'name')
+            
+            for asset in page_assets:
+                page_key = str(asset.page.index)
+                if page_key not in result["pages"]:
+                    result["pages"][page_key] = []
+                
+                result["pages"][page_key].append({
+                    "id": str(asset.id),
+                    "name": asset.name,
+                    "url": cls.get_presigned_url(asset.file, 'templates'),
+                    "size": asset.size_bytes,
+                    "mime_type": asset.mime_type
+                })
+        
+        return result
     
     @staticmethod
     def find_asset(template_id: str, asset_name: str, page_id: Optional[str] = None) -> Optional[Asset]:
@@ -245,106 +264,6 @@ class AssetHelper:
         ).first()
         
         return global_asset
-    
-    @staticmethod
-    def get_asset_url(template_id: str, asset_name: str, page_id: Optional[str] = None) -> str:
-        """
-        Получает подписанный URL ассета.
-        
-        Args:
-            template_id: ID шаблона
-            asset_name: Имя ассета
-            page_id: (optional) ID страницы для поиска локальных ассетов
-            
-        Returns:
-            URL ассета или пустую строку, если не найден
-        """
-        asset = AssetHelper.find_asset(template_id, asset_name, page_id)
-        if asset and asset.file:
-            from urllib.parse import urlparse
-            from datetime import timedelta
-            from django.conf import settings
-            
-            # Парсим сохранённый URL
-            parsed_url = urlparse(asset.file)
-            path_parts = parsed_url.path.strip('/').split('/')
-            
-            if len(path_parts) >= 2:
-                object_name = '/'.join(path_parts[1:])
-                # Генерируем подписанную ссылку на 24 часа
-                presigned_url = minio_client.get_presigned_url(object_name, 'templates', timedelta(hours=24))
-                
-                # Преобразуем внутренний URL в публичный
-                public_base_url = settings.MINIO_PUBLIC_BASE_URL
-                presigned_url = presigned_url.replace('http://minio:9000', public_base_url)
-                
-                return presigned_url
-            else:
-                logger.error(f"Invalid asset URL: {asset.file}")
-                return ""
-        
-        logger.warning(f"Asset not found: {asset_name} in template {template_id}")
-        return ""
-    
-    @staticmethod
-    def list_template_assets(template_id: str, include_page_assets: bool = True) -> Dict[str, List[Dict]]:
-        """
-        Получает список всех ассетов шаблона.
-        
-        Args:
-            template_id: ID шаблона
-            include_page_assets: Включать ли ассеты страниц
-            
-        Returns:
-            Словарь с глобальными и постраничными ассетами
-        """
-        try:
-            template = Template.objects.get(id=template_id)
-        except Template.DoesNotExist:
-            logger.error(f"Template not found: {template_id}")
-            return {"global": [], "pages": {}}
-        
-        result = {
-            "global": [],
-            "pages": {}
-        }
-        
-        # Получаем глобальные ассеты
-        global_assets = Asset.objects.filter(
-            template=template,
-            page__isnull=True
-        ).order_by('name')
-        
-        for asset in global_assets:
-            result["global"].append({
-                "id": str(asset.id),
-                "name": asset.name,
-                "url": asset.file,
-                "size": asset.size_bytes,
-                "mime_type": asset.mime_type
-            })
-        
-        # Получаем ассеты страниц
-        if include_page_assets:
-            page_assets = Asset.objects.filter(
-                template=template,
-                page__isnull=False
-            ).order_by('page__index', 'name')
-            
-            for asset in page_assets:
-                page_key = str(asset.page.index)
-                if page_key not in result["pages"]:
-                    result["pages"][page_key] = []
-                
-                result["pages"][page_key].append({
-                    "id": str(asset.id),
-                    "name": asset.name,
-                    "url": asset.file,
-                    "size": asset.size_bytes,
-                    "mime_type": asset.mime_type
-                })
-        
-        return result
 
 
 # Создаем глобальный инстанс

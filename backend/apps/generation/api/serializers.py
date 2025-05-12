@@ -89,6 +89,16 @@ class DocumentSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at'
         ]
+    
+    def to_representation(self, instance):
+        """Модифицируем представление для замены file на подписанный URL."""
+        data = super().to_representation(instance)
+        
+        # Заменяем file на подписанный URL
+        from apps.generation.services.document_helper import document_helper
+        data['file'] = document_helper.get_document_url(instance)
+        
+        return data
 
 
 class DocumentDetailSerializer(DocumentSerializer):

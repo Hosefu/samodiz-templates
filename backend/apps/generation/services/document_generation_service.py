@@ -152,30 +152,10 @@ class DocumentGenerationService:
             template_name = task.template.name.replace(' ', '_')
             file_name = f"{template_name}_{timestamp}.{file_name.split('.')[-1]}"
             
-            # Загружаем файл в MinIO
-            from io import BytesIO
-            file_obj = BytesIO(file_bytes)
-            
-            from infrastructure.minio_client import minio_client
-            object_name, url = minio_client.upload_file(
-                file_obj=file_obj,
-                folder=f"documents/{task.id}",
-                filename=file_name,
-                content_type=content_type,
-                bucket_type='documents'
-            )
-            
-            # Создаем запись документа
-            document = GeneratedDocument.objects.create(
-                task=task,
-                file=url,
-                size_bytes=len(file_bytes),
-                file_name=file_name,
-                content_type=content_type
-            )
-            
-            return document
-            
+            # Используем DocumentHelper для создания документа
+            from apps.generation.services.document_helper import document_helper
+            return document_helper.create_document(task, file_bytes, file_name, content_type)
+                
         except Exception as e:
             logger.error(f"Failed to create document record: {e}")
             raise DocumentGenerationError(f"Ошибка создания документа: {str(e)}")
