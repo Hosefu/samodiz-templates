@@ -304,6 +304,7 @@ class Asset(BaseModel):
         verbose_name = "Ассет"
         verbose_name_plural = "Ассеты"
         ordering = ['template', 'name']
+        unique_together = ['template', 'name']
     
     def __str__(self):
         if self.page:
