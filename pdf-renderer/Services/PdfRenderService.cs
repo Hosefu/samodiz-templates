@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
+using System.Collections.Generic;
 using iText.Html2pdf;
 using iText.Kernel.Pdf;
 using iText.Kernel.Geom;
