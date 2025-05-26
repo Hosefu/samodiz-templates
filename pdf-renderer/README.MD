@@ -192,3 +192,14 @@ PDF Renderer поддерживает пользовательские шриф�
 - `ASPNETCORE_URLS`: URL для прослушивания (например, "http://+:8081")
 - `Logging__LogLevel__Default`: Уровень логирования по умолчанию
 - `Logging__LogLevel__PdfRenderer`: Уровень логирования для PdfRenderer
+
+### Требования к окружению
+
+Для сборки и локального запуска сервиса необходим установленный .NET SDK (версии 9.0 или новее). Проще всего установить его через прилагаемый скрипт `dotnet-install.sh`:
+
+```bash
+./dotnet-install.sh --version latest --install-dir $HOME/.dotnet
+export PATH="$HOME/.dotnet:$PATH"
+```
+
+Скрипт не требует прав администратора и подходит для окружений без предустановленного .NET.
