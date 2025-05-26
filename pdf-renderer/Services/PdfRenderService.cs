@@ -38,9 +38,10 @@ public class PdfRenderService
         _logger.LogInformation($"Page size: {pageWidth}x{pageHeight} pt (including {bleedPoints}pt bleeds)");
         
         using var memoryStream = new MemoryStream();
-        var writerProps = new WriterProperties().SetCloseStream(false);
+        var writerProps = new WriterProperties();
         using var writer = new PdfWriter(memoryStream, writerProps);
         using var pdfDocument = new PdfDocument(writer);
+        pdfDocument.SetCloseWriter(false);
         
         // Set page size
         var pageSize = new PageSize(pageWidth, pageHeight);
