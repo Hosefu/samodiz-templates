@@ -2,11 +2,13 @@ using System;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
+using System.Collections.Generic;
 using iText.Html2pdf;
 using iText.Kernel.Pdf;
 using iText.Kernel.Geom;
 using iText.Html2pdf.Resolver.Font;
 using iText.IO.Font.Constants;
+using iText.Kernel.Utils;
 using Microsoft.Extensions.Logging;
 using PdfRenderer.Models;
 using PdfRenderer.Utils;
@@ -25,9 +27,9 @@ public class PdfRenderService
         var options = request.Options;
         
         // Calculate page size including bleeds
-        float width = UnitConverter.ConvertToPoints(options.Width, options.Unit);
-        float height = UnitConverter.ConvertToPoints(options.Height, options.Unit);
-        float bleedPoints = UnitConverter.ConvertToPoints(options.Bleeds, options.Unit);
+        float width = UnitConverter.ConvertToPoints(options.Width, options.Unit, options.Dpi);
+        float height = UnitConverter.ConvertToPoints(options.Height, options.Unit, options.Dpi);
+        float bleedPoints = UnitConverter.ConvertToPoints(options.Bleeds, options.Unit, options.Dpi);
         
         // Add bleeds to page size
         float pageWidth = width + (bleedPoints * 2);
@@ -55,7 +57,12 @@ public class PdfRenderService
         // Render HTML to PDF
         using var htmlStream = new MemoryStream(Encoding.UTF8.GetBytes(request.Html));
         HtmlConverter.ConvertToPdf(htmlStream, pdfDocument, props);
-        
+
+        if (pdfDocument.GetNumberOfPages() != 1)
+        {
+            throw new InvalidOperationException($"Expected 1 page, got {pdfDocument.GetNumberOfPages()}");
+        }
+
         return memoryStream.ToArray();
     }
     
@@ -83,4 +90,21 @@ public class PdfRenderService
         // For now, we'll log that CMYK support is enabled
         // Full CMYK support may require additional configuration
     }
-} 
+
+    public byte[] CombinePdfs(IEnumerable<byte[]> pdfFiles)
+    {
+        using var ms = new MemoryStream();
+        using var writer = new PdfWriter(ms);
+        using var pdfDoc = new PdfDocument(writer);
+        var merger = new PdfMerger(pdfDoc);
+
+        foreach (var bytes in pdfFiles)
+        {
+            using var src = new PdfDocument(new PdfReader(new MemoryStream(bytes)));
+            merger.Merge(src, 1, src.GetNumberOfPages());
+        }
+
+        merger.Close();
+        return ms.ToArray();
+    }
+}
