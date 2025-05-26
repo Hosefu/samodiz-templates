@@ -1,332 +1,113 @@
-# Система генерации документов - Подробная документация
+# Самодизайн — система генерации документов
 
-## Обзор проекта
+## Обзор
 
-Система генерации документов представляет собой микросервисную архитектуру для создания документов различных форматов (PDF, PNG) из HTML-шаблонов с поддержкой динамических данных, условных конструкций и других продвинутых возможностей шаблонизации.
+Проект обеспечивает хранение HTML‑шаблонов и создание документов на их основе. Основной сервис написан на Django и предоставляет REST API для управления шаблонами, запуска рендеринга и получения готовых файлов. Для конвертации HTML используются отдельные микросервисы.
 
-## Архитектура системы
+## Состав системы
 
-Show Image
+- **Backend** (Django, DRF, Celery) — управление пользователями и шаблонами, очередь задач на генерацию документов.
+- **PDF Renderer** (.NET) — преобразует HTML в PDF.
+- **PNG Renderer** (FastAPI, опционально) — преобразует HTML в PNG.
+- **PostgreSQL** и **Redis** — база данных и брокер сообщений.
+- **MinIO** — хранилище ассетов и сгенерированных документов.
+- **Nginx** — обратный прокси для всех сервисов.
+- **Frontend** (React) — интерфейс администратора и клиента (может запускаться отдельно).
 
-Система состоит из следующих компонентов:
+## Запуск
 
-1. **Frontend (React)** - пользовательский интерфейс для работы с системой
-2. **Nginx** - обратный прокси-сервер и балансировщик нагрузки
-3. **Storage Service (Django)** - хранение шаблонов и сгенерированных документов
-4. **Render Routing Service (Go)** - маршрутизация запросов на рендеринг к соответствующим сервисам
-5. **Template Service (Python/FastAPI)** - обработка шаблонов с поддержкой условных конструкций
-6. **PDF Renderer (.NET)** - генерация PDF-документов из HTML
-7. **PNG Renderer (Python/FastAPI)** - генерация PNG-изображений из HTML
-
-### Схема взаимодействия компонентов
-
-```
-┌─────────────┐      ┌────────────────────┐      ┌─────────────┐
-│             │      │                    │      │             │
-│   Frontend  │─────▶│  Nginx Proxy/Load  │◀────▶│  Storage    │
-│   (React)   │      │  Balancer          │      │  Service    │
-│             │      │                    │      │  (Django)   │
-└─────────────┘      └────────────────────┘      └─────────────┘
-                               │                         ▲
-                               │                         │
-                               ▼                         │
-                      ┌─────────────────┐               │
-                      │                 │               │
-                      │  Render Router  │───────────────┘
-                      │  (Go)           │               ▲
-                      │                 │               │
-                      └─────────────────┘               │
-                               │                        │
-                               ▼                        │
-                      ┌─────────────────┐               │
-                      │                 │               │
-                      │  Template       │───────────────┘
-                      │  Service        │
-                      │  (Python)       │
-                      └─────────────────┘
-                               │
-                               ├─────────────┐
-                               │             │
-                               ▼             ▼
-                      ┌─────────────┐ ┌─────────────┐
-                      │             │ │             │
-                      │PDF Renderer │ │PNG Renderer │
-                      │(.NET)       │ │(Python)     │
-                      │             │ │             │
-                      └─────────────┘ └─────────────┘
-```
-
-## Рабочий процесс
-
-1. **Создание шаблона**:
-    - Пользователь создает HTML-шаблон с плейсхолдерами и условными конструкциями
-    - Шаблон загружается в Storage Service
-2. **Генерация документа**:
-    - Пользователь выбирает шаблон и вводит данные через Frontend
-    - Запрос отправляется через Nginx в Render Routing Service
-    - Render Routing Service получает шаблон из Storage Service
-    - Render Routing Service отправляет шаблон в Template Service для обработки
-    - Template Service обрабатывает шаблон, подставляя данные и выполняя условные конструкции
-    - Обработанный HTML отправляется в соответствующий рендерер (PDF или PNG)
-    - Сгенерированный документ загружается обратно в Storage Service
-    - URL документа возвращается пользователю
-
-## Технический стек
-
-- **Frontend**: React, TailwindCSS
-- **Storage Service**: Django, Django REST Framework
-- **Render Routing Service**: Go, Gin
-- **Template Service**: Python, FastAPI, Jinja2
-- **PDF Renderer**: .NET, iText7
-- **PNG Renderer**: Python, FastAPI, Playwright
-- **Инфраструктура**: Docker, Nginx
-
-## Сервисы
-
-### 1. Storage Service (Django)
-
-**Назначение**: Хранение шаблонов и сгенерированных документов
-
-**Ключевые особенности**:
-
-- Управление метаданными шаблонов (имя, версия, тип)
-- Хранение HTML-кода страниц шаблонов
-- Управление полями для подстановки данных
-- Хранение сгенерированных документов (PDF, PNG)
-- REST API для доступа к шаблонам и документам
-
-[Подробнее о Storage Service](./storage/README.md)
-
-### 2. Render Routing Service (Go)
-
-**Назначение**: Маршрутизация запросов на рендеринг к соответствующим сервисам
-
-**Ключевые особенности**:
-
-- Получение запросов на генерацию документов
-- Извлечение шаблонов из Storage Service
-- Взаимодействие с Template Service для обработки шаблонов
-- Маршрутизация обработанных шаблонов к соответствующим рендерерам
-- Загрузка сгенерированных документов в Storage Service
-
-[Подробнее о Render Routing Service](./render-routing/README.md)
-
-### 3. Template Service (Python/FastAPI)
-
-**Назначение**: Обработка шаблонов с поддержкой условных конструкций
-
-**Ключевые особенности**:
-
-- Обработка HTML-шаблонов с использованием Jinja2
-- Поддержка условных конструкций (`{% if условие %}...{% endif %}`)
-- Подстановка данных в плейсхолдеры (`{{ переменная }}`)
-- Обратная совместимость с простыми плейсхолдерами
-- REST API для обработки шаблонов
-
-[Подробнее о Template Service](./template-service/README.md)
-
-### 4. PDF Renderer (.NET)
-
-**Назначение**: Генерация PDF-документов из HTML
-
-**Ключевые особенности**:
-
-- Конвертация HTML в PDF с сохранением стилей
-- Поддержка пользовательских шрифтов
-- Настройка размеров страниц и полей
-- Создание многостраничных документов (из нескольких HTML-блоков)
-- Опциональная генерация превью документов
-
-[Подробнее о PDF Renderer](./pdf-renderer/README.md)
-
-### 5. PNG Renderer (Python/FastAPI)
-
-**Назначение**: Генерация PNG-изображений из HTML
-
-**Ключевые особенности**:
-
-- Рендеринг HTML в PNG с помощью Playwright
-- Настройка размеров изображений
-- Поддержка различных единиц измерения (px, mm)
-- Кэширование результатов рендеринга
-- REST API для генерации изображений
-
-[Подробнее о PNG Renderer](./png-renderer/README.md)
-
-## Запуск проекта
-
-### Предварительные требования
-
-- Docker и Docker Compose
-- Git
-
-### Шаги по запуску
-
-1. Клонировать репозиторий:
-
-bash
-
-```bash
-git clone <repository_url>
-cd document-generation-system
-```
-
-2. Создать файл `.env` с переменными окружения:
-
-```
-# Общие настройки
-API_KEY=development-api-key
-
-# Порты сервисов
-FRONTEND_PORT=5173
-STORAGE_PORT=8000
-ROUTING_PORT=8080
-PDF_PORT=8081
-PNG_PORT=8082
-TEMPLATE_PORT=8083
-
-# Storage Service
-DJANGO_DEBUG=True
-DJANGO_SECRET_KEY=your-secret-key-here
-
-# Render Routing Service
-LOGGER_LEVEL=info
-
-# PDF Renderer
-ASPNETCORE_ENVIRONMENT=Development
-
-# PNG Renderer
-PNG_RENDERER_LOG_LEVEL=INFO
-PNG_RENDERER_CACHE_ENABLED=True
-
-# Template Service
-TEMPLATE_SERVICE_LOG_LEVEL=INFO
-TEMPLATE_SERVICE_DEBUG=False
-```
-
-3. Запустить проект с помощью Docker Compose:
-
-bash
+1. Создайте файл `.env` (пример имеется в репозитории) и при необходимости измените значения.
+2. Выполните команду:
 
 ```bash
 docker-compose up --build
 ```
 
-4. Открыть веб-интерфейс по адресу:
+3. После запуска основное API будет доступно по адресу `http://localhost/api/v1/`, документация Swagger — на `http://localhost/docs/`.
 
-```
-http://localhost
-```
+## Основные эндпоинты
 
-## API-интерфейсы
+### Backend
 
-### Storage Service API
+- `GET /api/v1/health/` — проверка состояния сервиса.
+- `POST /api/v1/auth/login/` — получение JWT токена.
+- `GET /api/v1/templates/` — список шаблонов текущего пользователя.
+- `POST /api/v1/templates/` — создание нового шаблона.
+- `GET /api/v1/templates/{id}/` — информация о шаблоне.
+- `POST /api/v1/templates/{id}/generate/` — создать задачу рендеринга документа.
+- `GET /api/v1/templates/{id}/fields/` — структура полей для заполнения.
+- `GET /api/v1/tasks/` — просмотр задач рендеринга.
+- `GET /api/v1/documents/` — список сгенерированных документов.
 
-- `GET /api/templates/` - Получение списка шаблонов
-- `GET /api/templates/{id}/` - Получение конкретного шаблона
-- `POST /api/upload-template/` - Загрузка сгенерированного документа
-- `GET /api/files/{id}/` - Получение сгенерированного документа
+### PDF Renderer
 
-### Render Routing Service API
+- `POST /api/pdf/render` — конвертация HTML в PDF.
+- `GET /api/pdf/health` — проверка работоспособности сервиса.
 
-- `POST /api/render/generate` - Генерация документа из шаблона
-- `GET /api/health` - Проверка работоспособности сервиса
+### PNG Renderer (если запущен)
 
-### Template Service API
+- `POST /api/png/render` — конвертация HTML в PNG.
+- `GET /api/png/health` — проверка работоспособности сервиса.
 
-- `POST /api/template/render` - Обработка HTML-шаблона с подстановкой данных
-- `GET /api/template/health` - Проверка работоспособности сервиса
+## Примеры
 
-### PDF Renderer API
+### Генерация документа через Backend
 
-- `POST /api/pdf/render` - Генерация PDF из HTML
-- `GET /api/pdf/health` - Проверка работоспособности сервиса
+```http
+POST /api/v1/templates/{id}/generate/
+Content-Type: application/json
 
-### PNG Renderer API
-
-- `POST /api/png/render` - Генерация PNG из HTML
-- `GET /api/png/health` - Проверка работоспособности сервиса
-
-## Примеры использования
-
-### Пример шаблона с условными конструкциями
-
-html
-
-```html
-<div class="document">
-  <h1>{{ title }}</h1>
-  <p>Дата создания: {{ date }}</p>
-  
-  {% if show_details %}
-    <div class="details">
-      <h2>Подробная информация</h2>
-      <p>{{ details }}</p>
-    </div>
-  {% endif %}
-  
-  <div class="footer">
-    <p>© {{ company }}</p>
-  </div>
-</div>
-```
-
-### Пример запроса на генерацию документа
-
-json
-
-```json
 {
-  "template_id": 1,
   "data": {
     "title": "Пример документа",
     "date": "2025-04-26",
     "show_details": true,
-    "details": "Это подробная информация, которая отображается только при show_details=true",
+    "details": "Подробная информация",
     "company": "ООО Рога и Копыта"
   }
 }
 ```
 
-## Расширение системы
+Ответ содержит идентификатор задачи. Статус выполнения можно отслеживать через эндпоинты `/api/v1/tasks/` и `/api/v1/documents/`.
 
-### Добавление нового формата документа
+### Пример запроса к PDF Renderer
 
-1. Создать новый сервис для рендеринга в нужный формат
-2. Добавить поддержку нового формата в Render Routing Service
-3. Обновить модели в Storage Service для хранения документов нового формата
+```http
+POST /api/pdf/render
+Content-Type: application/json
 
-### Расширение возможностей шаблонизации
+{
+  "html": "<html><body><h1>Заголовок</h1><p>Содержание</p></body></html>",
+  "width": 210,
+  "height": 297,
+  "unit": "mm",
+  "settings": { "compression": "true" }
+}
+```
 
-Template Service построен на Jinja2, что позволяет легко расширять его возможности:
+Успешный ответ возвращает PDF‑документ. Для проверки сервиса можно выполнить `GET /api/pdf/health`.
 
-1. Добавление циклов: `{% for item in items %}...{% endfor %}`
-2. Добавление фильтров: `{{ variable | filter }}`
-3. Добавление макросов: `{% macro name(args) %}...{% endmacro %}`
+## Хранение файлов
 
-## Разработка и отладка
+Все загруженные ассеты и сгенерированные документы сохраняются в MinIO. Ссылки на файлы выдаются как подписанные URL, что позволяет ограничивать доступ без отдельного сервера раздачи.
 
-### Логирование
+## Разработка
 
-Все сервисы настроены на подробное логирование. Логи доступны:
+Для запуска отдельных сервисов используйте Docker Compose:
 
-- В консоли контейнеров (`docker logs <container_name>`)
-- В файлах логов внутри контейнеров
-- Через стандартный вывод в Docker Compose
+```bash
+docker-compose up backend pdf-renderer
+```
 
-### Отладка
+Команды `celery` и `celery-beat` поднимаются автоматически. При необходимости можно запустить их отдельно:
 
-1. Для отладки Frontend: `docker-compose up frontend -d`
-2. Для отладки backend-сервисов: `docker-compose up <service_name> -d`
+```bash
+docker-compose up celery celery-beat
+```
 
-### Тестирование
+Frontend не требуется для работы API и может быть запущен командой:
 
-Для тестирования API можно использовать:
+```bash
+docker-compose up frontend
+```
 
-1. API документацию (Swagger/OpenAPI):
-    - Template Service: `http://localhost/api/template/docs`
-    - PNG Renderer: `http://localhost/api/png/docs`
-2. Инструменты для тестирования API:
-    - Postman
-    - curl
-    - httpie
