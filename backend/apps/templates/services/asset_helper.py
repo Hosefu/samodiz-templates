@@ -47,6 +47,21 @@ class AssetHelper(FileHelper):
             template = Template.objects.get(id=template_id)
         except Template.DoesNotExist:
             raise ValueError(f"Template not found: {template_id}")
+
+        if not filename:
+            if isinstance(file_obj, (str, Path)):
+                filename = Path(file_obj).name
+            elif hasattr(file_obj, 'name'):
+                filename = Path(file_obj.name).name
+            else:
+                raise ValueError("Filename is required")
+
+        # Проверяем уникальность имени
+        if Asset.objects.filter(template=template, name=filename).exists():
+            import uuid
+            stem = Path(filename).stem
+            suffix = Path(filename).suffix
+            filename = f"{stem}_{uuid.uuid4().hex[:8]}{suffix}"
         
         # Подготавливаем файловый объект и получаем его размер
         if isinstance(file_obj, (str, Path)):

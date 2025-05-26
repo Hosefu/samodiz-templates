@@ -4,6 +4,9 @@ using PdfRenderer.Services;
 using Microsoft.Extensions.Logging;
 using System.Threading.Tasks;
 using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
 
 namespace PdfRenderer.Controllers;
 
@@ -68,13 +71,41 @@ public class PdfController : ControllerBase
             
             return File(pdfData, "application/pdf", $"document_{DateTime.Now:yyyyMMddHHmmss}.pdf");
         }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning(ex, "PDF contains more than one page");
+            return BadRequest(new { error = ex.Message });
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error during PDF generation");
-            return StatusCode(500, new { 
-                error = "Internal server error", 
-                details = ex.Message 
+            return StatusCode(500, new {
+                error = "Internal server error",
+                details = ex.Message
             });
         }
     }
-} 
+
+    [HttpPost("api/combine")]
+    [Consumes("application/json")]
+    [Produces("application/pdf")]
+    public IActionResult Combine([FromBody] CombineRequest request)
+    {
+        if (request.PdfBase64 == null || request.PdfBase64.Count == 0)
+        {
+            return BadRequest(new { error = "No PDF data provided" });
+        }
+
+        try
+        {
+            var pdfBytes = request.PdfBase64.Select(b => Convert.FromBase64String(b));
+            var combined = _pdfRenderService.CombinePdfs(pdfBytes);
+            return File(combined, "application/pdf", $"combined_{DateTime.Now:yyyyMMddHHmmss}.pdf");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error combining PDFs");
+            return StatusCode(500, new { error = ex.Message });
+        }
+    }
+}

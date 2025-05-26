@@ -11,14 +11,14 @@ namespace PdfRenderer.Utils
         /// <summary>
         /// Распознает единицы измерения и преобразует в пункты (для PDF)
         /// </summary>
-        public static float ConvertToPoints(float value, string units)
+        public static float ConvertToPoints(float value, string units, float dpi = 96)
         {
             return units.ToLower() switch
             {
                 "mm" => MillimetersToPoints(value),
                 "pt" => value,
-                "px" => PixelsToPoints(value, 96), // 96 dpi - стандартное разрешение экрана
-                _ => value, // По умолчанию считаем, что уже в пунктах
+                "px" => PixelsToPoints(value, dpi),
+                _ => value,
             };
         }
         
