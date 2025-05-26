@@ -105,12 +105,17 @@ class MinioClient:
             
             # Загружаем файл в MinIO
             try:
+                # Вызов MinIO клиента должен использовать именованные аргументы,
+                # соответствующие его API. Ранее использовались параметры от boto3
+                # (Bucket, Key, Data, Length, ContentType), из-за чего метод
+                # выбрасывал исключение `TypeError: put_object() got an unexpected`
+                # `keyword argument`. Используем корректные имена аргументов.
                 self.client.put_object(
-                    Bucket=bucket,
-                    Key=object_name,
-                    Data=file_obj,
-                    Length=length,
-                    ContentType=content_type
+                    bucket_name=bucket,
+                    object_name=object_name,
+                    data=file_obj,
+                    length=length,
+                    content_type=content_type
                 )
                 logger.info(f"Файл {filename} успешно загружен в {bucket}/{object_name}")
             except S3Error as e:
