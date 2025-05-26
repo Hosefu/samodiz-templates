@@ -38,7 +38,8 @@ public class PdfRenderService
         _logger.LogInformation($"Page size: {pageWidth}x{pageHeight} pt (including {bleedPoints}pt bleeds)");
         
         using var memoryStream = new MemoryStream();
-        using var writer = new PdfWriter(memoryStream);
+        var writerProps = new WriterProperties().SetCloseStream(false);
+        using var writer = new PdfWriter(memoryStream, writerProps);
         using var pdfDocument = new PdfDocument(writer);
         
         // Set page size
@@ -56,13 +57,16 @@ public class PdfRenderService
         
         // Render HTML to PDF
         using var htmlStream = new MemoryStream(Encoding.UTF8.GetBytes(request.Html));
-        HtmlConverter.ConvertToPdf(htmlStream, pdfDocument, props);
+        var document = HtmlConverter.ConvertToDocument(htmlStream, pdfDocument, props);
 
         if (pdfDocument.GetNumberOfPages() != 1)
         {
+            document.Close();
             throw new InvalidOperationException($"Expected 1 page, got {pdfDocument.GetNumberOfPages()}");
         }
 
+        document.Close();
+        // Stream remains open due to WriterProperties
         return memoryStream.ToArray();
     }
     
