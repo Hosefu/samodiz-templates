@@ -43,3 +43,7 @@ backend/logs/
 
 # Windows
 Thumbs.db
+
+# Документы PDF
+backend/storage/documents/*.pdf
+backend/storage/documents/**/*.pdf
