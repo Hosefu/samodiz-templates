@@ -15,4 +15,5 @@ public class RenderOptions
     public int Dpi { get; set; } = 300;
     public bool CmykSupport { get; set; } = true;
     public float Bleeds { get; set; } = 0;
-} 
+    public string? BaseUri { get; set; }
+}

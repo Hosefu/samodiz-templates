@@ -8,6 +8,8 @@ using iText.Kernel.Pdf;
 using iText.Kernel.Geom;
 using iText.Html2pdf.Resolver.Font;
 using iText.IO.Font.Constants;
+using iText.StyledXmlParser.Css.Validate;
+using iText.StyledXmlParser.Css.Validate.Impl;
 using iText.Kernel.Utils;
 using Microsoft.Extensions.Logging;
 using PdfRenderer.Models;
@@ -74,26 +76,29 @@ public class PdfRenderService
     private ConverterProperties CreateConverterProperties(RenderOptions options)
     {
         var props = new ConverterProperties();
-        
-        // Font provider
+
+        string baseUri = options.BaseUri ?? Environment.CurrentDirectory;
+
+        // Font provider and assets directory
         var fontProvider = new DefaultFontProvider(true, false, false);
+        var assetsDir = Path.Combine(baseUri, "assets");
+        if (Directory.Exists(assetsDir))
+        {
+            fontProvider.AddDirectory(assetsDir);
+        }
         props.SetFontProvider(fontProvider);
-        
+
         // Base URI for relative resources
-        props.SetBaseUri(Environment.CurrentDirectory);
+        props.SetBaseUri(baseUri);
         
         return props;
     }
     
     private void EnableCmykSupport(ConverterProperties props, PdfDocument pdfDocument)
     {
-        // For basic CMYK support in iText7, we need to manually set the color space
-        // The DefaultCssApplierFactory is not needed for basic CMYK support
         _logger.LogInformation("CMYK support enabled");
-        
-        // The CMYK support in iText7 requires proper CSS handling
-        // For now, we'll log that CMYK support is enabled
-        // Full CMYK support may require additional configuration
+        // Allow device-cmyk() colors in CSS
+        CssDeclarationValidationMaster.SetValidator(new CssDeviceCmykAwareValidator());
     }
 
     public byte[] CombinePdfs(IEnumerable<byte[]> pdfFiles)
