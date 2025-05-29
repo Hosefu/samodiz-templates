@@ -14,6 +14,7 @@ public class RenderOptions
     public required string Unit { get; set; }
     public int Dpi { get; set; } = 300;
     public bool CmykSupport { get; set; } = true;
+    public string? ColorProfilePath { get; set; }
     public float Bleeds { get; set; } = 0;
     public string? BaseUri { get; set; }
 }

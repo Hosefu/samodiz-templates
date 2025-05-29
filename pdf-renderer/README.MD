@@ -51,6 +51,7 @@ pdf-renderer/
 - `Height`: Высота страницы
 - `Units`: Единицы измерения (px, mm)
 - `Bleeds`: Размер припусков
+- `ColorProfilePath`: путь к ICC профилю для CMYK (опционально)
 - `GeneratePreview`: Генерировать ли превью
 - `Settings`: Дополнительные настройки
 

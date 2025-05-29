@@ -6,7 +6,7 @@ using System.Collections.Generic;
 using iText.Html2pdf;
 using iText.Kernel.Pdf;
 using iText.Kernel.Geom;
-using iText.Html2pdf.Resolver.Font;
+using iText.Layout.Font;
 using iText.IO.Font.Constants;
 using iText.StyledXmlParser.Css.Validate;
 using iText.StyledXmlParser.Css.Validate.Impl;
@@ -55,7 +55,7 @@ public class PdfRenderService
         // Set CMYK support
         if (options.CmykSupport)
         {
-            EnableCmykSupport(props, pdfDocument);
+            EnableCmykSupport(props, pdfDocument, options.ColorProfilePath);
         }
         
         // Render HTML to PDF
@@ -80,12 +80,16 @@ public class PdfRenderService
         string baseUri = options.BaseUri ?? Environment.CurrentDirectory;
 
         // Font provider and assets directory
-        var fontProvider = new DefaultFontProvider(true, false, false);
-        var assetsDir = Path.Combine(baseUri, "assets");
+        var fontProvider = new FontProvider();
+        fontProvider.AddStandardPdfFonts();
+        fontProvider.AddSystemFonts();
+
+        var assetsDir = System.IO.Path.Combine(baseUri, "assets");
         if (Directory.Exists(assetsDir))
         {
             fontProvider.AddDirectory(assetsDir);
         }
+
         props.SetFontProvider(fontProvider);
 
         // Base URI for relative resources
@@ -94,11 +98,19 @@ public class PdfRenderService
         return props;
     }
     
-    private void EnableCmykSupport(ConverterProperties props, PdfDocument pdfDocument)
+    private void EnableCmykSupport(ConverterProperties props, PdfDocument pdfDocument, string? profilePath)
     {
         _logger.LogInformation("CMYK support enabled");
         // Allow device-cmyk() colors in CSS
         CssDeclarationValidationMaster.SetValidator(new CssDeviceCmykAwareValidator());
+
+        if (!string.IsNullOrEmpty(profilePath) && File.Exists(profilePath))
+        {
+            _logger.LogInformation($"Using ICC profile: {profilePath}");
+            using var profileStream = File.OpenRead(profilePath);
+            var outputIntent = new PdfOutputIntent("Custom", "", "", "CMYK", profileStream);
+            props.SetDocumentOutputIntent(outputIntent);
+        }
     }
 
     public byte[] CombinePdfs(IEnumerable<byte[]> pdfFiles)
